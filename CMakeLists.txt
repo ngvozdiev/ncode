@@ -21,13 +21,14 @@ endif()
 if(APPLE)
   set(CMAKE_CXX_FLAGS_DEBUG "-g -std=c++11 -pedantic-errors -Winit-self -Woverloaded-virtual -Wuninitialized -Wall -Wextra -Wno-sign-compare -O1 -march=native -fno-exceptions -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=undefined -fno-sanitize=vptr")
   set(CMAKE_CXX_FLAGS_RELEASE "-g -std=c++11 -pedantic-errors -Winit-self -Woverloaded-virtual -Wuninitialized -Wall -Wextra -Wno-sign-compare -O3 -march=native -DNDEBUG -fno-exceptions")
+  set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "-fsanitize=address -fsanitize=undefined -fno-sanitize=vptr")
+  set(CMAKE_EXE_LINKER_FLAGS_DEBUG "-fsanitize=address -fsanitize=undefined -fno-sanitize=vptr")
 elseif(UNIX)
-  set(CMAKE_CXX_FLAGS_DEBUG "-g -std=c++11 -pedantic-errors -Werror -Winit-self -Wuninitialized -Wall -Wextra -Wno-sign-compare -O1 -pthread -fPIC -march=native  -DGTEST_USE_OWN_TR1_TUPLE=0 -fno-exceptions -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=undefined -fno-sanitize=vptr")
+  set(CMAKE_CXX_FLAGS_DEBUG "-g -std=c++11 -pedantic-errors -Werror -Winit-self -Wuninitialized -Wall -Wextra -Wno-sign-compare -O1 -pthread -fPIC -march=native  -DGTEST_USE_OWN_TR1_TUPLE=0 -fno-exceptions -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=undefined")
   set(CMAKE_CXX_FLAGS_RELEASE "-g -std=c++11 -pedantic-errors -Werror -Winit-self -Wuninitialized -Wall -Wextra -Wno-sign-compare -O3 -pthread -fPIC -march=native -DNDEBUG -DGTEST_USE_OWN_TR1_TUPLE=0 -fno-exceptions")
+  set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "-fsanitize=address -fsanitize=undefined")
+  set(CMAKE_EXE_LINKER_FLAGS_DEBUG "-fsanitize=address -fsanitize=undefined")
 endif()
-
-set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "-fsanitize=address -fsanitize=undefined -fno-sanitize=vptr")
-set(CMAKE_EXE_LINKER_FLAGS_DEBUG "-fsanitize=address -fsanitize=undefined -fno-sanitize=vptr")
 
 include(cmake_extensions/DownloadProject.cmake)
 download_project(PROJ                googletest

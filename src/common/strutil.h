@@ -33,6 +33,7 @@
 #ifndef NCODE_STRUTIL_H__
 #define NCODE_STRUTIL_H__
 
+#include <functional>
 #include <stdlib.h>
 #include <vector>
 #include "logging.h"
