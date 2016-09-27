@@ -1,9 +1,6 @@
 #include "event_queue.h"
 
 #include <thread>
-#include <inttypes.h>
-
-#include "logging.h"
 
 namespace ncode {
 using namespace std::chrono;
@@ -127,17 +124,6 @@ std::chrono::nanoseconds SimTimeEventQueue::TimeToNanos(
     EventQueueTime duration) const {
   return std::chrono::duration_cast<std::chrono::nanoseconds>(
       picoseconds(duration.Raw()));
-}
-
-void SimLogHandler(LogLevel level, const char* filename, int line,
-                   const std::string& message, EventQueue* event_queue) {
-  static const char* level_names[] = {"INFO", "WARNING", "ERROR", "FATAL"};
-  uint64_t time_as_ms =
-      event_queue->TimeToRawMillis(event_queue->CurrentTime());
-
-  fprintf(stderr, "%" PRIu64 "ms [%s %s:%d] %s\n", time_as_ms,
-          level_names[level], filename, line, message.c_str());
-  fflush(stderr);  // Needed on MSVC.
 }
 
 }  // namespace ncode

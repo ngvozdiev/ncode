@@ -270,10 +270,5 @@ class SimTimeEventQueue : public EventQueue {
   EventQueueTime time_;
 };
 
-// A log handler that can be used in place of the original one that also prints
-// the simulation time.
-void SimLogHandler(LogLevel level, const char* filename, int line,
-                   const std::string& message, EventQueue* event_queue);
-
 }  // namespace ncode
 #endif
