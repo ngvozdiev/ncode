@@ -30,6 +30,7 @@
 
 // Author: kenton@google.com (Kenton Varda)
 
+#include "logging.h"
 #include "substitute.h"
 #include "strutil.h"
 #include "stl_util.h"

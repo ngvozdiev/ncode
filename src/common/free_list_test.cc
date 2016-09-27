@@ -1,7 +1,7 @@
 #include "free_list.h"
 
-#include <gtest/gtest.h>
 #include <thread>
+#include "gtest/gtest.h"
 
 namespace ncode {
 namespace test {

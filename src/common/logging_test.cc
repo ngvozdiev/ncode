@@ -1,6 +1,5 @@
 #include "logging.h"
 
-#include <gtest/gtest.h>
 #include <sys/errno.h>
 #include <sys/fcntl.h>
 #include <unistd.h>
@@ -10,6 +9,7 @@
 #include <vector>
 
 #include "file.h"
+#include "gtest/gtest.h"
 #include "strutil.h"
 #include "substitute.h"
 

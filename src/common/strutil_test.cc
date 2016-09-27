@@ -34,6 +34,7 @@
 
 #include <locale.h>
 #include "gtest/gtest.h"
+#include "logging.h"
 
 #ifdef _WIN32
 #define snprintf _snprintf

@@ -40,6 +40,7 @@
 #include <stdio.h>
 #include <iterator>
 
+#include "logging.h"
 #include "port.h"
 
 #ifdef _WIN32
