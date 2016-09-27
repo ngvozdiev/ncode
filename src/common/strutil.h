@@ -33,10 +33,16 @@
 #ifndef NCODE_STRUTIL_H__
 #define NCODE_STRUTIL_H__
 
-#include <functional>
 #include <stdlib.h>
+#include <cstdint>
+#include <cstring>
+#include <functional>
+#include <iostream>
+#include <iterator>
+#include <memory>
+#include <string>
 #include <vector>
-#include "logging.h"
+
 #include "stringpiece.h"
 
 namespace ncode {
