@@ -32,6 +32,7 @@
 
 #include "strutil.h"
 
+#include <algorithm>
 #include <cmath>
 #include <errno.h>
 #include <float.h>  // FLT_DIG and DBL_DIG
