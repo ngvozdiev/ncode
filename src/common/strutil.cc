@@ -642,7 +642,7 @@ static inline size_t CEscapedLength(StringPiece src) {
 // ----------------------------------------------------------------------
 void CEscapeAndAppend(StringPiece src, std::string *dest) {
   size_t escaped_len = CEscapedLength(src);
-  if (escaped_len == src.size()) {
+  if (escaped_len == static_cast<size_t>(src.size())) {
     dest->append(src.data(), src.size());
     return;
   }
@@ -795,7 +795,7 @@ bool safe_parse_positive_int(std::string text, IntType *value_p) {
   IntType value = 0;
   const IntType vmax = std::numeric_limits<IntType>::max();
   assert(vmax > 0);
-  assert(vmax >= base);
+  assert(vmax >= static_cast<IntType>(base));
   const IntType vmax_over_base = vmax / base;
   const char *start = text.data();
   const char *end = start + text.size();
@@ -1374,7 +1374,7 @@ static int memcasecmp(const char *s1, const char *s2, size_t len) {
   const unsigned char *us1 = reinterpret_cast<const unsigned char *>(s1);
   const unsigned char *us2 = reinterpret_cast<const unsigned char *>(s2);
 
-  for (int i = 0; i < len; i++) {
+  for (size_t i = 0; i < len; i++) {
     const int diff =
         static_cast<int>(static_cast<unsigned char>(ascii_tolower(us1[i]))) -
         static_cast<int>(static_cast<unsigned char>(ascii_tolower(us2[i])));
@@ -1705,7 +1705,7 @@ int GlobalReplaceSubstring(const std::string &substring,
   std::string tmp;
   int num_replacements = 0;
   int pos = 0;
-  for (int match_pos = s->find(substring.data(), pos, substring.length());
+  for (size_t match_pos = s->find(substring.data(), pos, substring.length());
        match_pos != std::string::npos; pos = match_pos + substring.length(),
            match_pos = s->find(substring.data(), pos, substring.length())) {
     ++num_replacements;
@@ -2414,11 +2414,11 @@ int StrDistance(const std::string &s, const std::string &t, bool ignore_case) {
   // initialize v0 (the previous row of distances)
   // this row is A[0][i]: edit distance for an empty s
   // the distance is just the number of characters to delete from t
-  for (int i = 0; i < v_size; i++) {
+  for (size_t i = 0; i < v_size; i++) {
     v0[i] = i;
   }
 
-  for (int i = 0; i < s.size(); i++) {
+  for (size_t i = 0; i < s.size(); i++) {
     // calculate v1 (current row distances) from the previous row v0
 
     // first element of v1 is A[i+1][0]
@@ -2426,7 +2426,7 @@ int StrDistance(const std::string &s, const std::string &t, bool ignore_case) {
     v1[0] = i + 1;
 
     // use formula to fill in the rest of the row
-    for (int j = 0; j < t.size(); j++) {
+    for (size_t j = 0; j < t.size(); j++) {
       int cost;
       if (ignore_case) {
         cost = (tolower(s[i]) == tolower(t[j])) ? 0 : 1;
@@ -2438,7 +2438,7 @@ int StrDistance(const std::string &s, const std::string &t, bool ignore_case) {
     }
 
     // copy v1 (current row) to v0 (previous row) for next iteration
-    for (int j = 0; j < v_size; j++) {
+    for (size_t j = 0; j < v_size; j++) {
       v0[j] = v1[j];
     }
   }

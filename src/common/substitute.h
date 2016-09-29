@@ -31,6 +31,7 @@
 // Author: kenton@google.com (Kenton Varda)
 // from google3/strings/substitute.h
 
+#include <sstream>
 #include <string>
 
 #include "strutil.h"
