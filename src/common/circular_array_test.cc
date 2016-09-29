@@ -50,7 +50,7 @@ TEST_F(CircularArrayOneFixture, AddMulti) {
   for (double i = 0; i < 1000; ++i) {
     array_.AddValue(i);
 
-    ASSERT_EQ(1, array_.size());
+    ASSERT_EQ(1ul, array_.size());
     ASSERT_EQ(i, array_.MostRecentValueOrDie());
 
     std::vector<double> model = {i};
@@ -99,11 +99,11 @@ TEST(CircularArray, Movable) {
 
   auto new_value = make_unique<int>(10);
   array.MoveValue(std::move(new_value));
-  ASSERT_EQ(1, array.size());
+  ASSERT_EQ(1ul, array.size());
   ASSERT_EQ(10, *array.MostRecentValueOrDie());
 
   std::vector<std::unique_ptr<int>> values = array.GetValues();
-  ASSERT_EQ(1, values.size());
+  ASSERT_EQ(1ul, values.size());
   ASSERT_EQ(10, *values.front());
 }
 
