@@ -58,7 +58,7 @@ endif()
 # Will need protobufs and pcap
 find_package(Protobuf REQUIRED)
 find_package(PCAP REQUIRED)
-find_package(CTemplate REQUIRED)
+find_package(Ctemplate REQUIRED)
 include_directories(${PROTOBUF_INCLUDE_DIRS} ${PCAP_INCLUDE_DIR} ${CMAKE_BINARY_DIR} ${CTEMPLATE_INCLUDE_DIR})
 
 # Creates C resources file from files in given directory
