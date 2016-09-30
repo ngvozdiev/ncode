@@ -51,7 +51,8 @@ add_subdirectory(${gflags_SOURCE_DIR} ${gflags_BINARY_DIR})
 # For earlier CMake versions, we have to explicitly add the
 # required directories to the header search path ourselves.
 include_directories("${gtest_SOURCE_DIR}/include"
-                     "${gmock_SOURCE_DIR}/include")
+                     "${gmock_SOURCE_DIR}/include" 
+		     "${gflags_SOURCE_DIR}/include")
 
 # Will need protobufs and pcap
 find_package(Protobuf REQUIRED)
