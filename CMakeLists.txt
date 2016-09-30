@@ -50,10 +50,8 @@ add_subdirectory(${gflags_SOURCE_DIR} ${gflags_BINARY_DIR})
 # are automatically added to the gtest and gmock targets.
 # For earlier CMake versions, we have to explicitly add the
 # required directories to the header search path ourselves.
-if (CMAKE_VERSION VERSION_LESS 2.8.11)
-    include_directories("${gtest_SOURCE_DIR}/include"
-                        "${gmock_SOURCE_DIR}/include")
-endif()
+include_directories("${gtest_SOURCE_DIR}/include"
+                     "${gmock_SOURCE_DIR}/include")
 
 # Will need protobufs and pcap
 find_package(Protobuf REQUIRED)
