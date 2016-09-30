@@ -404,62 +404,6 @@ class Distribution {
 bool ExpDetect(const std::vector<double>& values, double power,
                double tolerance, size_t min_len);
 
-// A simple circular array.
-template <typename T, size_t NumValues>
-class CircularStorage {
- public:
-  static constexpr size_t kMaxValues = NumValues;
-
-  CircularStorage() : num_values_(0), index_(0) {
-    static_assert(IsPowerOfTwo(NumValues),
-                  "Number of values should be power of 2");
-  }
-
-  // Adds a new value to this array.
-  void AddValue(T value) {
-    values_[index_++ & kMask] = value;
-
-    if (num_values_ < NumValues) {
-      num_values_++;
-    }
-  }
-
-  size_t size() const { return num_values_; }
-
-  bool MostRecentValue(T* value) const {
-    if (num_values_ == 0) {
-      return false;
-    }
-
-    *value = values_[(index_ - 1) & kMask];
-    return true;
-  }
-
-  // Copies entries in the history to the given vector.
-  void ConsumeHistory(std::vector<T>* values, uint64_t from,
-                      uint64_t to) const {
-    size_t start = (index_ - num_values_) & kMask;
-    values->reserve(num_values_);
-    for (size_t i = 0; i < num_values_; ++i) {
-      size_t value_index = (start + i) & kMask;
-
-      if (values_[value_index].timestamp >= from &&
-          values_[value_index].timestamp <= to) {
-        values->push_back(values_[value_index]);
-      }
-    }
-  }
-
- private:
-  static constexpr size_t kMask = NumValues - 1;
-
-  size_t num_values_;
-  size_t index_;
-  std::array<T, NumValues> values_;
-
-  DISALLOW_COPY_AND_ASSIGN(CircularStorage);
-};
-
 // Defines how a ThresholdEnforcer works.
 class ThresholdEnforcerPolicy {
  public:

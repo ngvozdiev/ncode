@@ -50,6 +50,14 @@ class CircularArray {
     return values_[(index_ - 1) & kMask];
   }
 
+  // Returns a const reference to the value that has spent the most time in the
+  // array.
+  const T& OldestValueOrDie() const {
+    CHECK(num_values_ > 0) << "Circular array empty";
+    size_t start = (index_ - num_values_) & kMask;
+    return values_[start];
+  }
+
   // Returns a vector with all values in this array, in insertion order. After
   // this call the array will be empty.
   std::vector<T> GetValues() {

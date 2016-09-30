@@ -71,6 +71,7 @@ TEST_F(CircularArrayFixture, AddMultiFit) {
     model_values.emplace_back(i);
 
     ASSERT_EQ(i, array_.MostRecentValueOrDie());
+    ASSERT_EQ(0, array_.OldestValueOrDie());
   }
 
   ASSERT_EQ(model_values, array_.GetValues());

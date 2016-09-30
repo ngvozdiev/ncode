@@ -1,0 +1,79 @@
+#include <iostream>
+#include <vector>
+
+namespace ncode {
+namespace geo {
+class Localizer;
+} /* namespace geo */
+namespace net {
+class GraphLink;
+class GraphPath;
+} /* namespace net */
+namespace web {
+class HtmlPage;
+} /* namespace web */
+} /* namespace ncode */
+
+namespace ncode {
+namespace web {
+
+// Data associated with an edge.
+struct EdgeData {
+  EdgeData(const net::GraphLink* link, const std::vector<double>& load,
+           const std::string& tooltip = "", size_t distance_hint = 0)
+      : link(link),
+        tooltip(tooltip),
+        distance_hint(distance_hint),
+        load(load) {}
+
+  // The link associated with this edge.
+  const net::GraphLink* link;
+
+  // Tooltip to be displayed when hovering.
+  std::string tooltip;
+
+  // A hint to the layout about the length of the edge. If 0 will use 2 * node
+  // radius.
+  size_t distance_hint;
+
+  // A list of values in the range [0-1]. The color of the edge will be based on
+  // the load. There should be as many values as there are display modes.
+  std::vector<double> load;
+};
+
+// A path through the graph.
+struct PathData {
+  PathData(const net::GraphPath* path, const std::string& label = "",
+           const std::string& legend_label = "")
+      : path(path), legend_label(legend_label), label(label) {}
+
+  // The path.
+  const net::GraphPath* path;
+
+  // A label that will be displayed next to the path's legend entry.
+  std::string legend_label;
+
+  // A label that will be displayed along the path's legend.
+  std::string label;
+};
+
+// If the graph contains more than one display mode there will be a drop-down
+// box that will allow switching between them. The currently active display mode
+// dictates the links' colors.
+struct DisplayMode {
+  explicit DisplayMode(const std::string& name) : name(name) {}
+
+  std::string name;
+};
+
+// Renders the graph to an HTML page. If a localizer callback is provided it
+// will be used to get x,y coordinates for each node.
+using LocalizerCallback =
+    std::function<std::pair<double, double>(const std::string&)>;
+void GraphToHTML(const std::vector<EdgeData>& edges,
+                 const std::vector<PathData>& paths,
+                 const std::vector<DisplayMode>& display_modes, HtmlPage* out,
+                 LocalizerCallback localizer = LocalizerCallback());
+
+}  // namespace web
+}  // namespace ncode

@@ -19,17 +19,18 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 if(APPLE)
-  set(CMAKE_CXX_FLAGS_DEBUG "-g -std=c++11 -pedantic-errors -Werror -Winit-self -Woverloaded-virtual -Wuninitialized -Wall -Wextra -O1 -march=native -fno-exceptions -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=undefined -fno-sanitize=vptr")
-  set(CMAKE_CXX_FLAGS_RELEASE "-g -std=c++11 -pedantic-errors -Werror -Winit-self -Woverloaded-virtual -Wuninitialized -Wall -Wextra -O3 -march=native -DNDEBUG -fno-exceptions")
+  set(CMAKE_CXX_FLAGS_DEBUG "-g -std=c++11 -pedantic-errors -Winit-self -Woverloaded-virtual -Wuninitialized -Wall -Wextra -O1 -march=native -fno-exceptions -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=undefined -fno-sanitize=vptr")
+  set(CMAKE_CXX_FLAGS_RELEASE "-g -std=c++11 -pedantic-errors -Winit-self -Woverloaded-virtual -Wuninitialized -Wall -Wextra -O3 -march=native -DNDEBUG -fno-exceptions")
   set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "-fsanitize=address -fsanitize=undefined -fno-sanitize=vptr")
   set(CMAKE_EXE_LINKER_FLAGS_DEBUG "-fsanitize=address -fsanitize=undefined -fno-sanitize=vptr")
 elseif(UNIX)
-  set(CMAKE_CXX_FLAGS_DEBUG "-g -std=c++11 -pedantic-errors -Werror -Winit-self -Woverloaded-virtual -Wuninitialized -Wall -Wextra -O1 -pthread -fPIC -march=native  -DGTEST_USE_OWN_TR1_TUPLE=0 -fno-exceptions -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=undefined")
-  set(CMAKE_CXX_FLAGS_RELEASE "-g -std=c++11 -pedantic-errors -Werror -Winit-self -Woverloaded-virtual -Wuninitialized -Wall -Wextra -O3 -pthread -fPIC -march=native -DNDEBUG -DGTEST_USE_OWN_TR1_TUPLE=0 -fno-exceptions")
+  set(CMAKE_CXX_FLAGS_DEBUG "-g -std=c++11 -pedantic-errors -Winit-self -Woverloaded-virtual -Wuninitialized -Wall -Wextra -O1 -pthread -fPIC -march=native  -DGTEST_USE_OWN_TR1_TUPLE=0 -fno-exceptions -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=undefined")
+  set(CMAKE_CXX_FLAGS_RELEASE "-g -std=c++11 -pedantic-errors -Winit-self -Woverloaded-virtual -Wuninitialized -Wall -Wextra -O3 -pthread -fPIC -march=native -DNDEBUG -DGTEST_USE_OWN_TR1_TUPLE=0 -fno-exceptions")
   set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "-fsanitize=address -fsanitize=undefined")
   set(CMAKE_EXE_LINKER_FLAGS_DEBUG "-fsanitize=address -fsanitize=undefined")
 endif()
 
+# Will download gtest and make it part of the source
 include(cmake_extensions/DownloadProject.cmake)
 download_project(PROJ                googletest
                  GIT_REPOSITORY      https://github.com/google/googletest.git
@@ -37,6 +38,13 @@ download_project(PROJ                googletest
                  ${UPDATE_DISCONNECTED_IF_AVAILABLE}
 )
 add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR})
+
+download_project(PROJ                gflags
+                 GIT_REPOSITORY      https://github.com/gflags/gflags.git
+                 GIT_TAG             master
+                 ${UPDATE_DISCONNECTED_IF_AVAILABLE}
+)
+add_subdirectory(${gflags_SOURCE_DIR} ${gflags_BINARY_DIR})
 
 # When using CMake 2.8.11 or later, header path dependencies
 # are automatically added to the gtest and gmock targets.
@@ -50,13 +58,38 @@ endif()
 # Will need protobufs and pcap
 find_package(Protobuf REQUIRED)
 find_package(PCAP REQUIRED)
-include_directories(${PROTOBUF_INCLUDE_DIRS} ${PCAP_INCLUDE_DIR} ${CMAKE_BINARY_DIR})
+find_package(CTemplate REQUIRED)
+include_directories(${PROTOBUF_INCLUDE_DIRS} ${PCAP_INCLUDE_DIR} ${CMAKE_BINARY_DIR} ${CTEMPLATE_INCLUDE_DIR})
 
-function(add_test_exec name src_file deps)
+# Creates C resources file from files in given directory
+function(create_resources dir output prefix)
+    # Create empty output file
+    file(WRITE ${output} "")
+    # Collect input files
+    file(GLOB bins ${dir}/*)
+    # Iterate through input files
+    foreach(bin ${bins})
+        # Get short filename
+        string(REGEX MATCH "([^/]+)$" filename ${bin})
+        # Replace filename spaces & extension separator for C compatibility
+        string(REGEX REPLACE "\\.| |-" "_" filename ${filename})
+        # Read hex data from file
+        file(READ ${bin} filedata HEX)
+        # Convert hex data for C compatibility
+        string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," filedata ${filedata})
+        # Append data to output file
+        file(APPEND ${output} "const unsigned char ${prefix}_${filename}[] = {${filedata}};\nconst unsigned ${prefix}_${filename}_size = sizeof(${prefix}_${filename});\n")
+    endforeach()
+endfunction()
+
+create_resources("${PROJECT_SOURCE_DIR}/data/www" "${PROJECT_BINARY_DIR}/www_resources.c" "www")
+create_resources("${PROJECT_SOURCE_DIR}/data/grapher_templates" "${PROJECT_BINARY_DIR}/grapher_resources.c" "grapher")
+
+macro(add_test_exec name src_file deps)
   add_executable(${name} ${src_file})
-  target_link_libraries(${name} gmock_main ${deps})
+  target_link_libraries(${name} gmock_main ${deps} ${ARGN})
   add_test(NAME ${name} COMMAND ${name})
-endfunction(add_test_exec)  
+endmacro(add_test_exec)  
 
 ################################
 # Common stuff
@@ -87,3 +120,35 @@ target_link_libraries(ncode_net ${PCAP_LIBRARY} ${PROTOBUF_LIBRARIES} ncode_comm
 
 add_test_exec(net_common_test src/net/net_common_test.cc ncode_net)
 add_test_exec(net_gen_test src/net/net_gen_test.cc ncode_net)
+
+################################
+# Web
+################################
+set(WEB_HEADER_FILES src/web/web_page.h src/web/mongoose/mongoose.h src/web/graph.h)
+add_library(ncode_web STATIC src/web/web_page.cc src/web/mongoose/mongoose.c src/web/graph.cc ${PROJECT_BINARY_DIR}/www_resources.c ${WEB_HEADER_FILES})
+target_link_libraries(ncode_web ${PROTOBUF_LIBRARIES} ncode_common ncode_net ${CTEMPLATE_LIBRARIES})
+
+add_test_exec(web_page_test src/web/web_page_test.cc ncode_web)
+add_test_exec(graph_test src/web/graph_test.cc ncode_web)
+
+################################
+# Metrics
+################################
+PROTOBUF_GENERATE_CPP(PROTO_METRICS_SRCS PROTO_METRICS_HDRS src/metrics/metrics.proto)
+set_property(SOURCE ${PROTO_METRICS_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS "-Wno-extended-offsetof")
+set(METRICS_HEADER_FILES src/metrics/metrics.h src/metrics/metrics_parser.h ${PROTO_METRICS_HDRS})
+add_library(ncode_metrics STATIC src/metrics/metrics.cc src/metrics/metrics_parser.cc ${PROTO_METRICS_SRCS} ${METRICS_HEADER_FILES})
+target_link_libraries(ncode_metrics ${PROTOBUF_LIBRARIES} ncode_common ncode_web gflags)
+
+add_library(metrics_test_util STATIC src/metrics/metrics_test_util.cc)
+add_test_exec(metrics_test src/metrics/metrics_test.cc ncode_metrics metrics_test_util)
+add_test_exec(metrics_parser_test src/metrics/metrics_parser_test.cc ncode_metrics metrics_test_util)
+
+################################
+# Grapher
+################################
+set(METRICS_HEADER_FILES src/grapher/grapher.h)
+add_library(ncode_grapher STATIC src/grapher/grapher.cc ${PROJECT_BINARY_DIR}/grapher_resources.c)
+target_link_libraries(ncode_grapher ncode_common ncode_web)
+
+add_test_exec(grapher_test src/grapher/grapher_test.cc ncode_grapher)
