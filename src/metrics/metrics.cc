@@ -307,10 +307,11 @@ void MetricBase::SetLocalOutputStream(
     std::unique_ptr<OutputStream> output_stream) {
   CHECK(!local_output_stream_);
   CHECK(local_current_index_ == std::numeric_limits<size_t>::max());
+  CHECK(!stream_locked_);
   local_output_stream_ = std::move(output_stream);
 }
 
-OutputStream* MetricBase::OutputStreamOrNull() const {
+OutputStream* MetricBase::OutputStreamOrNull() {
   if (local_output_stream_) {
     return local_output_stream_.get();
   }
@@ -320,8 +321,7 @@ OutputStream* MetricBase::OutputStreamOrNull() const {
     return output_stream;
   }
 
-  LOG(INFO) << "No output stream -- setting the stream "
-               "later will result in broken output.";
+  stream_locked_ = true;
   return nullptr;
 }
 

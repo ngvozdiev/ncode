@@ -446,8 +446,9 @@ class MetricBase {
   std::string id() const { return base_entry_.id(); }
 
   // Returns the local output stream if not null, or the parent's input stream
-  // or null if no output stream is set.
-  OutputStream* OutputStreamOrNull() const;
+  // or null if no output stream is set. After calling this function the stream
+  // cannot be set.
+  OutputStream* OutputStreamOrNull();
 
   const TimestampProviderInterface* timestamp_provider() const;
 
@@ -455,7 +456,8 @@ class MetricBase {
   MetricBase(MetricManager* metric_manager, PBManifestEntry base_entry)
       : parent_manager_(metric_manager),
         base_entry_(base_entry),
-        local_current_index_(std::numeric_limits<size_t>::max()) {}
+        local_current_index_(std::numeric_limits<size_t>::max()),
+        stream_locked_(false) {}
 
   size_t NextIndex();
 
@@ -473,6 +475,9 @@ class MetricBase {
 
   // Only used if 'local_output_stream' is not null.
   size_t local_current_index_;
+
+  // Set to true if
+  bool stream_locked_;
 };
 
 // A metric is type associated with a combination of fields.
@@ -708,7 +713,7 @@ MetricHandle<EntryType, ThreadSafe>::EntriesInMemSpan() const {
   std::unique_lock<std::mutex> lock = GetLock();
   if (storage_.empty()) {
     return std::make_pair(std::numeric_limits<uint64_t>::min(),
-                              std::numeric_limits<uint64_t>::min());
+                          std::numeric_limits<uint64_t>::min());
   }
 
   const Entry<EntryType>& min_value = storage_.OldestValueOrDie();

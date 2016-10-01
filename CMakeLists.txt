@@ -231,3 +231,21 @@ target_link_libraries(ncode_lp ncode_net ${OPTIMIZER_LIBRARIES})
 
 add_test_exec(lp_test src/lp/lp_test.cc ncode_lp)
 add_test_exec(lp_mc_flow_test src/lp/mc_flow_test.cc ncode_lp)
+
+################################
+# HTSim
+################################
+set(HTSIM_HEADER_FILES src/htsim/packet.h src/htsim/queue.h src/htsim/match.h src/htsim/udp.h src/htsim/tcp.h src/htsim/network.h src/htsim/flow_driver.h src/htsim/pcap_consumer.h src/htsim/htsim.h src/htsim/bulk_gen.h src/htsim/animator.h)
+add_library(ncode_htsim STATIC src/htsim/packet.cc src/htsim/queue.cc src/htsim/match.cc src/htsim/udp.cc src/htsim/tcp.cc src/htsim/network.cc src/htsim/flow_driver.cc src/htsim/pcap_consumer.cc src/htsim/bulk_gen.cc src/htsim/animator.cc)
+target_link_libraries(ncode_htsim ncode_net ncode_metrics)
+
+# Test .pcap file needed by the pcap_consumer test
+file(COPY data/pcap_test_data DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
+add_test_exec(htsim_match_test src/htsim/match_test.cc ncode_htsim)
+add_test_exec(htsim_packet_test src/htsim/packet_test.cc ncode_htsim)
+add_test_exec(htsim_network_test src/htsim/network_test.cc ncode_htsim)
+add_test_exec(htsim_pcap_consumer_test src/htsim/pcap_consumer_test.cc ncode_htsim)
+add_test_exec(htsim_flow_driver_test src/htsim/flow_driver_test.cc ncode_htsim)
+add_test_exec(htsim_animator_test src/htsim/animator_test.cc ncode_htsim)
+add_test_exec(htsim_bulk_gen_test src/htsim/bulk_gen_test.cc ncode_htsim)
