@@ -3,6 +3,9 @@
 #ifndef NCODE_PCAP_H
 #define NCODE_PCAP_H
 
+#define _BSD_SOURCE
+#define __FAVOR_BSD
+
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
 #include <netinet/tcp.h>

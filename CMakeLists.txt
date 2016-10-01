@@ -34,7 +34,7 @@ endif()
 
 if(APPLE)
 elseif(UNIX)
-  set(BASE_FLAGS "${BASE_FLAGS} -pthread -D_BSD_SOURCE")
+  set(BASE_FLAGS "${BASE_FLAGS} -pthread")
 endif()
 
 set(BASE_DEBUG_FLAGS "${BASE_FLAGS} -O1 -fno-omit-frame-pointer")
