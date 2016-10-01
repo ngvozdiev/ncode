@@ -249,3 +249,16 @@ add_test_exec(htsim_pcap_consumer_test src/htsim/pcap_consumer_test.cc ncode_hts
 add_test_exec(htsim_flow_driver_test src/htsim/flow_driver_test.cc ncode_htsim)
 add_test_exec(htsim_animator_test src/htsim/animator_test.cc ncode_htsim)
 add_test_exec(htsim_bulk_gen_test src/htsim/bulk_gen_test.cc ncode_htsim)
+
+################################
+# GEO
+################################
+set(GEO_HEADER_FILES src/geo/geo.h)
+add_library(ncode_geo STATIC src/geo/geo.cc)
+target_link_libraries(ncode_geo ncode_common)
+
+# The geonames data file is needed by the test
+file(COPY data/geonames DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
+add_test_exec(geo_test src/geo/geo_test.cc ncode_geo)
+
