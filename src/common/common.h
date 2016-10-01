@@ -246,11 +246,11 @@ void Percentiles(std::vector<T>* values,
 
   std::sort(values->begin(), values->end());
   double num_values_min_one = values->size() - 1;
-  out->Resize(n + 1, 0);
+  out->Reserve(n + 1);
   for (size_t percentile = 0; percentile < n + 1; ++percentile) {
     size_t index =
         0.5 + num_values_min_one * (percentile / static_cast<double>(n));
-    out->Set(percentile, (*values)[index]);
+    out->Add((*values)[index]);
   }
 }
 
