@@ -3,13 +3,8 @@
 #ifndef NCODE_PCAP_H
 #define NCODE_PCAP_H
 
-#define _BSD_SOURCE
-#define __FAVOR_BSD
-
 #include </usr/include/netinet/ip.h>
 #include </usr/include/netinet/ip_icmp.h>
-#include </usr/include/netinet/tcp.h>
-#include </usr/include/netinet/udp.h>
 #include <pcap/pcap.h>
 #include <stddef.h>
 #include <chrono>
@@ -36,8 +31,39 @@ static constexpr size_t kSizeUDP = 6;
 static constexpr size_t kSizeICMP = ICMP_MINLEN;
 
 typedef ip IPHeader;
-typedef tcphdr TCPHeader;
-typedef udphdr UDPHeader;
+struct TCPHeader {
+  static constexpr unsigned char kFinFlag = 0x01;
+  static constexpr unsigned char kSynFlag = 0x02;
+  static constexpr unsigned char kRstFlag = 0x04;
+  static constexpr unsigned char kPushFlag = 0x08;
+  static constexpr unsigned char kAckFlag = 0x10;
+
+  uint16_t th_sport; /* source port */
+  uint16_t th_dport; /* destination port */
+  uint32_t th_seq;   /* sequence number */
+  uint32_t th_ack;   /* acknowledgment number */
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+  unsigned int th_x2 : 4, /* (unused) */
+      th_off : 4;         /* data offset */
+#endif
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+  unsigned int th_off : 4, /* data offset */
+      th_x2 : 4;           /* (unused) */
+#endif
+  unsigned char th_flags;
+
+  uint16_t th_win; /* window */
+  uint16_t th_sum; /* checksum */
+  uint16_t th_urp; /* urgent pointer */
+};
+
+struct UDPHeader {
+  uint16_t uh_sport; /* source port */
+  uint16_t uh_dport; /* destination port */
+  uint16_t uh_ulen;  /* udp length */
+  uint16_t uh_sum;   /* udp checksum */
+};
+
 typedef icmp ICMPHeader;
 
 // Performs basic checks on the TCP header of a packet.
@@ -176,7 +202,8 @@ class OnlinePcap : public PcapBase {
 
 class OfflinePcap : public PcapBase {
  public:
-  OfflinePcap(std::unique_ptr<OfflineSourceProvider> source, PacketHandler* handler)
+  OfflinePcap(std::unique_ptr<OfflineSourceProvider> source,
+              PacketHandler* handler)
       : PcapBase(handler), source_(std::move(source)) {}
 
   void Run() override;
