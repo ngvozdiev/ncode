@@ -1,6 +1,6 @@
 #include "pcap.h"
 
-#include <netinet/in.h>
+#include </usr/include/netinet/in.h>
 #include <pcap/pcap.h>
 #include <poll.h>
 #include <string>

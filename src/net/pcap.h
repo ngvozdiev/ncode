@@ -6,10 +6,10 @@
 #define _BSD_SOURCE
 #define __FAVOR_BSD
 
-#include <netinet/ip.h>
-#include <netinet/ip_icmp.h>
-#include <netinet/tcp.h>
-#include <netinet/udp.h>
+#include </usr/include/netinet/ip.h>
+#include </usr/include/netinet/ip_icmp.h>
+#include </usr/include/netinet/tcp.h>
+#include </usr/include/netinet/udp.h>
 #include <pcap/pcap.h>
 #include <stddef.h>
 #include <chrono>
