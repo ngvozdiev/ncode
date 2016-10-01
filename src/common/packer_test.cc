@@ -19,10 +19,10 @@ class RLEFixture : public ::testing::Test {
 };
 
 TEST_F(PackerFixture, Empty) {
-  ASSERT_EQ(0, seq_.SizeBytes());
+  ASSERT_EQ(0ul, seq_.SizeBytes());
 
   seq_.Restore(&vec_);
-  ASSERT_EQ(0, vec_.size());
+  ASSERT_EQ(0ul, vec_.size());
 }
 
 TEST(Packer, AppendByteSizes) {
@@ -64,9 +64,9 @@ TEST_F(PackerFixture, Append1KSame) {
   }
 
   seq_.Restore(&vec_);
-  ASSERT_EQ(1000, vec_.size());
+  ASSERT_EQ(1000ul, vec_.size());
   for (size_t i = 0; i < 1000; ++i) {
-    ASSERT_EQ(1050, vec_.at(0));
+    ASSERT_EQ(1050ul, vec_.at(0));
   }
 }
 
@@ -112,7 +112,7 @@ TEST_F(PackerFixture, Append1MIter) {
 TEST_F(RLEFixture, Empty) {
   seq_.Restore(&vec_);
 
-  ASSERT_EQ(0, seq_.SizeBytes());
+  ASSERT_EQ(0ul, seq_.SizeBytes());
   ASSERT_TRUE(vec_.empty());
 }
 
@@ -121,8 +121,8 @@ TEST_F(RLEFixture, One) {
 
   seq_.Restore(&vec_);
 
-  ASSERT_EQ(1, vec_.size());
-  ASSERT_EQ(1, vec_.at(0));
+  ASSERT_EQ(1ul, vec_.size());
+  ASSERT_EQ(1ul, vec_.at(0));
 }
 
 TEST_F(RLEFixture, Append1M) {
@@ -136,7 +136,7 @@ TEST_F(RLEFixture, Append1M) {
 
   // Regardless of the implementation if RLE is implemented correctly the 10M
   // values should fit in 50 bytes.
-  ASSERT_GT(50, seq_.SizeBytes());
+  ASSERT_GT(50ul, seq_.SizeBytes());
 
   seq_.Restore(&vec_);
   ASSERT_EQ(model, vec_);

@@ -96,7 +96,7 @@ TEST(LoggingTest, CaptureLogging) {
 
   EXPECT_TRUE(SetLogHandler(old_handler) == &CaptureLog);
 
-  ASSERT_EQ(2, captured_messages_.size());
+  ASSERT_EQ(2ul, captured_messages_.size());
   EXPECT_EQ("2 " __FILE__ ":" + SimpleItoa(start_line + 1) + ": An error.",
             captured_messages_[0]);
   EXPECT_EQ("1 " __FILE__ ":" + SimpleItoa(start_line + 2) + ": A warning.",

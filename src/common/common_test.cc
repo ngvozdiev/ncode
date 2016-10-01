@@ -21,9 +21,9 @@ TEST(Percentiles, NoValues) {
 TEST(Percentiles, SingleValue) {
   std::vector<size_t> values = {1};
   std::vector<size_t> percentiles = Percentiles(&values);
-  ASSERT_EQ(101, percentiles.size());
+  ASSERT_EQ(101ul, percentiles.size());
   for (size_t i = 0; i < 101; ++i) {
-    ASSERT_EQ(1, percentiles[i]);
+    ASSERT_EQ(1ul, percentiles[i]);
   }
 }
 

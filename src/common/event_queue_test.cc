@@ -233,7 +233,7 @@ TEST_F(SimEventQueueFixture, RawMillis) {
   });
   consumer.EnqueueAt(queue_.ToTime(milliseconds(500)));
   queue_.RunAndStopIn(milliseconds(1000));
-  ASSERT_EQ(500, millis_at);
+  ASSERT_EQ(500ul, millis_at);
   ASSERT_EQ(queue_.RawMillisToTime(500), time_at);
 }
 

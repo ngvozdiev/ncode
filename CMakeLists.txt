@@ -180,6 +180,8 @@ add_library(ncode_dfs STATIC src/dfs/constraint.cc src/dfs/array_graph.cc src/df
 target_link_libraries(ncode_dfs ${PROTOBUF_LIBRARIES} ncode_common ncode_net)
 
 add_library(dfs_test_util STATIC src/dfs/test_fixtures.cc)
+target_link_libraries(dfs_test_util ncode_dfs)
+
 add_test_exec(dfs_constraint_test src/dfs/constraint_test.cc ncode_dfs dfs_test_util)
 add_test_exec(dfs_array_graph_test src/dfs/array_graph_test.cc ncode_dfs dfs_test_util)
 add_test_exec(dfs_test src/dfs/dfs_test.cc ncode_dfs dfs_test_util)
@@ -206,6 +208,8 @@ add_library(ncode_metrics STATIC src/metrics/metrics.cc src/metrics/metrics_pars
 target_link_libraries(ncode_metrics ${PROTOBUF_LIBRARIES} ncode_common ncode_web gflags)
 
 add_library(metrics_test_util STATIC src/metrics/metrics_test_util.cc)
+target_link_libraries(metrics_test_util ncode_metrics)
+
 add_test_exec(metrics_test src/metrics/metrics_test.cc ncode_metrics metrics_test_util)
 add_test_exec(metrics_parser_test src/metrics/metrics_parser_test.cc ncode_metrics metrics_test_util)
 

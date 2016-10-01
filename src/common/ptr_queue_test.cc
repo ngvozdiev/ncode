@@ -14,7 +14,7 @@ void Unused(T&&) {}
 TEST(SmallQueue, Empty) {
   PtrQueue<int, 2> small_queue;
 
-  ASSERT_EQ(0, small_queue.size());
+  ASSERT_EQ(0ul, small_queue.size());
 }
 
 TEST(SmallQueue, ProduceAfterClose) {
@@ -24,7 +24,7 @@ TEST(SmallQueue, ProduceAfterClose) {
 
   // Producing a value after close should be a no-op.
   ASSERT_FALSE(small_queue.ProduceOrBlock(make_unique<int>(1)));
-  ASSERT_EQ(0, small_queue.size());
+  ASSERT_EQ(0ul, small_queue.size());
 }
 
 TEST(SmallQueue, ConsumeAfterClose) {
@@ -32,18 +32,18 @@ TEST(SmallQueue, ConsumeAfterClose) {
 
   small_queue.Close();
   ASSERT_FALSE(small_queue.ConsumeOrBlock().get());
-  ASSERT_EQ(0, small_queue.size());
+  ASSERT_EQ(0ul, small_queue.size());
 }
 
 TEST(SmallQueue, ProduceConsumeOne) {
   PtrQueue<int, 2> small_queue;
 
   small_queue.ProduceOrBlock(make_unique<int>(1));
-  ASSERT_EQ(1, small_queue.size());
+  ASSERT_EQ(1ul, small_queue.size());
 
   auto result = small_queue.ConsumeOrBlock();
   ASSERT_EQ(1, *result);
-  ASSERT_EQ(0, small_queue.size());
+  ASSERT_EQ(0ul, small_queue.size());
 }
 
 TEST(SmallQueue, ProduceConsumeTwo) {
@@ -52,13 +52,13 @@ TEST(SmallQueue, ProduceConsumeTwo) {
   small_queue.ProduceOrBlock(make_unique<int>(1));
   small_queue.ProduceOrBlock(make_unique<int>(2));
 
-  ASSERT_EQ(2, small_queue.size());
+  ASSERT_EQ(2ul, small_queue.size());
 
   auto result_one = small_queue.ConsumeOrBlock();
   auto result_two = small_queue.ConsumeOrBlock();
   ASSERT_EQ(1, *result_one);
   ASSERT_EQ(2, *result_two);
-  ASSERT_EQ(0, small_queue.size());
+  ASSERT_EQ(0ul, small_queue.size());
 }
 
 TEST(SmallQueue, ProduceConsumeSeq) {
@@ -76,7 +76,7 @@ TEST(SmallQueue, ProduceConsumeSeq) {
     }
   }
 
-  ASSERT_EQ(0, small_queue.size());
+  ASSERT_EQ(0ul, small_queue.size());
 }
 
 TEST(SmallQueue, ProduceInvalidateConsume) {
@@ -92,7 +92,7 @@ TEST(SmallQueue, ProduceInvalidateConsume) {
   auto result = small_queue.ConsumeOrBlock();
   ASSERT_EQ(3, *result);
 
-  ASSERT_EQ(0, small_queue.size());
+  ASSERT_EQ(0ul, small_queue.size());
 }
 
 TEST(SmallQueue, ProduceKill) {
@@ -109,7 +109,7 @@ TEST(SmallQueue, ProduceKill) {
   thread.join();
 
   // There are still two elements in the queue
-  ASSERT_EQ(2, small_queue.size());
+  ASSERT_EQ(2ul, small_queue.size());
 }
 
 TEST(SmallQueue, ConsumeKill) {
@@ -125,7 +125,7 @@ TEST(SmallQueue, ConsumeKill) {
 
   thread.join();
   ASSERT_FALSE(result);
-  ASSERT_EQ(0, small_queue.size());
+  ASSERT_EQ(0ul, small_queue.size());
 }
 
 TEST(SmallQueue, InvalidateAllKill) {
@@ -148,7 +148,7 @@ TEST(SmallQueue, InvalidateAllKill) {
 
   thread.join();
   ASSERT_FALSE(result);
-  ASSERT_EQ(0, small_queue.size());
+  ASSERT_EQ(0ul, small_queue.size());
 }
 
 TEST(LargeQueue, MultiProducer) {
@@ -181,7 +181,7 @@ TEST(LargeQueue, MultiProducer) {
     ASSERT_EQ(model[count], 16);
   }
 
-  ASSERT_EQ(0, large_queue->size());
+  ASSERT_EQ(0ul, large_queue->size());
 }
 
 TEST(LargeQueue, MultiProducerMultiConsumer) {
@@ -220,7 +220,7 @@ TEST(LargeQueue, MultiProducerMultiConsumer) {
 
   // n * (n - 1) / 2 for each of the 16 threads
   ASSERT_EQ((((1 << 20L) / 16L) * (((1 << 20L) / 16L) - 1)) * 8L, sum);
-  ASSERT_EQ(0, large_queue->size());
+  ASSERT_EQ(0ul, large_queue->size());
 }
 
 }  // namespace

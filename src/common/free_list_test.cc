@@ -18,7 +18,7 @@ struct Dummy {
 };
 
 struct D1 : public Dummy {};
-TEST(FreeListTest, Empty) { ASSERT_EQ(0, GetFreeList<D1>().NumObjects()); }
+TEST(FreeListTest, Empty) { ASSERT_EQ(0ul, GetFreeList<D1>().NumObjects()); }
 
 struct D2 : public Dummy {
   using Dummy::Dummy;
