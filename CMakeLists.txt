@@ -18,17 +18,32 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
 endif()
 
-if(APPLE)
-  set(CMAKE_CXX_FLAGS_DEBUG "-g -std=c++11 -pedantic-errors -Winit-self -Woverloaded-virtual -Wuninitialized -Wall -Wextra -O1 -march=native -fno-exceptions -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=undefined -fno-sanitize=vptr")
-  set(CMAKE_CXX_FLAGS_RELEASE "-g -std=c++11 -pedantic-errors -Winit-self -Woverloaded-virtual -Wuninitialized -Wall -Wextra -O3 -march=native -DNDEBUG -fno-exceptions")
-  set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "-fsanitize=address -fsanitize=undefined -fno-sanitize=vptr")
-  set(CMAKE_EXE_LINKER_FLAGS_DEBUG "-fsanitize=address -fsanitize=undefined -fno-sanitize=vptr")
-elseif(UNIX)
-  set(CMAKE_CXX_FLAGS_DEBUG "-g -std=c++11 -pedantic-errors -Winit-self -Woverloaded-virtual -Wuninitialized -Wall -Wextra -O1 -pthread -fPIC -march=native  -DGTEST_USE_OWN_TR1_TUPLE=0 -fno-exceptions -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=undefined")
-  set(CMAKE_CXX_FLAGS_RELEASE "-g -std=c++11 -pedantic-errors -Winit-self -Woverloaded-virtual -Wuninitialized -Wall -Wextra -O3 -pthread -fPIC -march=native -DNDEBUG -DGTEST_USE_OWN_TR1_TUPLE=0 -fno-exceptions")
-  set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "-fsanitize=address -fsanitize=undefined")
-  set(CMAKE_EXE_LINKER_FLAGS_DEBUG "-fsanitize=address -fsanitize=undefined")
+set(ASAN FALSE CACHE BOOL "Compile with ASAN on")
+set(TSAN FALSE CACHE BOOL "Compile with TSAN on")
+
+set(BASE_FLAGS "-g -std=c++11 -pedantic-errors -Winit-self -Woverloaded-virtual -Wuninitialized -Wall -Wextra -fno-exceptions")
+set(BASE_LD_FLAGS "")
+if (ASAN)
+   set(BASE_FLAGS "${BASE_FLAGS} -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls")
+   set(BASE_LD_FLAGS "${BASE_LD_FLAGS} -fsanitize=address")
 endif()
+if (TSAN)
+   set(BASE_FLAGS "${BASE_FLAGS} -fsanitize=thread -fno-omit-frame-pointer -fno-optimize-sibling-calls")
+   set(BASE_LD_FLAGS "${BASE_LD_FLAGS} -fsanitize=thread")
+endif()
+
+if(APPLE)
+elseif(UNIX)
+  set(BASE_FLAGS "${BASE_FLAGS} -pthread")
+endif()
+
+set(BASE_DEBUG_FLAGS "${BASE_FLAGS} -O1 -fno-omit-frame-pointer")
+set(BASE_OPT_FLAGS "${BASE_FLAGS} -O3 -march=native -fno-omit-frame-pointer -DNDEBUG")
+
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${BASE_DEBUG_FLAGS}")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${BASE_OPT_FLAGS}")
+set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} ${BASE_LD_FLAGS}")
+set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_RELEASE} ${BASE_LD_FLAGS}")
 
 # Will download gtest and make it part of the source
 include(cmake_extensions/DownloadProject.cmake)
@@ -54,11 +69,46 @@ include_directories("${gtest_SOURCE_DIR}/include"
                      "${gmock_SOURCE_DIR}/include" 
 		     "${gflags_SOURCE_DIR}/include")
 
-# Will need protobufs and pcap
+# Will need protobufs, pcap and ctemplate
+set(PROTOBUF_IMPORT_DIRS ${PROJECT_SOURCE_DIR}/src/net ${PROJECT_SOURCE_DIR}/src/dfs)
 find_package(Protobuf REQUIRED)
 find_package(PCAP REQUIRED)
 find_package(Ctemplate REQUIRED)
 include_directories(${PROTOBUF_INCLUDE_DIRS} ${PCAP_INCLUDE_DIR} ${CMAKE_BINARY_DIR} ${CTEMPLATE_INCLUDE_DIR})
+
+# Need a linear optimizer. Will look for both GLPK and CPLEX.
+find_package(GLPK)
+find_package(CPLEX)
+
+# Check which optimization package is found
+set(FORCE_GLPK false CACHE BOOL "If GLPK and CPLEX are found, by default we build against CPLEX. Setting this to true forces to build against GLPK")
+if(CPLEX_FOUND)
+    if(GLPK_FOUND AND FORCE_GLPK)
+        set(OPTIMIZER_INCLUDE_DIRS ${GLPK_INCLUDE_DIR})
+        set(OPTIMIZER_LIBRARIES ${GLPK_LIBRARY})
+	set(OPTIMIZER "GLPK")
+    else()
+        set(OPTIMIZER_INCLUDE_DIRS ${CPLEX_INCLUDE_DIRS})
+	if(APPLE)
+	    set(OPTIMIZER_LIBRARIES -Wl,-force_load ${CPLEX_LIBRARIES})
+	elseif(UNIX)
+	    set(OPTIMIZER_LIBRARIES -Wl,-whole-archive ${CPLEX_LIBRARIES} -Wl,-no-whole-archive)
+	endif()
+	   set(OPTIMIZER "CPLEX")
+    endif()
+else()
+    if(GLPK_FOUND)
+        set(OPTIMIZER_INCLUDE_DIRS ${GLPK_INCLUDE_DIR})
+        set(OPTIMIZER_LIBRARIES ${GLPK_LIBRARY})
+	set(OPTIMIZER "GLPK")
+    else()
+        message(FATAL_ERROR "No LP optimizer found at all!")
+    endif()
+endif()
+
+configure_file(
+  "${PROJECT_SOURCE_DIR}/src/config.h.in"
+  "${PROJECT_BINARY_DIR}/ncode_config.h")
 
 # Creates C resources file from files in given directory
 function(create_resources dir output prefix)
@@ -121,6 +171,22 @@ add_test_exec(net_common_test src/net/net_common_test.cc ncode_net)
 add_test_exec(net_gen_test src/net/net_gen_test.cc ncode_net)
 
 ################################
+# DFS
+################################
+PROTOBUF_GENERATE_CPP(PROTO_DFS_SRCS PROTO_DFS_HDRS src/dfs/dfs.proto)
+set_property(SOURCE ${PROTO_DFS_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS "-Wno-extended-offsetof")
+set(DFS_HEADER_FILES src/dfs/constraint.h src/dfs/array_graph.h src/dfs/path_utils.h src/dfs/dfs.h src/dfs/dfs_session.h ${PROTO_DFS_HDRS})
+add_library(ncode_dfs STATIC src/dfs/constraint.cc src/dfs/array_graph.cc src/dfs/path_utils.cc src/dfs/dfs.cc src/dfs/dfs_session.cc ${PROTO_DFS_SRCS} ${DFS_HEADER_FILES} ${NET_HEADER_FILES})
+target_link_libraries(ncode_dfs ${PROTOBUF_LIBRARIES} ncode_common ncode_net)
+
+add_library(dfs_test_util STATIC src/dfs/test_fixtures.cc)
+add_test_exec(dfs_constraint_test src/dfs/constraint_test.cc ncode_dfs dfs_test_util)
+add_test_exec(dfs_array_graph_test src/dfs/array_graph_test.cc ncode_dfs dfs_test_util)
+add_test_exec(dfs_test src/dfs/dfs_test.cc ncode_dfs dfs_test_util)
+add_test_exec(dfs_path_utils_test src/dfs/path_utils_test.cc ncode_dfs dfs_test_util)
+add_test_exec(dfs_session_test src/dfs/dfs_session_test.cc ncode_dfs dfs_test_util)
+
+################################
 # Web
 ################################
 set(WEB_HEADER_FILES src/web/web_page.h src/web/mongoose/mongoose.h src/web/graph.h)
@@ -151,3 +217,13 @@ add_library(ncode_grapher STATIC src/grapher/grapher.cc ${PROJECT_BINARY_DIR}/gr
 target_link_libraries(ncode_grapher ncode_common ncode_web)
 
 add_test_exec(grapher_test src/grapher/grapher_test.cc ncode_grapher)
+
+################################
+# Linear programming
+################################
+set(METRICS_HEADER_FILES src/lp/lp.h src/lp/mc_flow.h)
+add_library(ncode_lp STATIC src/lp/lp.cc src/lp/mc_flow.cc)
+target_link_libraries(ncode_lp ncode_net ${OPTIMIZER_LIBRARIES})
+
+add_test_exec(lp_test src/lp/lp_test.cc ncode_lp)
+add_test_exec(lp_mc_flow_test src/lp/mc_flow_test.cc ncode_lp)

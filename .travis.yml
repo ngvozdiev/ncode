@@ -52,6 +52,8 @@ before_install:
   - sudo apt-get install -y libpcap-dev
   - sudo apt-get install -y libctemplate-dev
   - sudo apt-get install -y protobuf-compiler
+  - sudo apt-get install -y libglpk-dev
+  - sudo apt-get install -y glpk-utils
 script:
   - mkdir build
   - cd build

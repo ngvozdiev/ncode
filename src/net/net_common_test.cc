@@ -253,6 +253,7 @@ TEST_F(LinkStorageTest, FindInverse) {
   another_inverse_link_pb.set_dst(link_pb_.src());
   another_inverse_link_pb.set_src(link_pb_.dst());
   another_inverse_link_pb.set_dst_port(link_pb.dst_port() + 1);
+  another_inverse_link_pb.set_src_port(link_pb.src_port() + 1);
 
   const GraphLink* another_inverse_link =
       storage_.LinkFromProtobuf(another_inverse_link_pb);

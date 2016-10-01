@@ -95,19 +95,30 @@ const GraphLink* LinkStorage::LinkFromProtobuf(const PBGraphLink& link_pb) {
   if (it_one != links.end()) {
     auto it_two = it_one->second.find(link_pb.dst());
     if (it_two != it_one->second.end()) {
+      if (link_pb.src_port() == 0 && link_pb.dst_port() == 0) {
+        return it_two->second.front().get();
+      }
+
       // There are one or many links with the same src and dst addresses.
+      const GraphLink* other_with_same_src_port = nullptr;
+      const GraphLink* other_with_same_dst_port = nullptr;
       for (const auto& link_ptr : it_two->second) {
         if (link_pb.src_port() != 0 &&
-            link_ptr->src_port().Raw() != link_pb.src_port()) {
-          continue;
+            link_ptr->src_port().Raw() == link_pb.src_port()) {
+          CHECK(other_with_same_src_port == nullptr);
+          other_with_same_src_port = link_ptr.get();
         }
 
         if (link_pb.dst_port() != 0 &&
-            link_ptr->dst_port().Raw() != link_pb.dst_port()) {
-          continue;
+            link_ptr->dst_port().Raw() == link_pb.dst_port()) {
+          CHECK(other_with_same_dst_port == nullptr);
+          other_with_same_dst_port = link_ptr.get();
         }
+      }
 
-        return link_ptr.get();
+      CHECK(other_with_same_src_port == other_with_same_dst_port);
+      if (other_with_same_src_port != nullptr) {
+        return other_with_same_src_port;
       }
     }
   }
