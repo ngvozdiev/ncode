@@ -1,6 +1,5 @@
 #include "metrics.h"
 
-#include <gflags/gflags.h>
 #include <google/protobuf/repeated_field.h>
 #include <cstdint>
 #include <limits>
@@ -9,6 +8,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "gflags/gflags.h"
 #include "../common/file.h"
 #include "../common/strutil.h"
 
