@@ -4,8 +4,8 @@
 #include <string>
 #include <vector>
 
-#include "../../build/dfs.pb.h"
-#include "../../build/net.pb.h"
+#include "dfs.pb.h"
+#include "net.pb.h"
 #include "../net/net_common.h"
 #include "../net/net_gen.h"
 #include "gtest/gtest.h"
