@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "array_graph.h"
 #include "dfs.pb.h"
 #include "net.pb.h"
 #include "../common/common.h"
@@ -19,7 +20,6 @@
 
 namespace ncode {
 namespace dfs {
-class ArrayGraph;
 class Constraint;
 } /* namespace dfs */
 } /* namespace ncode */
