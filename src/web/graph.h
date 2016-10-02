@@ -1,4 +1,10 @@
+#ifndef NCODE_WEB_GRAPH_H
+#define NCODE_WEB_GRAPH_H
+
+#include <stddef.h>
+#include <functional>
 #include <iostream>
+#include <utility>
 #include <vector>
 
 namespace ncode {
@@ -77,3 +83,5 @@ void GraphToHTML(const std::vector<EdgeData>& edges,
 
 }  // namespace web
 }  // namespace ncode
+
+#endif

@@ -3,6 +3,8 @@
 #include <ctemplate/template.h>
 #include <ctemplate/template_dictionary.h>
 #include <ctemplate/template_enums.h>
+#include <stddef.h>
+#include <cstdbool>
 #include <map>
 #include <set>
 #include <string>
