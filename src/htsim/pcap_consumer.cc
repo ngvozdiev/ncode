@@ -41,6 +41,7 @@ void PcapPacketGen::HandleTCP(pcap::Timestamp timestamp,
   auto packet = make_unique<TCPPacket>(
       five_tuple, size, GetEventQueueTime(timestamp), seq_num);
   packet->set_id(ntohs(ip_header.ip_id));
+  packet->set_flags(tcp_header.th_flags);
   packet->set_payload(payload_len);
   pending_packet_ = std::move(packet);
 }

@@ -76,10 +76,10 @@ class ConnectionTest : public ::testing::Test {
 
 TEST_F(ConnectionTest, EmptyStats) {
   DummyConnection dummy_connection(&mock_handler_, &event_queue_);
-  ASSERT_EQ(0, dummy_connection.GetStats().bytes_rx);
-  ASSERT_EQ(0, dummy_connection.GetStats().pkts_rx);
-  ASSERT_EQ(0, dummy_connection.GetStats().bytes_tx);
-  ASSERT_EQ(0, dummy_connection.GetStats().pkts_tx);
+  ASSERT_EQ(0ul, dummy_connection.GetStats().bytes_rx);
+  ASSERT_EQ(0ul, dummy_connection.GetStats().pkts_rx);
+  ASSERT_EQ(0ul, dummy_connection.GetStats().bytes_tx);
+  ASSERT_EQ(0ul, dummy_connection.GetStats().pkts_tx);
 }
 
 TEST_F(ConnectionTest, RxPacket) {
@@ -88,9 +88,9 @@ TEST_F(ConnectionTest, RxPacket) {
   dummy_connection.HandlePacket(std::move(packet));
 
   ASSERT_EQ(kSize, dummy_connection.GetStats().bytes_rx);
-  ASSERT_EQ(1, dummy_connection.GetStats().pkts_rx);
-  ASSERT_EQ(0, dummy_connection.GetStats().bytes_tx);
-  ASSERT_EQ(0, dummy_connection.GetStats().pkts_tx);
+  ASSERT_EQ(1ul, dummy_connection.GetStats().pkts_rx);
+  ASSERT_EQ(0ul, dummy_connection.GetStats().bytes_tx);
+  ASSERT_EQ(0ul, dummy_connection.GetStats().pkts_tx);
 }
 
 TEST_F(ConnectionTest, TxPacket) {
@@ -99,10 +99,10 @@ TEST_F(ConnectionTest, TxPacket) {
   dummy_connection.SendPacket(std::move(packet));
 
   ASSERT_EQ(kSize, dummy_connection.GetStats().bytes_tx);
-  ASSERT_EQ(1, dummy_connection.GetStats().pkts_tx);
-  ASSERT_EQ(0, dummy_connection.GetStats().bytes_rx);
-  ASSERT_EQ(0, dummy_connection.GetStats().pkts_rx);
-  ASSERT_EQ(1, mock_handler_.packets().size());
+  ASSERT_EQ(1ul, dummy_connection.GetStats().pkts_tx);
+  ASSERT_EQ(0ul, dummy_connection.GetStats().bytes_rx);
+  ASSERT_EQ(0ul, dummy_connection.GetStats().pkts_rx);
+  ASSERT_EQ(1ul, mock_handler_.packets().size());
 }
 
 }  // namespace

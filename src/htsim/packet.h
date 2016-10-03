@@ -121,8 +121,15 @@ class TCPPacket : public Packet {
 
   std::string ToString() const override;
 
+  void set_flags(uint8_t flags) { flags_ = flags; }
+  uint8_t flags() const { return flags_; }
+
  private:
   SeqNum sequence_;
+
+  // If this packet comes from a real-world trace this field will be set to the
+  // flags of the TCP packet. If not it will be 0.
+  uint8_t flags_;
 };
 
 // A UDP packet.
