@@ -55,17 +55,8 @@ class LRUCache {
     }
 
     CHECK(object_and_list_it->object);
-    return object_and_list_it->object.get();
-  }
-
-  const V* FindOrNull(const K& key) const {
-    const ObjectAndListIterator* object_and_list_it =
-        ncode::FindOrNull(cache_map_, key);
-    if (object_and_list_it == nullptr) {
-      return nullptr;
-    }
-
-    CHECK(object_and_list_it->object);
+    typename LRUList::iterator list_it = object_and_list_it->iterator;
+    keys_.splice(keys_.begin(), keys_, list_it);
     return object_and_list_it->object.get();
   }
 
