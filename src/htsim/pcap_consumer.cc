@@ -43,6 +43,7 @@ void PcapPacketGen::HandleTCP(pcap::Timestamp timestamp,
   packet->set_id(ntohs(ip_header.ip_id));
   packet->set_flags(tcp_header.th_flags);
   packet->set_payload(payload_len);
+  packet->set_ttl(ip_header.ip_ttl);
   pending_packet_ = std::move(packet);
 }
 
@@ -65,6 +66,7 @@ void PcapPacketGen::HandleUDP(pcap::Timestamp timestamp,
                                                GetEventQueueTime(timestamp));
   packet->set_id(ntohs(ip_header.ip_id));
   packet->set_payload(payload_len);
+  packet->set_ttl(ip_header.ip_ttl);
   pending_packet_ = std::move(packet);
 }
 

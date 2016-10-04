@@ -76,6 +76,9 @@ class Packet {
   // Sets the IP id.
   void set_id(uint16_t id) { ip_id_ = id; }
 
+  // Sets the TTL value.
+  void set_ttl(uint8_t ttl) { ttl_ = ttl; }
+
   // Sets the payload.
   void set_payload(uint16_t payload_bytes) { payload_bytes_ = payload_bytes; }
 
