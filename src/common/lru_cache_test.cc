@@ -45,6 +45,12 @@ TEST_F(CacheTest, UpToSize) {
     // This will not update the value, as it already exists.
     ASSERT_EQ(10.0 + i, cache_.Emplace(i, 1.0));
   }
+
+  for (size_t i = 0; i < kCacheSize; ++i) {
+    ASSERT_EQ(10.0 + i, *cache_.FindOrNull(i));
+    const CacheForTest& const_cache = cache_;
+    ASSERT_EQ(10.0 + i, *const_cache.FindOrNull(i));
+  }
   ASSERT_TRUE(cache_.evicted_items().empty());
 }
 

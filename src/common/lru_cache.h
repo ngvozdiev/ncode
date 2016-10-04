@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "common.h"
+#include "map_util.h"
 
 namespace ncode {
 
@@ -44,6 +45,28 @@ class LRUCache {
     object_and_list_it.object = make_unique<V>(std::forward<Args...>(args...));
     object_and_list_it.iterator = keys_.begin();
     return *object_and_list_it.object;
+  }
+
+  V* FindOrNull(const K& key) {
+    ObjectAndListIterator* object_and_list_it =
+        ncode::FindOrNull(cache_map_, key);
+    if (object_and_list_it == nullptr) {
+      return nullptr;
+    }
+
+    CHECK(object_and_list_it->object);
+    return object_and_list_it->object.get();
+  }
+
+  const V* FindOrNull(const K& key) const {
+    const ObjectAndListIterator* object_and_list_it =
+        ncode::FindOrNull(cache_map_, key);
+    if (object_and_list_it == nullptr) {
+      return nullptr;
+    }
+
+    CHECK(object_and_list_it->object);
+    return object_and_list_it->object.get();
   }
 
   // Evicts the entire cache.
