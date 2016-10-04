@@ -92,5 +92,18 @@ TEST_F(CacheTest, EvictAll) {
   ASSERT_EQ(model, cache_.evicted_items());
 }
 
+struct CompositeValue {
+  CompositeValue(size_t a, double b) : a(a), b(b) {}
+
+  size_t a;
+  double b;
+};
+
+TEST(CompileTest, CompositeValue) {
+  LRUCache<int, CompositeValue> cache(kCacheSize);
+  cache.Emplace(1, 2ul, 3.0);
+  cache.EvictAll();
+}
+
 }  // namespace
 }  // namespace ncode

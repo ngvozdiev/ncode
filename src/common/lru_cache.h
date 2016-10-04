@@ -42,7 +42,7 @@ class LRUCache {
     // Insertion took place. Need to add the key to the front of the list and
     // actually construct the value.
     keys_.emplace_front(key);
-    object_and_list_it.object = make_unique<V>(std::forward<Args...>(args...));
+    object_and_list_it.object = make_unique<V>(args...);
     object_and_list_it.iterator = keys_.begin();
     return *object_and_list_it.object;
   }
@@ -77,7 +77,10 @@ class LRUCache {
   }
 
   // Called when an item is evicted from the cache.
-  virtual void ItemEvicted(const K& key, std::unique_ptr<V> value) = 0;
+  virtual void ItemEvicted(const K& key, std::unique_ptr<V> value) {
+    Unused(key);
+    Unused(value);
+  };
 
  private:
   using LRUList = std::list<K>;
