@@ -38,8 +38,8 @@ void PcapPacketGen::HandleTCP(pcap::Timestamp timestamp,
   }
 
   SeqNum seq_num(ntohl(tcp_header.th_seq));
-  auto packet = make_unique<TCPPacket>(
-      five_tuple, size, GetEventQueueTime(timestamp), seq_num);
+  auto packet = make_unique<TCPPacket>(five_tuple, size,
+                                       GetEventQueueTime(timestamp), seq_num);
   packet->set_id(ntohs(ip_header.ip_id));
   packet->set_flags(tcp_header.th_flags);
   packet->set_payload(payload_len);
@@ -56,14 +56,14 @@ void PcapPacketGen::HandleUDP(pcap::Timestamp timestamp,
   net::AccessLayerPort src_port(ntohs(udp_header.uh_sport));
   net::AccessLayerPort dst_port(ntohs(udp_header.uh_dport));
   size_t size = ntohs(ip_header.ip_len);
-  net::FiveTuple five_tuple(src_address, dst_address, net::kProtoTCP, src_port,
+  net::FiveTuple five_tuple(src_address, dst_address, net::kProtoUDP, src_port,
                             dst_port);
   if (Ignore(five_tuple)) {
     return;
   }
 
-  auto packet = make_unique<UDPPacket>(five_tuple, size,
-                                               GetEventQueueTime(timestamp));
+  auto packet =
+      make_unique<UDPPacket>(five_tuple, size, GetEventQueueTime(timestamp));
   packet->set_id(ntohs(ip_header.ip_id));
   packet->set_payload(payload_len);
   packet->set_ttl(ip_header.ip_ttl);
@@ -84,8 +84,7 @@ PacketPtr PcapPacketGen::NextPacket() {
   return std::move(pending_packet_);
 }
 
-EventQueueTime PcapPacketGen::GetEventQueueTime(
-    pcap::Timestamp timestamp) {
+EventQueueTime PcapPacketGen::GetEventQueueTime(pcap::Timestamp timestamp) {
   // The first packet from the trace will arrive at 0, and all other packets
   // will be offset accordingly.
   EventQueueTime now = EventQueueTime::ZeroTime();
@@ -125,7 +124,7 @@ void PcapPacketGen::EnableDownscaling(size_t n, size_t index) {
   downscale_rule_ = make_unique<MatchRule>(dummy_key);
   for (size_t i = 0; i < n; ++i) {
     auto action = make_unique<MatchRuleAction>(net::DevicePortNumber(i),
-                                                       kWildPacketTag, 1);
+                                               kWildPacketTag, 1);
     downscale_rule_->AddAction(std::move(action));
   }
 }
