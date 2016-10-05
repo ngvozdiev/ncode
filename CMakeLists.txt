@@ -166,7 +166,7 @@ PROTOBUF_GENERATE_CPP(PROTO_NET_SRCS PROTO_NET_HDRS src/net/net.proto)
 set_property(SOURCE ${PROTO_NET_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS "-Wno-extended-offsetof")
 set(NET_HEADER_FILES src/net/net_common.h src/net/net_gen.h src/net/pcap.h ${PROTO_NET_HDRS})
 add_library(ncode_net STATIC src/net/net_common.cc src/net/net_gen.cc src/net/pcap.cc ${PROTO_NET_SRCS} ${NET_HEADER_FILES})
-target_link_libraries(ncode_net ${PROTOBUF_LIBRARIES} ncode_common)
+target_link_libraries(ncode_net ${PCAP_LIBRARY} ${PROTOBUF_LIBRARIES} ncode_common)
 
 add_test_exec(net_common_test src/net/net_common_test.cc ncode_net)
 add_test_exec(net_gen_test src/net/net_gen_test.cc ncode_net)
@@ -238,7 +238,7 @@ add_test_exec(lp_mc_flow_test src/lp/mc_flow_test.cc ncode_lp)
 ################################
 set(HTSIM_HEADER_FILES src/htsim/packet.h src/htsim/queue.h src/htsim/match.h src/htsim/udp.h src/htsim/tcp.h src/htsim/network.h src/htsim/flow_driver.h src/htsim/pcap_consumer.h src/htsim/htsim.h src/htsim/bulk_gen.h src/htsim/animator.h)
 add_library(ncode_htsim STATIC src/htsim/packet.cc src/htsim/queue.cc src/htsim/match.cc src/htsim/udp.cc src/htsim/tcp.cc src/htsim/network.cc src/htsim/flow_driver.cc src/htsim/pcap_consumer.cc src/htsim/bulk_gen.cc src/htsim/animator.cc)
-target_link_libraries(ncode_htsim ${PCAP_LIBRARY} ncode_net ncode_metrics)
+target_link_libraries(ncode_htsim ncode_net ncode_metrics)
 
 # Test .pcap file needed by the pcap_consumer test
 file(COPY data/pcap_test_data DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
