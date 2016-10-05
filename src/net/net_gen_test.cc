@@ -23,18 +23,18 @@ TEST(HE, Generate) {
     ASSERT_EQ(kBandwidth, link.bandwidth_bps());
 
     // All links should have src and dst ports set to positive numbers.
-    ASSERT_LT(0, link.src_port());
-    ASSERT_LT(0, link.dst_port());
+    ASSERT_LT(0ul, link.src_port());
+    ASSERT_LT(0ul, link.dst_port());
   }
 
-  ASSERT_EQ(31, endpoints.size());
+  ASSERT_EQ(31ul, endpoints.size());
   ASSERT_EQ(3, net_pb.clusters_size());
 
   size_t total = 0;
   for (const auto& cluster : net_pb.clusters()) {
     total += cluster.nodes_size();
   }
-  ASSERT_EQ(31, total);
+  ASSERT_EQ(31ul, total);
 }
 
 TEST(HE, GenerateDelayAdd) {
@@ -89,7 +89,7 @@ TEST(Ladder, MultiLevel) {
     nodes.emplace(link.dst());
   }
 
-  ASSERT_EQ(20 + 18, nodes.size());
+  ASSERT_EQ(20ul + 18ul, nodes.size());
 }
 
 }  // namespace net

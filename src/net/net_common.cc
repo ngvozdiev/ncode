@@ -553,5 +553,17 @@ std::string GraphLink::ToString() const {
                     link_pb_.dst(), link_pb_.dst_port());
 }
 
+PBGraphLink* FindEdgeOrDie(const std::string& src, const std::string& dst,
+                           PBNet* net) {
+  for (PBGraphLink& link : *net->mutable_links()) {
+    if (link.src() == src && link.dst() == dst) {
+      return &link;
+    }
+  }
+
+  LOG(FATAL) << "No edge from " << src << " to " << dst;
+  return nullptr;
+}
+
 }  // namespace net
 }  // namespace ncode

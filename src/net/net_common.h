@@ -63,6 +63,10 @@ void AddBiEdgesToGraph(
     const std::vector<std::pair<std::string, std::string>>& edges,
     std::chrono::microseconds delay, uint64_t bw_bps, PBNet* graph);
 
+// Finds the edge between a source and a destination.
+PBGraphLink* FindEdgeOrDie(const std::string& src, const std::string& dst,
+                           PBNet* graph);
+
 // Returns a set with the nodes that are in the same cluster as 'node'. If
 // 'node' is not in any cluster will die. If it is alone in a cluster will
 // return an empty set.

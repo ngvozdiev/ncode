@@ -263,8 +263,8 @@ TEST_F(LinkStorageTest, FindInverse) {
 
 TEST(LinkSequence, Empty) {
   LinkSequence link_sequence;
-  ASSERT_EQ(0, link_sequence.size());
-  ASSERT_LT(0, link_sequence.InMemBytesEstimate());
+  ASSERT_EQ(0ul, link_sequence.size());
+  ASSERT_LT(0ul, link_sequence.InMemBytesEstimate());
   ASSERT_TRUE(link_sequence.empty());
   ASSERT_EQ("[]", link_sequence.ToString());
 }
@@ -274,8 +274,8 @@ TEST_F(LinkStorageTest, LinkSequenceSingleLink) {
   Links links = {link};
 
   LinkSequence link_sequence(links);
-  ASSERT_EQ(1, link_sequence.size());
-  ASSERT_LT(8, link_sequence.InMemBytesEstimate());
+  ASSERT_EQ(1ul, link_sequence.size());
+  ASSERT_LT(8ul, link_sequence.InMemBytesEstimate());
   ASSERT_FALSE(link_sequence.empty());
   ASSERT_EQ(Substitute("[$0]", link->ToString()), link_sequence.ToString());
   ASSERT_EQ("[A->B]", link_sequence.ToStringNoPorts());
@@ -317,7 +317,7 @@ class PathStorageTest : public ::testing::Test {
 TEST_F(PathStorageTest, Empty) {
   ASSERT_EQ("", storage_.DumpPaths());
   ASSERT_NE(nullptr, storage_.EmptyPath());
-  ASSERT_EQ(0, storage_.EmptyPath()->size());
+  ASSERT_EQ(0ul, storage_.EmptyPath()->size());
 }
 
 TEST_F(PathStorageTest, EmptyPathFromString) {
@@ -434,13 +434,13 @@ TEST(IPRange, BadRanges) {
 
 TEST(IPRange, Slash32) {
   IPRange ip_range("1.2.3.4/32");
-  ASSERT_EQ(32, ip_range.mask_len());
+  ASSERT_EQ(32ul, ip_range.mask_len());
   ASSERT_EQ(StringToIPOrDie("1.2.3.4"), ip_range.base_address());
 }
 
 TEST(IPRange, Slash16) {
   IPRange ip_range("1.2.3.4/16");
-  ASSERT_EQ(16, ip_range.mask_len());
+  ASSERT_EQ(16ul, ip_range.mask_len());
   ASSERT_EQ(StringToIPOrDie("1.2.0.0"), ip_range.base_address());
 }
 
