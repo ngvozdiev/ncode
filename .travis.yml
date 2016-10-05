@@ -48,12 +48,11 @@ matrix:
 
 before_install:
   - sudo apt-get update -qq
-  - sudo apt-get install -y libprotobuf-dev
   - sudo apt-get install -y libpcap-dev
-  - sudo apt-get install -y protobuf-compiler
   - sudo apt-get install -y libglpk-dev
   - sudo apt-get install -y glpk-utils
   - ./install_ctemplate.sh
+  - ./install_protobuf.sh
 script:
   - mkdir build
   - cd build
