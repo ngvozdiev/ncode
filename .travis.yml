@@ -53,7 +53,7 @@ before_install:
   - sudo apt-get install -y protobuf-compiler
   - sudo apt-get install -y libglpk-dev
   - sudo apt-get install -y glpk-utils
-  - ./install-ctemplate.sh
+  - ./install_ctemplate.sh
 script:
   - mkdir build
   - cd build
