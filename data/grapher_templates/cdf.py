@@ -8,7 +8,7 @@ def PlotCDF(x, label):
 
 for filename, label in {{files_and_labels}}:
     data = np.loadtxt(filename)
-    PlotCDF(data, label)
+    PlotCDF(data, label=label)
 
 plt.title('{{title}}')
 plt.xlabel('{{xlabel}}')
