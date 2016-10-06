@@ -90,6 +90,30 @@ TEST_F(CacheTest, EvictAll) {
   ASSERT_EQ(model, cache_.evicted_items());
 }
 
+TEST_F(CacheTest, InsertNew) {
+  cache_.Emplace(10, 10.0);
+  cache_.InsertNew(10, 11.0);
+  cache_.EvictAll();
+
+  std::vector<std::pair<int, double>> model = {{10, 10.0}, {10, 11.0}};
+  ASSERT_EQ(model, cache_.evicted_items());
+}
+
+TEST_F(CacheTest, LeastRecentInsertNew) {
+  for (size_t i = 0; i < kCacheSize; ++i) {
+    cache_.Emplace(i, 10.0 + i);
+  }
+
+  cache_.InsertNew(0, 1000.0);
+  cache_.Emplace(kCacheSize, 10.0 + kCacheSize);
+
+  // The call to InsertNew should have evicted (0,10.0) and replaced it with (0,
+  // 1000.0). The call to Emplace then should have overflown the cache and the
+  // least recently accessed item (1, 11.0) should have been evicted.
+  std::vector<std::pair<int, double>> model = {{0, 10.0}, {1, 11.0}};
+  ASSERT_EQ(model, cache_.evicted_items());
+}
+
 struct CompositeValue {
   CompositeValue(size_t a, double b) : a(a), b(b) {}
 

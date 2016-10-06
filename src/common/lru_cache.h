@@ -47,6 +47,27 @@ class LRUCache {
     return *object_and_list_it.object;
   }
 
+  // Like Emplace, but always constructs a new entry and evicts the entry that
+  // has the same key (if any).
+  template <class... Args>
+  V& InsertNew(const K& key, Args&&... args) {
+    ObjectAndListIterator& object_and_list_it = cache_map_[key];
+    if (object_and_list_it.object) {
+      // Will evict the current entry.
+      std::unique_ptr<V> to_evict_value = std::move(object_and_list_it.object);
+      ItemEvicted(key, std::move(to_evict_value));
+
+      typename LRUList::iterator list_it = object_and_list_it.iterator;
+      keys_.splice(keys_.begin(), keys_, list_it);
+    } else {
+      keys_.emplace_front(key);
+      object_and_list_it.iterator = keys_.begin();
+    }
+
+    object_and_list_it.object = make_unique<V>(args...);
+    return *object_and_list_it.object;
+  }
+
   V* FindOrNull(const K& key) {
     ObjectAndListIterator* object_and_list_it =
         ncode::FindOrNull(cache_map_, key);
