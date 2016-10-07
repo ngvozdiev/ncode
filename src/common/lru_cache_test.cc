@@ -114,6 +114,16 @@ TEST_F(CacheTest, LeastRecentInsertNew) {
   ASSERT_EQ(model, cache_.evicted_items());
 }
 
+TEST_F(CacheTest, LeastRecentInsertNewOverflow) {
+  for (size_t i = 0; i < kCacheSize; ++i) {
+    cache_.InsertNew(i, 10.0 + i);
+  }
+
+  cache_.InsertNew(kCacheSize, 10.0 + kCacheSize);
+  std::vector<std::pair<int, double>> model = {{0, 10.0}};
+  ASSERT_EQ(model, cache_.evicted_items());
+}
+
 struct CompositeValue {
   CompositeValue(size_t a, double b) : a(a), b(b) {}
 

@@ -60,6 +60,12 @@ class LRUCache {
       typename LRUList::iterator list_it = object_and_list_it.iterator;
       keys_.splice(keys_.begin(), keys_, list_it);
     } else {
+      // A new entry was created -- need to check if we have overstepped the
+      // size limit.
+      if (cache_map_.size() > max_cache_size_) {
+        EvictOldest();
+      }
+
       keys_.emplace_front(key);
       object_and_list_it.iterator = keys_.begin();
     }
