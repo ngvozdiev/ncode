@@ -39,7 +39,7 @@ TEST(Percentiles, RandomValue) {
   double med = values[kMillion / 2];
 
   std::vector<double> percentiles = Percentiles(&values);
-  ASSERT_EQ(101, percentiles.size());
+  ASSERT_EQ(101ul, percentiles.size());
   ASSERT_EQ(min, percentiles.front());
   ASSERT_EQ(max, percentiles.back());
   ASSERT_EQ(med, percentiles[50]);
@@ -52,7 +52,7 @@ TEST(Percentiles, RandomValueTenPercentiles) {
   }
 
   std::vector<double> percentiles = Percentiles(&values, 10);
-  ASSERT_EQ(11, percentiles.size());
+  ASSERT_EQ(11ul, percentiles.size());
 }
 
 TEST(Bin, BadArgument) {
@@ -149,12 +149,12 @@ TEST(Distribution, RandomValueTenPercentiles) {
   std::vector<double> cs = CumulativeSumFractions(&values, 10);
   ASSERT_EQ(percentiles, distribution.quantiles());
   ASSERT_EQ(cs, distribution.cumulative_fractions());
-  ASSERT_EQ(10, distribution.top_n().size());
+  ASSERT_EQ(10ul, distribution.top_n().size());
 }
 
 TEST(SummaryStats, NoElements) {
   SummaryStats summary_stats;
-  ASSERT_EQ(0, summary_stats.count());
+  ASSERT_EQ(0ul, summary_stats.count());
   ASSERT_DEATH(summary_stats.mean(), ".*");
   ASSERT_DEATH(summary_stats.std(), ".*");
   ASSERT_DEATH(summary_stats.var(), ".*");
@@ -164,10 +164,10 @@ TEST(SummaryStats, SingleElement) {
   SummaryStats summary_stats;
   summary_stats.Add(1.0);
 
-  ASSERT_EQ(1, summary_stats.count());
-  ASSERT_EQ(1, summary_stats.mean());
-  ASSERT_EQ(0, summary_stats.std());
-  ASSERT_EQ(0, summary_stats.var());
+  ASSERT_EQ(1ul, summary_stats.count());
+  ASSERT_EQ(1ul, summary_stats.mean());
+  ASSERT_EQ(0ul, summary_stats.std());
+  ASSERT_EQ(0ul, summary_stats.var());
 }
 
 TEST(SummaryStats, Overflow) {
@@ -431,6 +431,66 @@ TEST(TimeoutEnforcer, SingleKeyPenaltyCumulative) {
 
   // 700 is 100 (base) + 200 (penalty) from the last update (400).
   ASSERT_EQ(std::vector<int>({1}), timeout_enforcer.Timeout(700));
+}
+
+TEST(EmpiricalFunction, NoValues) {
+  ASSERT_DEATH(Empirical2DFunction tmp_one({}, Empirical2DFunction::NEARERST),
+               ".*");
+  ASSERT_DEATH(
+      Empirical2DFunction tmp_two({}, {}, Empirical2DFunction::NEARERST), ".*");
+}
+
+TEST(EmpiricalFunction, BadValueCount) {
+  ASSERT_DEATH(Empirical2DFunction tmp_one({10.0}, {11.0, 12.0},
+                                           Empirical2DFunction::NEARERST),
+               ".*");
+  ASSERT_DEATH(Empirical2DFunction tmp_two({10.0, 12.0}, {11.0},
+                                           Empirical2DFunction::NEARERST),
+               ".*");
+}
+
+TEST(EmpiricalFunction, Extrapolate) {
+  Empirical2DFunction f({10.0}, {11.0}, Empirical2DFunction::NEARERST);
+  ASSERT_EQ(11.0, f.Eval(10.0));
+  ASSERT_EQ(11.0, f.Eval(9.99));
+  f.SetLowFillValue(3.0);
+  ASSERT_EQ(3.0, f.Eval(9.99));
+
+  ASSERT_EQ(11.0, f.Eval(10.01));
+  f.SetHighFillValue(300.0);
+  ASSERT_EQ(300.0, f.Eval(10.01));
+
+  Empirical2DFunction f2({10.0}, {11.0}, Empirical2DFunction::LINEAR);
+  ASSERT_EQ(11.0, f2.Eval(10.01));
+  ASSERT_EQ(11.0, f2.Eval(10));
+  ASSERT_EQ(11.0, f2.Eval(9.99));
+}
+
+TEST(EmpiricalFunction, NearestMultiValues) {
+  Empirical2DFunction f({10.0, 15.0}, {100.0, 200.0},
+                        Empirical2DFunction::NEARERST);
+  ASSERT_EQ(100.0, f.Eval(10.0));
+  ASSERT_EQ(200.0, f.Eval(15.0));
+  ASSERT_EQ(100.0, f.Eval(11.0));
+  ASSERT_EQ(100.0, f.Eval(12.0));
+  ASSERT_EQ(100.0, f.Eval(12.4999));
+  ASSERT_EQ(200.0, f.Eval(12.5001));
+  ASSERT_EQ(200.0, f.Eval(13.0));
+  ASSERT_EQ(200.0, f.Eval(14.0));
+}
+
+TEST(EmpiricalFunction, LinearMultiValues) {
+  Empirical2DFunction f({10.0, 15.0, -4.0}, {100.0, 200.0, -500.0},
+                        Empirical2DFunction::LINEAR);
+  for (double x = 10.0; x < 15.0; x += 0.01) {
+    double model = 100 + (x - 10.0) / (15.0 - 10.0) * (200.0 - 100.0);
+    ASSERT_NEAR(model, f.Eval(x), 0.00000001);
+  }
+
+  for (double x = -4.0; x < 10.0; x += 0.01) {
+    double model = -500.0 + (x + 4.0) / (4.0 + 10.0) * (100.0 + 500.0);
+    ASSERT_NEAR(model, f.Eval(x), 0.00000001);
+  }
 }
 
 }  // namespace

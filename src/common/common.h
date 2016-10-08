@@ -347,6 +347,46 @@ class SummaryStats {
   double max_;
 };
 
+// A 2 dimensional empirical function. Can be used to interpolate values.
+class Empirical2DFunction {
+ public:
+  // The type of interpolation to use.
+  enum Interpolation {
+    NEARERST = 0,
+    LINEAR = 1,
+  };
+
+  Empirical2DFunction(const std::vector<std::pair<double, double>>& values,
+                      Interpolation interpolation);
+  Empirical2DFunction(const std::vector<double>& xs,
+                      const std::vector<double>& ys,
+                      Interpolation interpolation);
+
+  // Value to be returned by Eval for x which is less than the data point with
+  // min x. If this is not called the closest point is always returned when
+  // extrapolating below the data range.
+  void SetLowFillValue(double value);
+
+  // Value to be returned by Eval for x which is more than the data point with
+  // max x. If this is not called the closest point is always returned when
+  // extrapolating above the data range.
+  void SetHighFillValue(double value);
+
+  // Returns the Y for a given X. If x is not in the original points the value
+  // of Y will be interpolated. If x is outside the domain of
+  double Eval(double x);
+
+ private:
+  Interpolation interpolation_type_;
+
+  bool low_fill_value_set_;
+  double low_fill_value_;
+  bool high_fill_value_set_;
+  double high_fill_value_;
+
+  std::map<double, double> values_;
+};
+
 // Basic distribution information about a series of numbers.
 template <typename T>
 class Distribution {

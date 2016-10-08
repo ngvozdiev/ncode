@@ -237,11 +237,6 @@ inline std::vector<std::string> Split(const std::string& full,
   return result;
 }
 
-// Like Split, but the delimiter is a string instead of char.
-void SplitStringDelimiter(const std::string& string_to_split,
-                          const std::string& delim,
-                          std::vector<std::string>* elems);
-
 // ----------------------------------------------------------------------
 // JoinStrings()
 //    These methods concatenate a vector of strings into a C++ string, using

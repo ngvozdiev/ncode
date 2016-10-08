@@ -216,13 +216,11 @@ const GraphPath* PathStorage::PathFromString(const std::string& path_string,
     return empty_path_.get();
   }
 
-  std::vector<std::string> edge_strings;
+  std::vector<std::string> edge_strings = Split(inner, ", ");
   Links links;
 
-  SplitStringDelimiter(inner, ", ", &edge_strings);
   for (const auto& edge_string : edge_strings) {
-    std::vector<std::string> src_and_dst;
-    SplitStringDelimiter(edge_string, "->", &src_and_dst);
+    std::vector<std::string> src_and_dst = Split(edge_string, "->");
 
     CHECK(src_and_dst.size() == 2) << "Path string malformed: " << path_string;
     std::string src = src_and_dst[0];

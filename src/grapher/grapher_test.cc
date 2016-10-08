@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "grapher.h"
+#include "../common/file.h"
 
 namespace ncode {
 namespace grapher {
@@ -36,16 +37,55 @@ using ReturnVector = std::vector<std::pair<DummyKey, std::vector<double>>>;
 
 static constexpr DummyKey kDefaultDummyKey = DummyKey();
 
-TEST(PlotCDF, SimpleCDF) {
+TEST(HtmlOutput, SimpleCDF) {
   PlotParameters1D plot_params;
-  DataSeries1D data_series;
-  data_series.data = {1.0, 2.0, 4.0, 3.0, 5.0};
+  plot_params.title = "CDF Test";
+  plot_params.data_label = "some units";
+  plot_params.scale = 10.0;
+
+  DataSeries1D data_series_one;
+  data_series_one.data = {1.0, 4.0, 2.0, 3.0, 2.0, 10.0};
+  data_series_one.label = "data_one";
+
+  DataSeries1D data_series_two;
+  data_series_two.data = {0.0, 3.0, 1.0, 2.0, 1.0, 9.0};
+  data_series_two.label = "data_two";
+
+  web::HtmlPage html_page;
+  HtmlGrapher html_grapher(&html_page);
+  html_grapher.PlotCDF(plot_params, {data_series_one, data_series_two});
+
+  ASSERT_EQ(File::ReadFileToStringOrDie(
+                "../data/html_grapher_test_data/cdf_test.html"),
+            html_page.Construct());
+}
+
+TEST(HtmlOutput, StackedPlot) {
+  PlotParameters2D plot_params;
+  plot_params.title = "Stacked Plot Test";
+  plot_params.x_label = "some units";
+  plot_params.y_label = "other units";
+  plot_params.x_scale = 2.0;
+  plot_params.y_scale = 3.0;
+
+  DataSeries2D data_series_one;
+  data_series_one.data = {{1.0, 10.0}, {2.0, 15.0}, {3.1, 4.0}, {5.0, 10}};
+  data_series_one.label = "data_one";
+
+  DataSeries2D data_series_two;
+  data_series_two.data = {{1.0, 1.0}, {2.1, 2.0}, {3, 4.0}, {5.0, 10}};
+  data_series_two.label = "data_two";
 
   web::HtmlPage html_page;
   HtmlGrapher html_grapher(&html_page);
 
-  html_grapher.PlotCDF(plot_params, {data_series});
-  ASSERT_TRUE(html_page.Construct().find("1,2,3,4,5") != std::string::npos);
+  std::vector<double> xs = {1, 2, 3, 4, 5, 6};
+  html_grapher.PlotStackedArea(plot_params, xs,
+                               {data_series_one, data_series_two});
+
+  ASSERT_EQ(File::ReadFileToStringOrDie(
+                "../data/html_grapher_test_data/stacked_plot_test.html"),
+            html_page.Construct());
 }
 
 void CheckForKey(const ReturnVector& return_vector, const DummyKey& key,
@@ -79,11 +119,11 @@ TEST(PerPeriodClassifier, SingleKeySingleDatum) {
   ranker_10.AddData(DummyKey(1), TestSequence({{0, 10}}));
 
   ReturnVector out = ranker_0.GetTopN(kDefaultDummyKey);
-  ASSERT_EQ(1, out.size());
+  ASSERT_EQ(1ul, out.size());
   CheckForKey(out, kDefaultDummyKey, {10});
 
   out = ranker_1.GetTopN(kDefaultDummyKey);
-  ASSERT_EQ(1, out.size());
+  ASSERT_EQ(1ul, out.size());
   CheckForKey(out, DummyKey(1), {10});
 
   ReturnVector out_two = ranker_10.GetTopN(kDefaultDummyKey);
@@ -95,7 +135,7 @@ TEST(PerPeriodClassifier, SingleKeySingleDatumGap) {
   ranker.AddData(DummyKey(1), TestSequence({{9, 10}}));
 
   ReturnVector out = ranker.GetTopN(kDefaultDummyKey);
-  ASSERT_EQ(1, out.size());
+  ASSERT_EQ(1ul, out.size());
   CheckForKey(out, DummyKey(1), {0, 0, 0, 0, 0, 0, 0, 0, 0, 10});
 }
 
@@ -104,7 +144,7 @@ TEST(PerPeriodClassifier, SingleKeySamePeriod) {
   ranker.AddData(DummyKey(1), TestSequence({{0, 10}, {0, 20}}));
 
   ReturnVector out = ranker.GetTopN(kDefaultDummyKey);
-  ASSERT_EQ(1, out.size());
+  ASSERT_EQ(1ul, out.size());
   CheckForKey(out, DummyKey(1), {20 + 10});
 }
 
@@ -120,16 +160,16 @@ TEST(PerPeriodClassifier, MultiKey) {
   ranker_10.AddData(DummyKey(2), TestSequence({{0, 20}}));
 
   ReturnVector out = ranker_0.GetTopN(kDefaultDummyKey);
-  ASSERT_EQ(1, out.size());
+  ASSERT_EQ(1ul, out.size());
   CheckForKey(out, kDefaultDummyKey, {20 + 10});
 
   out = ranker_1.GetTopN(kDefaultDummyKey);
-  ASSERT_EQ(2, out.size());
+  ASSERT_EQ(2ul, out.size());
   CheckForKey(out, kDefaultDummyKey, {10});
   CheckForKey(out, DummyKey(2), {20});
 
   out = ranker_10.GetTopN(kDefaultDummyKey);
-  ASSERT_EQ(2, out.size());
+  ASSERT_EQ(2ul, out.size());
   CheckForKey(out, DummyKey(1), {10});
   CheckForKey(out, DummyKey(2), {20});
 }
@@ -150,18 +190,18 @@ TEST(PerPeriodClassifier, MultiKeyLocalRank0) {
   r4.AddData(DummyKey(2), TestSequence({{12, 20}}));
 
   ReturnVector out = r1.GetTopN(kDefaultDummyKey);
-  ASSERT_EQ(0, out.size());
+  ASSERT_EQ(0ul, out.size());
 
   out = r2.GetTopN(kDefaultDummyKey);
-  ASSERT_EQ(1, out.size());
+  ASSERT_EQ(1ul, out.size());
   CheckForKey(out, kDefaultDummyKey, {20});
 
   // Range is exclusive of last element -- like in a for loop.
   out = r3.GetTopN(kDefaultDummyKey);
-  ASSERT_EQ(0, out.size());
+  ASSERT_EQ(0ul, out.size());
 
   out = r4.GetTopN(kDefaultDummyKey);
-  ASSERT_EQ(0, out.size());
+  ASSERT_EQ(0ul, out.size());
 }
 
 TEST(PerPeriodClassifier, MultiKeyLocalRank1) {
@@ -170,7 +210,7 @@ TEST(PerPeriodClassifier, MultiKeyLocalRank1) {
   r1.AddData(DummyKey(2), TestSequence({{12, 20}}));
 
   ReturnVector out = r1.GetTopN(kDefaultDummyKey);
-  ASSERT_EQ(2, out.size());
+  ASSERT_EQ(2ul, out.size());
   CheckForKey(out, kDefaultDummyKey, {0, 10, 0, 0});
   CheckForKey(out, DummyKey(2), {0, 0, 0, 20});
 }
@@ -181,7 +221,7 @@ TEST(PerPeriodClassifier, MultiKeyLocalRank2) {
   r1.AddData(DummyKey(2), TestSequence({{12, 20}}));
 
   ReturnVector out = r1.GetTopN(kDefaultDummyKey);
-  ASSERT_EQ(2, out.size());
+  ASSERT_EQ(2ul, out.size());
   CheckForKey(out, DummyKey(1), {10, 0, 0});
   CheckForKey(out, DummyKey(2), {0, 0, 20});
 }
@@ -196,7 +236,7 @@ TEST(PerPeriodClassifier, MultiValue) {
                  TestSequence({{5, 45}, {10, 10}, {11, 12}, {13, 13}}));
 
   ReturnVector out = ranker.GetTopN(kDefaultDummyKey);
-  ASSERT_EQ(1, out.size());
+  ASSERT_EQ(1ul, out.size());
   CheckForKey(out, DummyKey(1), {0, 0, 0, 0, 0, 45, 0, 0, 0, 0, 10, 12, 0, 13});
 }
 

@@ -81,6 +81,12 @@ class Grapher {
   virtual void PlotLine(const PlotParameters2D& plot_params,
                         const std::vector<DataSeries2D>& series) = 0;
 
+  // A stacked plot. The data series will be interpolated (linearly) at the
+  // given points (xs) and a stacked plot will be produced.
+  virtual void PlotStackedArea(const PlotParameters2D& plot_params,
+                               const std::vector<double>& xs,
+                               const std::vector<DataSeries2D>& series) = 0;
+
   // 1D data grouped in categories. All series should be the same
   // length (L) and the number of categories should be L.
   virtual void PlotBar(const PlotParameters1D& plot_params,
@@ -110,6 +116,10 @@ class HtmlGrapher : public Grapher {
   void PlotBar(const PlotParameters1D& plot_params,
                const std::vector<std::string>& categories,
                const std::vector<DataSeries1D>& series) override;
+
+  void PlotStackedArea(const PlotParameters2D& plot_params,
+                       const std::vector<double>& xs,
+                       const std::vector<DataSeries2D>& series) override;
 
   void set_max_values(size_t max_values) { max_values_ = max_values; }
 
@@ -142,6 +152,10 @@ class PythonGrapher : public Grapher {
   void PlotBar(const PlotParameters1D& plot_params,
                const std::vector<std::string>& categories,
                const std::vector<DataSeries1D>& series) override;
+
+  void PlotStackedArea(const PlotParameters2D& plot_params,
+                       const std::vector<double>& xs,
+                       const std::vector<DataSeries2D>& series) override;
 
  private:
   // Directory where the scripts will be saved.

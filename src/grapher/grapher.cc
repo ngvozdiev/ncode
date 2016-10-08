@@ -178,6 +178,58 @@ void HtmlGrapher::PlotLine(const PlotParameters2D& plot_params,
   ++id_;
 }
 
+void HtmlGrapher::PlotStackedArea(const PlotParameters2D& plot_params,
+                                  const std::vector<double>& xs,
+                                  const std::vector<DataSeries2D>& series) {
+  page_->AddScript(kPlotlyJS);
+  std::string* b = page_->body();
+
+  std::string div_id = Substitute("$0_$1", graph_id_prefix_, id_);
+  std::string div = Substitute("<div id=\"$0\"></div>", div_id);
+  StrAppend(b, div);
+
+  std::string script = "<script>";
+  std::vector<std::string> var_names;
+
+  std::vector<DataSeries2D> processed_series =
+      Preprocess2DData(plot_params, series);
+
+  size_t num_points = xs.size();
+  std::vector<double> scaled_xs = xs;
+  for (size_t i = 0; i < num_points; ++i) {
+    scaled_xs[i] *= plot_params.x_scale;
+  }
+
+  std::vector<double> ys_cumulative(num_points, 0.0);
+  for (size_t i = 0; i < processed_series.size(); ++i) {
+    std::vector<std::pair<double, double>>& data = processed_series[i].data;
+    Empirical2DFunction f(data, Empirical2DFunction::LINEAR);
+
+    for (size_t point_index = 0; point_index < num_points; ++point_index) {
+      double x = scaled_xs[point_index];
+      ys_cumulative[point_index] += f.Eval(x);
+    }
+
+    std::string var_name = Substitute("data_$0", i);
+    var_names.push_back(var_name);
+
+    std::string fill_type = i == 0 ? "tozeroy" : "tonexty";
+    std::string series_string =
+        Substitute("var $0 = {x: [$1], y: [$2], fill:'$3', name:'$4'};",
+                   var_name, Join(scaled_xs, ","), Join(ys_cumulative, ","),
+                   fill_type, series[i].label);
+    StrAppend(&script, series_string);
+  }
+
+  StrAppend(&script, Plotly2DLayoutString(plot_params));
+  StrAppend(&script, "var data = [", Join(var_names, ","), "];",
+            Substitute("Plotly.newPlot('$0', data, layout);", div_id));
+  StrAppend(&script, "</script>");
+  StrAppend(b, script);
+
+  ++id_;
+}
+
 void HtmlGrapher::PlotCDF(const PlotParameters1D& plot_params,
                           const std::vector<DataSeries1D>& series) {
   std::vector<DataSeries2D> series_2d;
@@ -376,6 +428,15 @@ void PythonGrapher::PlotBar(const PlotParameters1D& plot_params,
                                   ctemplate::DO_NOT_STRIP, dictionary.get(),
                                   &script));
   File::WriteStringToFileOrDie(script, StrCat(output_dir_, "/plot.py"));
+}
+
+void PythonGrapher::PlotStackedArea(const PlotParameters2D& plot_params,
+                                    const std::vector<double>& xs,
+                                    const std::vector<DataSeries2D>& series) {
+  LOG(ERROR) << "Not implemented yet";
+  Unused(plot_params);
+  Unused(xs);
+  Unused(series);
 }
 
 PythonGrapher::PythonGrapher(const std::string& output_dir)

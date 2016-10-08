@@ -260,20 +260,6 @@ static inline void SplitStringToIteratorAllowEmpty(const StringType &full,
   *result++ = full.substr(begin_index);
 }
 
-void SplitStringDelimiter(const std::string &string_to_split,
-                          const std::string &delim,
-                          std::vector<std::string> *elems) {
-  size_t start = 0;
-  size_t end = string_to_split.find(delim);
-  while (end != std::string::npos) {
-    elems->push_back(string_to_split.substr(start, end - start));
-    start = end + delim.length();
-    end = string_to_split.find(delim, start);
-  }
-
-  elems->push_back(string_to_split.substr(start, end));
-}
-
 void SplitStringAllowEmpty(const std::string &full, const char *delim,
                            std::vector<std::string> *result) {
   std::back_insert_iterator<std::vector<std::string>> it(*result);
