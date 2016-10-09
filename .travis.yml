@@ -10,8 +10,8 @@ matrix:
         apt:
           sources:
             - ubuntu-toolchain-r-test
+            - 5-james-t/protobuf-ppa
 #            - george-edison55-precise-backports
-	    - 5-james-t/protobuf-ppa
           packages:
             - g++-4.9
             - cmake
@@ -31,7 +31,7 @@ matrix:
           sources:
             - ubuntu-toolchain-r-test
             - llvm-toolchain-trusty-3.6
-	    - 5-james-t/protobuf-ppa
+            - 5-james-t/protobuf-ppa
 #            - george-edison55-precise-backports
           packages:
             - clang-3.6
