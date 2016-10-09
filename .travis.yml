@@ -11,6 +11,7 @@ matrix:
           sources:
             - ubuntu-toolchain-r-test
 #            - george-edison55-precise-backports
+	    - 5-james-t/protobuf-ppa
           packages:
             - g++-4.9
             - cmake
@@ -30,6 +31,7 @@ matrix:
           sources:
             - ubuntu-toolchain-r-test
             - llvm-toolchain-trusty-3.6
+	    - 5-james-t/protobuf-ppa
 #            - george-edison55-precise-backports
           packages:
             - clang-3.6
@@ -51,8 +53,9 @@ before_install:
   - sudo apt-get install -y libpcap-dev
   - sudo apt-get install -y libglpk-dev
   - sudo apt-get install -y glpk-utils
+  - sudo apt-get install -y libprotobuf-dev
+  - sudo apt-get install -y protobuf-compiler
   - ./install_ctemplate.sh
-  - ./install_protobuf.sh
 script:
   - mkdir build
   - cd build
