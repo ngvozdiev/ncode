@@ -1624,8 +1624,13 @@ std::string StrCat(const AlphaNum &a, const AlphaNum &b, const AlphaNum &c,
 // the std::string we're appending to.  However the results of this are random.
 // Therefore, check for this in debug mode.  Use unsigned math so we only have
 // to do one comparison.
-#define DCHECK_NO_OVERLAP(dest, src) \
-  DCHECK_GT(uintptr_t((src).data() - (dest).data()), uintptr_t((dest).size()))
+#define DCHECK_NO_OVERLAP(dest, src)                     \
+  do {                                                   \
+    if (src.size()) {                                    \
+      DCHECK_GT(uintptr_t((src).data() - (dest).data()), \
+                uintptr_t((dest).size()));               \
+    }                                                    \
+  } while (0)
 
 void StrAppend(std::string *result, const AlphaNum &a) {
   DCHECK_NO_OVERLAP(*result, a);
@@ -1693,7 +1698,7 @@ int GlobalReplaceSubstring(const std::string &substring,
   int pos = 0;
   for (size_t match_pos = s->find(substring.data(), pos, substring.length());
        match_pos != std::string::npos; pos = match_pos + substring.length(),
-           match_pos = s->find(substring.data(), pos, substring.length())) {
+              match_pos = s->find(substring.data(), pos, substring.length())) {
     ++num_replacements;
     // Append the original content before the match.
     tmp.append(*s, pos, match_pos - pos);
