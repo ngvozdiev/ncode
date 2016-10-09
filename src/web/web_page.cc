@@ -74,26 +74,35 @@ void HtmlPage::AddD3() { AddScript(kD3JS); }
 
 std::string HtmlPage::Construct() const {
   std::string return_string = Substitute("$0$1", kHTMLOpenTag, kHeadOpenTag);
+  LOG(ERROR) << "A";
   StrAppend(&return_string, kTitleOpenTag, title_, kTitleCloseTag);
+  LOG(ERROR) << "B";
   StrAppend(&return_string, ConstructHead());
+  LOG(ERROR) << "C";
   StrAppend(&return_string, kHeadCloseTag, kBodyOpenTag, body_);
+  LOG(ERROR) << "D";
   StrAppend(&return_string, kBodyCloseTag, kHTMLCloseTag);
+  LOG(ERROR) << "E";
   return return_string;
 }
 
 std::string HtmlPage::ConstructHead() const {
   std::string return_string;
+  LOG(ERROR) << "A1";
   for (const auto& id_and_element : elements_in_head_) {
     StrAppend(&return_string, id_and_element.second);
   }
+  LOG(ERROR) << "A2";
   StrAppend(&return_string, head_);
 
+  LOG(ERROR) << "A3";
   for (const std::string& css_location : stylesheets_) {
     StrAppend(
         &return_string,
         Substitute("<link rel=\"stylesheet\" type=\"text/css\" href=\"$0\">",
                    css_location));
   }
+  LOG(ERROR) << "A4";
 
   for (const std::string& script_location : scripts_) {
     StrAppend(&return_string,
@@ -101,6 +110,7 @@ std::string HtmlPage::ConstructHead() const {
                          "charset=\"utf8\" src=\"$0\"></script>",
                          script_location));
   }
+  LOG(ERROR) << "A5";
 
   if (std::find(scripts_.begin(), scripts_.end(), kJQueryUIJS) !=
       scripts_.end()) {
@@ -110,6 +120,7 @@ std::string HtmlPage::ConstructHead() const {
               "active: false});} "
               ");</script>");
   }
+  LOG(ERROR) << "A6";
 
   if (std::find(scripts_.begin(), scripts_.end(), kJQueryValidators) !=
       scripts_.end()) {
@@ -117,6 +128,7 @@ std::string HtmlPage::ConstructHead() const {
         &return_string,
         "<script>$(document).ready(function() {$.validate({});});</script>");
   }
+  LOG(ERROR) << "A7";
 
   return return_string;
 }
