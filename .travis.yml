@@ -57,4 +57,5 @@ script:
   - mkdir build
   - cd build
   - cmake -DCMAKE_CXX_COMPILER=$COMPILER .. && make
-  - make test ARGS="-V"
+#  - make test ARGS="-V"
+  - ./web_page_test
