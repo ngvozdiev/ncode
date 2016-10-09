@@ -37,8 +37,8 @@ elseif(UNIX)
   set(BASE_FLAGS "${BASE_FLAGS} -pthread")
 endif()
 
-set(BASE_DEBUG_FLAGS "${BASE_FLAGS} -O1 -fno-omit-frame-pointer")
-set(BASE_OPT_FLAGS "${BASE_FLAGS} -O3 -march=native -fno-omit-frame-pointer -DNDEBUG")
+set(BASE_DEBUG_FLAGS "${BASE_FLAGS} -O0 -fno-omit-frame-pointer")
+set(BASE_OPT_FLAGS "${BASE_FLAGS} -O3 -march=native -DNDEBUG")
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${BASE_DEBUG_FLAGS}")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${BASE_OPT_FLAGS}")
