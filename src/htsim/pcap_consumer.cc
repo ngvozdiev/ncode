@@ -18,8 +18,7 @@ PcapPacketGen::PcapPacketGen(
       max_interpacket_gap_(pcap::Timestamp::max()),
       time_shift_(pcap::Timestamp::zero()),
       prev_timestamp_(pcap::Timestamp::zero()),
-      event_queue_(event_queue),
-      downscale_port_(net::DevicePortNumber::Zero()) {}
+      event_queue_(event_queue) {}
 
 void PcapPacketGen::HandleTCP(pcap::Timestamp timestamp,
                               const pcap::IPHeader& ip_header,
@@ -111,32 +110,6 @@ EventQueueTime PcapPacketGen::GetEventQueueTime(pcap::Timestamp timestamp) {
   }
 
   return now;
-}
-
-void PcapPacketGen::EnableDownscaling(size_t n, size_t index) {
-  CHECK(!downscale_rule_) << "Downscaling already enabled";
-  CHECK(index < n) << "Bad index";
-  CHECK(n > 1) << "N should be more than 1";
-
-  downscale_port_ = net::DevicePortNumber(index);
-  MatchRuleKey dummy_key(kWildPacketTag, kWildDevicePortNumber,
-                         {net::FiveTuple::kDefaultTuple});
-  downscale_rule_ = make_unique<MatchRule>(dummy_key);
-  for (size_t i = 0; i < n; ++i) {
-    auto action = make_unique<MatchRuleAction>(net::DevicePortNumber(i),
-                                               kWildPacketTag, 1);
-    downscale_rule_->AddAction(std::move(action));
-  }
-}
-
-bool PcapPacketGen::Ignore(const net::FiveTuple& five_tuple) {
-  if (!downscale_rule_) {
-    return false;
-  }
-
-  MatchRuleAction* action = downscale_rule_->ChooseOrNull(five_tuple);
-  CHECK(action != nullptr);
-  return action->output_port() != downscale_port_;
 }
 
 }  // namespace htsim

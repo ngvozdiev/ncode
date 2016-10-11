@@ -71,24 +71,6 @@ TEST_F(ConsumerTest, MultiConsume) {
   ASSERT_EQ(dummy_handler_.packet_count(), pipe_.GetStats().pkts_tx);
 }
 
-TEST_F(ConsumerTest, PartialConsume) {
-  auto pcap_source =
-      make_unique<PcapPacketGen>(std::move(source_), &event_queue_);
-  pcap_source->EnableDownscaling(10, 0);
-
-  std::vector<std::unique_ptr<BulkPacketSource>> sources;
-  sources.emplace_back(std::move(pcap_source));
-
-  BulkPacketGenerator bulk_generator("PcapPacketGen", std::move(sources),
-                                     &pipe_, &event_queue_);
-
-  // An hour should be more than the timestamp of the last packet in the file.
-  event_queue_.RunAndStopIn(std::chrono::hours(1));
-
-  // About a tenth of all packets should have been observed.
-  ASSERT_GT(1000ul, pipe_.GetStats().pkts_tx);
-}
-
 }  // namespace
 }  // namespace htsim
 }  // namespace ncode
