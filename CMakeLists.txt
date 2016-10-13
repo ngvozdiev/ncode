@@ -46,31 +46,11 @@ set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} ${BASE_LD_FLAGS
 set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_RELEASE} ${BASE_LD_FLAGS}")
 
 add_subdirectory(external/backward-cpp)
-
-# Will download gtest and make it part of the source
-include(cmake_extensions/DownloadProject.cmake)
-download_project(PROJ                googletest
-                 GIT_REPOSITORY      https://github.com/google/googletest.git
-                 GIT_TAG             master
-                 ${UPDATE_DISCONNECTED_IF_AVAILABLE}
-)
-add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR})
-
-set(GFLAGS_IS_SUBPROJECT TRUE)
-download_project(PROJ                gflags
-                 GIT_REPOSITORY      https://github.com/gflags/gflags.git
-                 GIT_TAG             master
-                 ${UPDATE_DISCONNECTED_IF_AVAILABLE}
-)
-add_subdirectory(${gflags_SOURCE_DIR} ${gflags_BINARY_DIR})
-
-# When using CMake 2.8.11 or later, header path dependencies
-# are automatically added to the gtest and gmock targets.
-# For earlier CMake versions, we have to explicitly add the
-# required directories to the header search path ourselves.
-include_directories("${gtest_SOURCE_DIR}/include"
-                     "${gmock_SOURCE_DIR}/include" 
-		     "${gflags_SOURCE_DIR}/include")
+add_subdirectory(external/googletest)
+SET(OLD_BUILD_TESTING ${BUILD_TESTING})
+SET(BUILD_TESTING False)
+add_subdirectory(external/gflags)
+SET(BUILD_TESTING ${OLD_BUILD_TESTING})
 
 # Will need protobufs, pcap and ctemplate
 set(PROTOBUF_IMPORT_DIRS ${PROJECT_SOURCE_DIR}/src/net ${PROJECT_SOURCE_DIR}/src/dfs)
@@ -139,7 +119,7 @@ create_resources("${PROJECT_SOURCE_DIR}/data/grapher_templates" "${PROJECT_BINAR
 
 macro(add_test_exec name src_file deps)
   add_executable(${name} ${src_file} ${BACKWARD_ENABLE})
-  target_link_libraries(${name} gmock_main ${deps} ${ARGN})
+  target_link_libraries(${name} gtest gmock_main ${deps} ${ARGN})
   add_test(NAME ${name} COMMAND ${name})
   add_backward(${name})
 endmacro(add_test_exec)  
@@ -186,7 +166,7 @@ add_library(ncode_dfs STATIC src/dfs/constraint.cc src/dfs/array_graph.cc src/df
 target_link_libraries(ncode_dfs ${PROTOBUF_LIBRARIES} ncode_common ncode_net)
 
 add_library(dfs_test_util STATIC src/dfs/test_fixtures.cc)
-target_link_libraries(dfs_test_util ncode_dfs)
+target_link_libraries(dfs_test_util ncode_dfs gtest)
 
 add_test_exec(dfs_constraint_test src/dfs/constraint_test.cc ncode_dfs dfs_test_util)
 add_test_exec(dfs_array_graph_test src/dfs/array_graph_test.cc ncode_dfs dfs_test_util)
@@ -214,7 +194,7 @@ add_library(ncode_metrics STATIC src/metrics/metrics.cc src/metrics/metrics_pars
 target_link_libraries(ncode_metrics ${PROTOBUF_LIBRARIES} ncode_common ncode_web gflags)
 
 add_library(metrics_test_util STATIC src/metrics/metrics_test_util.cc)
-target_link_libraries(metrics_test_util ncode_metrics)
+target_link_libraries(metrics_test_util ncode_metrics gtest)
 
 add_test_exec(metrics_test src/metrics/metrics_test.cc ncode_metrics metrics_test_util)
 add_test_exec(metrics_parser_test src/metrics/metrics_parser_test.cc ncode_metrics metrics_test_util)
