@@ -35,15 +35,16 @@ class PcapPacketGen : public BulkPacketSource, public pcap::PacketHandler {
 
   void set_max_inter_packet_gap(pcap::Timestamp gap);
 
-  // Chooses whether to ignore a 5-tuple or not, based on downscaling.
+  // Chooses whether to ignore a 5-tuple or not.
   virtual bool Ignore(const net::FiveTuple& five_tuple) {
     Unused(five_tuple);
     return false;
   }
 
  private:
-  // Converts from pcap timestamps to event queue time.
-  EventQueueTime GetEventQueueTime(pcap::Timestamp timestamp);
+  // Converts from pcap timestamps to event queue time. If the timestamps are
+  // not monotonic will return false.
+  bool GetEventQueueTime(pcap::Timestamp timestamp, EventQueueTime* time);
 
   // Reads from the .pcap file.
   pcap::OfflinePcap offline_pcap_;
@@ -67,6 +68,10 @@ class PcapPacketGen : public BulkPacketSource, public pcap::PacketHandler {
 
   // The event queue. Used when transferring timestamps.
   EventQueue* event_queue_;
+
+  // Set to true if an unrecoverable problem is encountered and we have to break
+  // out of the trace.
+  bool break_;
 };
 
 }  // namespace htsim
