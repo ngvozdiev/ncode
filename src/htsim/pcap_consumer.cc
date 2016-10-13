@@ -91,7 +91,9 @@ EventQueueTime PcapPacketGen::GetEventQueueTime(pcap::Timestamp timestamp) {
     init_timestamp_ = timestamp;
     prev_timestamp_ = timestamp;
   } else {
-    CHECK(timestamp >= prev_timestamp_);
+    CHECK(timestamp >= prev_timestamp_) << "Timestamps not increasing "
+                                        << timestamp << " vs "
+                                        << prev_timestamp_;
     pcap::Timestamp delta_from_last = timestamp - prev_timestamp_;
     if (delta_from_last >= max_interpacket_gap_) {
       time_shift_ += delta_from_last;
