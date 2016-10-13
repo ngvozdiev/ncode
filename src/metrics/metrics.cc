@@ -282,6 +282,12 @@ void MetricManager::SetOutput(const std::string& output,
     return;
   }
 
+  // If any of the metrics are already locked setting the stream will result in
+  // broken output.
+  for (const auto& metric : all_metrics_) {
+    CHECK(!metric->stream_locked());
+  }
+
   if (per_metric_files) {
     File::RecursivelyCreateDir(output, 0700);
     output_directory_ = output;
@@ -312,6 +318,11 @@ void MetricBase::SetLocalOutputStream(
 }
 
 OutputStream* MetricBase::OutputStreamOrNull() {
+  // Regardless of whether there was a stream or not we cannot allow further
+  // changes to the stream, as it may result in missing manifest entries when
+  // parsing.
+  stream_locked_ = true;
+
   if (local_output_stream_) {
     return local_output_stream_.get();
   }
@@ -321,7 +332,6 @@ OutputStream* MetricBase::OutputStreamOrNull() {
     return output_stream;
   }
 
-  stream_locked_ = true;
   return nullptr;
 }
 

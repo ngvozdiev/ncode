@@ -84,6 +84,9 @@ class File {
   // Create a directory and all parent directories if necessary.
   static bool RecursivelyCreateDir(const std::string& path, int mode);
 
+  // Picks a non-existent file name of a given length in a directory.
+  static std::string PickFileName(const std::string& dir, size_t len);
+
   // If "name" is a file, we delete it.  If it is a directory, we
   // call DeleteRecursively() for each file or directory (other than
   // dot and double-dot) within it, and then delete the directory itself.

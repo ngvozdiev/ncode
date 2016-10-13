@@ -238,4 +238,14 @@ std::string File::WorkingDirectoryOrDie() {
   return std::string(buf);
 }
 
+std::string File::PickFileName(const std::string& dir, size_t len) {
+  std::string filename;
+  while (true) {
+    filename = ncode::StrCat(dir, "/", RandomString(len));
+    if (!File::Exists(filename)) {
+      return filename;
+    }
+  }
+}
+
 }  // namespace ncode

@@ -10,7 +10,7 @@
 #undef LOG
 
 #include "../common/common.h"
-#include "../common/format.h"
+#include "../common/substitute.h"
 #include "../common/strutil.h"
 #include "../common/file.h"
 #include "../common/logging.h"
@@ -20,14 +20,6 @@
 
 DEFINE_string(input, "", "The metrics file or directory of metrics files.");
 DEFINE_uint64(port_num, 8080, "Port to listen on");
-
-DEFINE_string(
-    plot_dump_dir_prefix, "/tmp/plot",
-    "All plots will be dumped to a directory starting with thie prefix.");
-
-DEFINE_double(plot_dir_seed, 1.0,
-              "When plots are saved a random directory name will be picked. "
-              "This is the seed for the RNG.");
 
 using namespace ncode;
 
@@ -43,37 +35,25 @@ static constexpr char kManifestIdsVariableName[] = "manifestids";
 static constexpr char kBinSizeVariableName[] = "binsize";
 static constexpr char kActiveIndexVariableName[] = "i";
 
-static constexpr char kTimestmapFormat[] = "%Y%m%d_%H%M%S";
-static constexpr size_t kTimestampSize = 50;
-
-static std::string Timestamp() {
-  static char name[kTimestampSize];
-  time_t now = time(0);
-  size_t size = strftime(name, sizeof(name), kTimestmapFormat, localtime(&now));
-  return std::string(name, size);
-}
-
 // State associated with the server.
 class ServerState {
  public:
-  ServerState(const std::string& file_or_dir,
-              const std::string& plot_dir_prefix, double seed)
-      : plot_save_dir_prefix_(plot_dir_prefix), rnd_engine_(seed) {
+  ServerState(const std::string& file_or_dir) {
     bool is_dir;
-    CHECK(ncode::common::File::FileOrDirectory(file_or_dir, &is_dir));
+    CHECK(ncode::File::FileOrDirectory(file_or_dir, &is_dir));
     if (is_dir) {
-      files_ = ncode::common::Glob(ncode::common::StrCat(file_or_dir, "/*"));
+      files_ = ncode::Glob(ncode::StrCat(file_or_dir, "/*"));
     } else {
       files_.emplace_back(file_or_dir);
     }
 
-    LOG(INFO) << "Will export " << ncode::common::Join(files_, "\n");
+    LOG(INFO) << "Will export " << ncode::Join(files_, "\n");
   }
 
   std::unique_ptr<web::TemplatePage> GetPage() {
     std::unique_ptr<web::TemplatePage> page = web::GetDefaultTemplate();
     page->AddNavigationEntry({"File List", "/index", false});
-    return std::move(page);
+    return page;
   }
 
   void FileListToTable(web::HtmlPage* out) {
@@ -81,10 +61,9 @@ class ServerState {
     for (size_t i = 0; i < files_.size(); ++i) {
       const std::string file = files_[i];
       std::string link =
-          fmt::format("/manifest?{}={}", kActiveIndexVariableName, i);
-      uint64_t file_size_mb =
-          ncode::common::File::FileSizeOrDie(file) / 1000 / 1000;
-      std::string file_name = common::File::ExtractFileName(files_[i]);
+          Substitute("/manifest?$0=$1", kActiveIndexVariableName, i);
+      uint64_t file_size_mb = ncode::File::FileSizeOrDie(file) / 1000 / 1000;
+      std::string file_name = File::ExtractFileName(files_[i]);
       table.AddRow(
           {web::GetLink(link, file_name), std::to_string(file_size_mb)});
     }
@@ -121,37 +100,16 @@ class ServerState {
   }
 
   const std::vector<std::string> files() const { return files_; }
-  std::default_random_engine* rnd_engine() { return &rnd_engine_; }
 
  private:
   static constexpr size_t kRandomStringLen = 5;
-
-  std::string GetRandomString() {
-    auto randchar = [this]() -> char {
-      const char charset[] =
-          "0123456789"
-          "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-          "abcdefghijklmnopqrstuvwxyz";
-      const size_t max_index = (sizeof(charset) - 1);
-      std::uniform_int_distribution<size_t> dist(0, max_index);
-      return charset[dist(rnd_engine_)];
-    };
-    std::string str(kRandomStringLen, 0);
-    std::generate_n(str.begin(), kRandomStringLen, randchar);
-    return str;
-  }
-
-  std::string GetTmpDirName() {
-    return common::StrCat(plot_save_dir_prefix_, "_", Timestamp(), "_",
-                          GetRandomString());
-  }
 
   void PlotTimeSeries(
       const std::map<std::pair<std::string, std::string>,
                      std::vector<std::pair<uint64_t, double>>>& data,
       const grapher::PlotParameters2D& plot_params, web::HtmlPage* out) {
     if (data.empty()) {
-      common::StrAppend(out->body(), web::GetDiv("No numeric data"));
+      StrAppend(out->body(), web::GetDiv("No numeric data"));
       return;
     }
 
@@ -162,7 +120,7 @@ class ServerState {
           label_and_values.second;
 
       grapher::DataSeries2D to_plot;
-      to_plot.label = fmt::format("{}", label_id);
+      to_plot.label = label_id;
 
       for (const auto& timestamp_and_value : values) {
         uint64_t timestamp = timestamp_and_value.first;
@@ -174,11 +132,6 @@ class ServerState {
 
     grapher::HtmlGrapher html_grapher(out);
     html_grapher.PlotLine(plot_params, all_data_to_plot);
-
-    std::string tmp_dir_name = GetTmpDirName();
-    grapher::PythonGrapher python_grapher(tmp_dir_name);
-    LOG(INFO) << "Will save plot to " << tmp_dir_name;
-    python_grapher.PlotLine(plot_params, all_data_to_plot);
   }
 
   // Plots a CDF of the values in one (or more) metrics. The input map is as
@@ -190,7 +143,7 @@ class ServerState {
                bool collapse, const grapher::PlotParameters1D& plot_params,
                web::HtmlPage* out) {
     if (data.empty()) {
-      common::StrAppend(out->body(), web::GetDiv("No numeric data"));
+      StrAppend(out->body(), web::GetDiv("No numeric data"));
       return;
     }
 
@@ -222,22 +175,15 @@ class ServerState {
           to_plot.data.emplace_back(value);
         }
 
-        to_plot.label = fmt::format("{}", label_id);
+        to_plot.label = label_id;
         all_data_to_plot.emplace_back(std::move(to_plot));
       }
     }
 
     grapher::HtmlGrapher html_grapher(out);
     html_grapher.PlotCDF(plot_params, all_data_to_plot);
-
-    std::string tmp_dir_name = GetTmpDirName();
-    grapher::PythonGrapher python_grapher(tmp_dir_name);
-    LOG(INFO) << "Will save plot to " << tmp_dir_name;
-    python_grapher.PlotCDF(plot_params, all_data_to_plot);
   }
 
-  std::string plot_save_dir_prefix_;
-  std::default_random_engine rnd_engine_;
   std::vector<std::string> files_;
 };
 
@@ -247,8 +193,8 @@ static std::set<uint32_t> ExtractManifestIds(http_message* hm,
 
 static std::string GetLinkForMetricId(const std::string& id,
                                       uint32_t file_index) {
-  std::string location = common::StrCat(
-      "metric?id=", id, "&", kActiveIndexVariableName, "=", file_index);
+  std::string location =
+      StrCat("metric?id=", id, "&", kActiveIndexVariableName, "=", file_index);
   return web::GetLink(location, id);
 }
 
@@ -274,8 +220,6 @@ static std::vector<std::string> ManifestToHtml(const std::string& input_file,
 static void MetricToHtml(const std::string& input_file,
                          const std::string& metric_id, uint32_t file_index,
                          web::HtmlPage* out) {
-  using namespace common;
-
   StrAppend(out->body(), web::GetP(StrCat("Metric is ", metric_id)));
 
   metrics::parser::MetricsParser parser(input_file);
@@ -398,7 +342,7 @@ static std::string ExtractVariable(const std::string& id, http_message* hm,
 
   if (unescape) {
     std::string unescaped;
-    CHECK(common::WebSafeBase64Unescape(out, &unescaped));
+    CHECK(WebSafeBase64Unescape(out, &unescaped));
     return unescaped;
   }
 
@@ -417,7 +361,7 @@ static std::string ExtractVariable(const std::string& id, http_message* hm,
   {                                                  \
     std::string v = ExtractVariable(var_string, hm); \
     double v_double = 0.0;                           \
-    if (!ncode::common::safe_strtod(v, &v_double)) { \
+    if (!ncode::safe_strtod(v, &v_double)) {         \
       LOG(ERROR) << "Bad double";                    \
     }                                                \
     if (!v.empty()) {                                \
@@ -452,7 +396,7 @@ static ncode::grapher::PlotParameters1D Extract1DPlotParameters(
 static uint32_t ExtractIndexOrZero(http_message* hm) {
   std::string var = ExtractVariable(kActiveIndexVariableName, hm);
   uint32_t i;
-  if (!ncode::common::safe_strtou32(var, &i)) {
+  if (!ncode::safe_strtou32(var, &i)) {
     return 0;
   }
   return i;
@@ -460,7 +404,7 @@ static uint32_t ExtractIndexOrZero(http_message* hm) {
 
 static bool ExtractBoolOrFalse(const std::string& value) {
   bool return_value;
-  if (!ncode::common::safe_strtob(value, &return_value)) {
+  if (!ncode::safe_strtob(value, &return_value)) {
     return false;
   }
   return return_value;
@@ -524,18 +468,17 @@ static std::set<uint32_t> ExtractManifestIds(http_message* hm,
                                              web::HtmlPage* out) {
   std::string ids_string = ExtractVariable(kManifestIdsVariableName, hm);
   if (ids_string.empty()) {
-    common::StrAppend(out->body(), web::GetDiv("Empty manifest ids"));
+    StrAppend(out->body(), web::GetDiv("Empty manifest ids"));
     return std::set<uint32_t>();
   }
 
   std::vector<std::string> pieces =
-      ncode::common::Split(ids_string.substr(1, ids_string.size() - 2), ",");
+      ncode::Split(ids_string.substr(1, ids_string.size() - 2), ",");
   std::set<uint32_t> manifest_ids;
   uint32_t value;
   for (const std::string& piece : pieces) {
-    if (!ncode::common::safe_strtou32(piece, &value)) {
-      common::StrAppend(out->body(),
-                        web::GetDiv("Unable to parse manifest ids"));
+    if (!ncode::safe_strtou32(piece, &value)) {
+      StrAppend(out->body(), web::GetDiv("Unable to parse manifest ids"));
       return std::set<uint32_t>();
     }
     manifest_ids.emplace(value);
@@ -551,8 +494,7 @@ int main(int argc, char** argv) {
   struct mg_mgr mgr;
   struct mg_connection* nc;
 
-  ServerState server_state(FLAGS_input, FLAGS_plot_dump_dir_prefix,
-                           FLAGS_plot_dir_seed);
+  ServerState server_state(FLAGS_input);
   mg_mgr_init(&mgr, &server_state);
   nc = mg_bind(&mgr, std::to_string(FLAGS_port_num).c_str(), Handler);
 

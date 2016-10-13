@@ -326,7 +326,9 @@ std::vector<MetricsParser::WrappedEntry> MetricsParser::ParseManifest() const {
       return_vector.emplace_back(return_vector.size(),
                                  std::move(manifest_entry_ptr));
     } else {
-      CHECK(manifest_index <= return_vector.size()) << "Unknown manifest index";
+      CHECK(manifest_index < return_vector.size())
+          << "Unknown manifest index " << manifest_index
+          << " only know indices up to " << return_vector.size();
       MetricsParser::WrappedEntry& wrapped_entry =
           return_vector[manifest_index];
       wrapped_entry.num_entries += 1;

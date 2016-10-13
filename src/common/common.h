@@ -722,6 +722,10 @@ class TimeoutEnforcer {
   std::map<T, std::vector<uint64_t>> key_to_history_;
 };
 
+// Generates a random string of a given length. The string will contain
+// A-Za-z0-9.
+std::string RandomString(size_t length);
+
 }  // namespace ncode
 
 #endif /* HT2SIM_COMMON_H */

@@ -45,6 +45,8 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${BASE_OPT_FLAGS}")
 set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} ${BASE_LD_FLAGS}")
 set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_RELEASE} ${BASE_LD_FLAGS}")
 
+add_subdirectory(external/backward-cpp)
+
 # Will download gtest and make it part of the source
 include(cmake_extensions/DownloadProject.cmake)
 download_project(PROJ                googletest
@@ -54,6 +56,7 @@ download_project(PROJ                googletest
 )
 add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR})
 
+set(GFLAGS_IS_SUBPROJECT TRUE)
 download_project(PROJ                gflags
                  GIT_REPOSITORY      https://github.com/gflags/gflags.git
                  GIT_TAG             master
@@ -135,9 +138,10 @@ create_resources("${PROJECT_SOURCE_DIR}/data/www" "${PROJECT_BINARY_DIR}/www_res
 create_resources("${PROJECT_SOURCE_DIR}/data/grapher_templates" "${PROJECT_BINARY_DIR}/grapher_resources.c" "grapher")
 
 macro(add_test_exec name src_file deps)
-  add_executable(${name} ${src_file})
+  add_executable(${name} ${src_file} ${BACKWARD_ENABLE})
   target_link_libraries(${name} gmock_main ${deps} ${ARGN})
   add_test(NAME ${name} COMMAND ${name})
+  add_backward(${name})
 endmacro(add_test_exec)  
 
 ################################
@@ -145,6 +149,7 @@ endmacro(add_test_exec)
 ################################
 set(COMMON_HEADER_FILES src/common/common.h src/common/substitute.h src/common/logging.h src/common/file.h src/common/stringpiece.h src/common/strutil.h src/common/map_util.h src/common/stl_util.h src/common/event_queue.h src/common/free_list.h src/common/packer.h src/common/ptr_queue.h src/common/lru_cache.h)
 add_library(ncode_common STATIC src/common/common.cc src/common/substitute.cc src/common/logging.cc src/common/file.cc src/common/stringpiece.cc src/common/strutil.cc src/common/event_queue.cc src/common/free_list.cc src/common/packer.cc ${COMMON_HEADER_FILES})
+add_backward(ncode_common)
 
 set_property(SOURCE src/common/stringpiece_test.cc APPEND_STRING PROPERTY COMPILE_FLAGS "-Wno-conversion-null -Wno-sign-compare")
 set_property(SOURCE src/common/strutil_test.cc APPEND_STRING PROPERTY COMPILE_FLAGS "-Wno-sign-compare")
@@ -263,3 +268,8 @@ file(COPY data/geonames DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 add_test_exec(geo_test src/geo/geo_test.cc ncode_geo)
 
+################################
+# Metrics explorer
+################################
+add_executable(metrics_explore src/metrics/metrics_explore.cc)
+target_link_libraries(metrics_explore ncode_metrics ncode_grapher)

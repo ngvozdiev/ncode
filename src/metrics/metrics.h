@@ -452,6 +452,10 @@ class MetricBase {
 
   const TimestampProviderInterface* timestamp_provider() const;
 
+  // Whether or not the output stream can be set. Attempting to set the output
+  // stream when it cannot be set will result in a crash.
+  bool stream_locked() const { return stream_locked_; }
+
  protected:
   MetricBase(MetricManager* metric_manager, PBManifestEntry base_entry)
       : parent_manager_(metric_manager),
@@ -476,7 +480,7 @@ class MetricBase {
   // Only used if 'local_output_stream' is not null.
   size_t local_current_index_;
 
-  // Set to true if
+  // Set to true if no more changes to the output stream are allowed.
   bool stream_locked_;
 };
 
@@ -815,7 +819,8 @@ Metric<EntryType, ThreadSafe, FieldTypes...>::GetHandle(MetricCallback callback,
                                       std::forward_as_tuple(this, callback));
   HandleType* handle = &(it.first->second);
   if (it.second) {
-    handle->set_metric_index(NextIndex());
+    size_t next_index = NextIndex();
+    handle->set_metric_index(next_index);
 
     PBMetricEntry entry;
     *entry.mutable_manifest_entry() = base_entry_;
