@@ -57,7 +57,6 @@ set(PROTOBUF_IMPORT_DIRS ${PROJECT_SOURCE_DIR}/src/net ${PROJECT_SOURCE_DIR}/src
 find_package(Protobuf REQUIRED)
 find_package(PCAP REQUIRED)
 find_package(Ctemplate REQUIRED)
-include_directories(${PROTOBUF_INCLUDE_DIRS} ${PCAP_INCLUDE_DIR} ${CMAKE_BINARY_DIR} ${CTEMPLATE_INCLUDE_DIR})
 
 # Need a linear optimizer. Will look for both GLPK and CPLEX.
 find_package(GLPK)
@@ -88,6 +87,8 @@ else()
         message(FATAL_ERROR "No LP optimizer found at all!")
     endif()
 endif()
+
+include_directories(${PROTOBUF_INCLUDE_DIRS} ${PCAP_INCLUDE_DIR} ${CMAKE_BINARY_DIR} ${CTEMPLATE_INCLUDE_DIR} ${OPTIMIZER_INCLUDE_DIRS})
 
 configure_file(
   "${PROJECT_SOURCE_DIR}/src/config.h.in"

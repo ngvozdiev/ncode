@@ -1,3 +1,5 @@
+#include <mutex>
+
 #include "common.h"
 #include "thread_runner.h"
 #include "gtest/gtest.h"

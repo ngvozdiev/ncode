@@ -80,8 +80,8 @@ ConstraintIndex Problem::AddConstraint() {
 
 void Problem::SetConstraintName(ConstraintIndex constraint,
                                 const std::string& name) {
-  common::Unused(constraint);
-  common::Unused(name);
+  Unused(constraint);
+  Unused(name);
   LOG(INFO) << "Not implemented yet";
 }
 
@@ -104,8 +104,8 @@ VariableIndex Problem::AddVariable(bool binary) {
 }
 
 void Problem::SetVariableName(VariableIndex variable, const std::string& name) {
-  common::Unused(variable);
-  common::Unused(name);
+  Unused(variable);
+  Unused(name);
   LOG(INFO) << "Not implemented yet";
 }
 
@@ -145,7 +145,7 @@ void Problem::SetConstraintRange(ConstraintIndex constraint, double min,
 void Problem::SetVariableRange(VariableIndex variable, double min, double max) {
   CPLEXHandle* handle = static_cast<CPLEXHandle*>(handle_);
 
-  CHECK(!common::ContainsKey(handle->binary_variables, variable))
+  CHECK(!ContainsKey(handle->binary_variables, variable))
       << "Tried to set bounds for binary variable";
 
   double new_min, new_max;
@@ -216,7 +216,7 @@ static std::pair<CPXENVptr, CPXLPptr> GetProblem(const CPLEXHandle& handle) {
   std::vector<char> col_types(max_index);
   for (size_t i = 0; i < max_index; ++i) {
     VariableIndex variable_index(i);
-    if (common::ContainsKey(handle.binary_variables, variable_index)) {
+    if (ContainsKey(handle.binary_variables, variable_index)) {
       col_types[i] = CPX_BINARY;
     } else {
       col_types[i] = CPX_CONTINUOUS;
