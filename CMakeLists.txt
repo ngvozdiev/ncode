@@ -143,6 +143,7 @@ add_test_exec(common_packer_test src/common/packer_test.cc ncode_common)
 add_test_exec(common_ptr_queue_test src/common/ptr_queue_test.cc ncode_common)
 add_test_exec(common_circular_array_test src/common/circular_array_test.cc ncode_common)
 add_test_exec(common_lru_cache_test src/common/lru_cache_test.cc ncode_common)
+add_test_exec(common_thread_runner_test src/common/thread_runner_test.cc ncode_common)
 
 ################################
 # Network-releated stuff
