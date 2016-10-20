@@ -209,13 +209,12 @@ PBNet GenerateNTT(microseconds delay_add, double delay_multiply,
                   uint64_t bw_add, double bw_multiply) {
   PBNet out;
 
-  AddCluster("Asia", {"hochiminh", "beijing", "osaka", "kualalumpur",
-                      "hongkong", "brunei", "seoul", "singapore", "bangkok",
-                      "tokyo", "jakarta", "taipei"},
+  AddCluster("Asia", {"osaka", "kualalumpur", "hongkong", "brunei", "seoul",
+                      "singapore", "bangkok", "tokyo", "jakarta", "taipei"},
              &out);
   AddCluster("North America",
-             {"houston", "wellington", "sanjose", "seattle", "LA", "newyork",
-              "dc", "boston", "atlanta", "miami", "chicago", "dallas"},
+             {"houston", "sanjose", "seattle", "LA", "newyork", "dc", "boston",
+              "atlanta", "miami", "chicago", "dallas"},
              &out);
   AddCluster("South America", {"saopaulo"}, &out);
   AddCluster("Europe",

@@ -34,6 +34,28 @@ TEST(HE, Generate) {
   ASSERT_EQ(31ul, total);
 }
 
+TEST(NTT, Generate) {
+  PBNet net_pb = GenerateNTT();
+  ASSERT_EQ(176, net_pb.links_size());
+
+  std::set<std::string> endpoints;
+  for (const auto& link : net_pb.links()) {
+    endpoints.insert(link.src());
+    endpoints.insert(link.dst());
+
+    // All links should have src and dst ports set to positive numbers.
+    ASSERT_LT(0ul, link.src_port());
+    ASSERT_LT(0ul, link.dst_port());
+  }
+
+  ASSERT_EQ(43ul, endpoints.size());
+  size_t total = 0;
+  for (const auto& cluster : net_pb.clusters()) {
+    total += cluster.nodes_size();
+  }
+  ASSERT_EQ(43ul, total);
+}
+
 TEST(HE, GenerateDelayAdd) {
   PBNet net_pb = GenerateHE(kBandwidth, milliseconds(0), 1);
   PBNet net_pb_plus = GenerateHE(kBandwidth, milliseconds(10), 1);
