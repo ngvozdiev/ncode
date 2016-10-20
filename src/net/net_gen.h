@@ -10,10 +10,15 @@ namespace net {
 // devices and 56 bidirectional links. All links in the network will have a
 // delay of max(1, d * delay_multiply + delay_add) where d is the speed of light
 // in fiber delay.
-PBNet GenerateHE(
-    const PBGraphLink& link_template,
+PBNet GenerateHE(uint64_t bw_bps, std::chrono::microseconds delay_add =
+                                      std::chrono::microseconds(0),
+                 double delay_multiply = 1.0);
+
+// Generates a topology similar to NTT's backbone. Unlike HE above this function
+// will also populate real-world bandiwdth values.
+PBNet GenerateNTT(
     std::chrono::microseconds delay_add = std::chrono::microseconds(0),
-    double delay_multiply = 1.0);
+    double delay_multiply = 1.0, uint64_t bw_add = 0, double bw_multiply = 1.0);
 
 // Generates a full graph of a given size. Each node will be named Ni for i in
 // [0, size).

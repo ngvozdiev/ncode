@@ -9,10 +9,7 @@ using namespace std::chrono;
 static constexpr uint64_t kBandwidth = 10000;
 
 TEST(HE, Generate) {
-  PBGraphLink link_template;
-  link_template.set_bandwidth_bps(kBandwidth);
-
-  PBNet net_pb = GenerateHE(link_template, milliseconds(0), 1);
+  PBNet net_pb = GenerateHE(kBandwidth, milliseconds(0), 1);
   // All links should be bidirectional -- 2x64 in total.
   ASSERT_EQ(112, net_pb.links_size());
 
@@ -38,11 +35,8 @@ TEST(HE, Generate) {
 }
 
 TEST(HE, GenerateDelayAdd) {
-  PBGraphLink link_template;
-  link_template.set_bandwidth_bps(kBandwidth);
-
-  PBNet net_pb = GenerateHE(link_template, milliseconds(0), 1);
-  PBNet net_pb_plus = GenerateHE(link_template, milliseconds(10), 1);
+  PBNet net_pb = GenerateHE(kBandwidth, milliseconds(0), 1);
+  PBNet net_pb_plus = GenerateHE(kBandwidth, milliseconds(10), 1);
   for (int i = 0; i < net_pb.links_size(); ++i) {
     const PBGraphLink& link = net_pb.links(i);
     const PBGraphLink& link_plus = net_pb_plus.links(i);
@@ -52,11 +46,8 @@ TEST(HE, GenerateDelayAdd) {
 }
 
 TEST(HE, GenerateDelayMultiply) {
-  PBGraphLink link_template;
-  link_template.set_bandwidth_bps(kBandwidth);
-
-  PBNet net_pb = GenerateHE(link_template, milliseconds(0), 1);
-  PBNet net_pb_times_1000 = GenerateHE(link_template, milliseconds(0), 1000);
+  PBNet net_pb = GenerateHE(kBandwidth, milliseconds(0), 1);
+  PBNet net_pb_times_1000 = GenerateHE(kBandwidth, milliseconds(0), 1000);
   for (int i = 0; i < net_pb.links_size(); ++i) {
     const PBGraphLink& link = net_pb.links(i);
     const PBGraphLink& link_times_1000 = net_pb_times_1000.links(i);
