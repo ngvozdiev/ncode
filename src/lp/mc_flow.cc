@@ -26,7 +26,8 @@ MCProblem::MCProblem(const net::PBNet& graph, net::LinkStorage* link_storage,
   }
 }
 
-MCProblem::MCProblem(const MCProblem& mc_problem, double scale_factor) {
+MCProblem::MCProblem(const MCProblem& mc_problem, double scale_factor,
+                     double increment) {
   link_storage_ = mc_problem.link_storage_;
   capacity_multiplier_ = mc_problem.capacity_multiplier_;
   graph_ = mc_problem.graph_;
@@ -35,6 +36,7 @@ MCProblem::MCProblem(const MCProblem& mc_problem, double scale_factor) {
   for (const Commodity& commodity : mc_problem.commodities_) {
     Commodity scaled_commodity = commodity;
     scaled_commodity.demand *= scale_factor;
+    scaled_commodity.demand += increment;
     commodities_.emplace_back(scaled_commodity);
   }
 }
@@ -195,7 +197,46 @@ double MCProblem::MaxCommodityScaleFactor() {
     }
 
     double guess = min_bound + (max_bound - min_bound) / 2;
-    MCProblem test_problem(*this, guess);
+    MCProblem test_problem(*this, guess, 0.0);
+
+    bool is_feasible = test_problem.IsFeasible();
+    if (is_feasible) {
+      curr_estimate = guess;
+      min_bound = guess;
+    } else {
+      max_bound = guess;
+    }
+  }
+
+  return curr_estimate;
+}
+
+double MCProblem::MaxCommodityIncrement() {
+  if (!IsFeasible() || commodities_.empty()) {
+    return 0;
+  }
+
+  // The initial increment will be the max of the cpacity of all links.
+  uint64_t max_capacity = 0;
+  for (const net::GraphLink* link : graph_) {
+    if (link->bandwidth_bps() > max_capacity) {
+      max_capacity = link->bandwidth_bps();
+    }
+  }
+
+  double min_bound = 1.0;
+  double max_bound = max_capacity;
+
+  double curr_estimate = max_capacity;
+  while (true) {
+    CHECK(max_bound >= min_bound);
+    double delta = max_bound - min_bound;
+    if (delta <= kStopThreshold) {
+      break;
+    }
+
+    double guess = min_bound + (max_bound - min_bound) / 2;
+    MCProblem test_problem(*this, 1.0, guess);
 
     bool is_feasible = test_problem.IsFeasible();
     if (is_feasible) {

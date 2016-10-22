@@ -115,6 +115,15 @@ TEST_F(MCTest, SimpleScaleFactor) {
   ASSERT_NEAR(1250000, mc_problem.MaxCommodityScaleFactor(), 0.1);
 }
 
+TEST_F(MCTest, SimpleIncrement) {
+  net::PBNet net = net::GenerateFullGraph(2, 10000000000, microseconds(10));
+  MCProblem mc_problem(net, &link_storage_);
+  ASSERT_EQ(0, mc_problem.MaxCommodityIncrement());
+
+  mc_problem.AddCommodity("N0", "N1");
+  ASSERT_NEAR(10000000000, mc_problem.MaxCommodityIncrement(), 0.1);
+}
+
 }  // namespace
 }  // namespace lp
 }  // namespace ncode

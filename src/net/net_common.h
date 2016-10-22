@@ -449,6 +449,70 @@ class IPRange {
   uint8_t mask_len_;
 };
 
+// Helper function for GetDisjointSets below.
+template <typename T, typename V>
+void RecursiveAddToDisjointSets(
+    const std::map<V, std::vector<T>>& value_to_keys,
+    const std::map<T, std::vector<V>>& key_to_values, const T& key,
+    std::set<T>* out) {
+  if (ContainsKey(*out, key)) {
+    return;
+  }
+  out->insert(key);
+
+  const std::vector<V>& values = FindOrDie(key_to_values, key);
+  for (const V& value : values) {
+    const std::vector<T>& keys_for_value = FindOrDie(value_to_keys, value);
+    for (const T& key_for_value : keys_for_value) {
+      if (key_for_value == key) {
+        continue;
+      }
+
+      RecursiveAddToDisjointSets(value_to_keys, key_to_values, key_for_value,
+                                 out);
+    }
+  }
+}
+
+// Given a map from a generic type to a list of values, this type will return
+// lists of keys that do not share any single value.
+template <typename T, typename V>
+std::vector<std::set<T>> GetDisjointSets(
+    const std::map<T, std::vector<V>>& key_to_values) {
+  std::map<V, std::vector<T>> value_to_keys;
+  for (const auto& key_and_values : key_to_values) {
+    const T& key = key_and_values.first;
+    const std::vector<V>& values = key_and_values.second;
+    CHECK(!values.empty());
+
+    for (const V& value : values) {
+      value_to_keys[value].emplace_back(key);
+    }
+  }
+
+  std::vector<std::set<T>> out;
+  for (const auto& key_and_values : key_to_values) {
+    const T& key = key_and_values.first;
+    bool found = false;
+    for (const auto& output_set : out) {
+      if (ContainsKey(output_set, key)) {
+        found = true;
+        break;
+      }
+    }
+
+    if (found) {
+      continue;
+    }
+
+    std::set<T> new_set;
+    RecursiveAddToDisjointSets(value_to_keys, key_to_values, key, &new_set);
+    out.emplace_back(new_set);
+  }
+
+  return out;
+}
+
 }  // namespace net
 }  // namespace ncode
 

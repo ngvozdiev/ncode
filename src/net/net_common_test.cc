@@ -444,6 +444,68 @@ TEST(IPRange, Slash16) {
   ASSERT_EQ(StringToIPOrDie("1.2.0.0"), ip_range.base_address());
 }
 
+TEST(DisjointSets, Empty) {
+  std::map<std::string, std::vector<std::string>> key_to_values = {};
+  std::vector<std::set<std::string>> out = GetDisjointSets(key_to_values);
+  ASSERT_TRUE(out.empty());
+}
+
+TEST(DisjointSets, EmptyValues) {
+  std::map<std::string, std::vector<uint64_t>> key_to_values = {{"A", {}}};
+  ASSERT_DEATH(GetDisjointSets(key_to_values), ".*");
+}
+
+TEST(DisjointSets, SingleValue) {
+  std::map<std::string, std::vector<uint64_t>> key_to_values = {{"A", {1ul}}};
+  std::vector<std::set<std::string>> out = GetDisjointSets(key_to_values);
+  std::vector<std::set<std::string>> model = {{"A"}};
+  ASSERT_EQ(model, out);
+}
+
+TEST(DisjointSets, SingleKey) {
+  std::map<std::string, std::vector<uint64_t>> key_to_values = {
+      {"A", {1ul, 2ul}}};
+  std::vector<std::set<std::string>> out = GetDisjointSets(key_to_values);
+  std::vector<std::set<std::string>> model = {{"A"}};
+  ASSERT_EQ(model, out);
+}
+
+TEST(DisjointSets, MultiKey) {
+  std::map<std::string, std::vector<uint64_t>> key_to_values = {
+      {"A", {1ul, 2ul}}, {"B", {1ul}}};
+  std::vector<std::set<std::string>> out = GetDisjointSets(key_to_values);
+  std::vector<std::set<std::string>> model = {{"A", "B"}};
+  ASSERT_EQ(model, out);
+}
+
+TEST(DisjointSets, MultiKeyDisjoint) {
+  std::map<std::string, std::vector<uint64_t>> key_to_values = {
+      {"A", {1ul, 2ul}}, {"B", {1ul}}, {"C", {3ul}}};
+  std::vector<std::set<std::string>> out = GetDisjointSets(key_to_values);
+  std::vector<std::set<std::string>> model = {{"A", "B"}, {"C"}};
+  ASSERT_EQ(model, out);
+}
+
+TEST(DisjointSets, MultiKeyDisjointTransitive) {
+  std::map<std::string, std::vector<uint64_t>> key_to_values = {
+      {"A", {1ul, 2ul}}, {"B", {1ul, 3ul}}, {"C", {3ul, 4ul}}, {"D", {5ul}}};
+  std::vector<std::set<std::string>> out = GetDisjointSets(key_to_values);
+  std::vector<std::set<std::string>> model = {{"A", "B", "C"}, {"D"}};
+  ASSERT_EQ(model, out);
+}
+
+TEST(DisjointSets, MultiKeyDisjointTransitiveTwo) {
+  std::map<std::string, std::vector<uint64_t>> key_to_values = {
+      {"A", {1ul, 2ul}},
+      {"B", {1ul, 3ul}},
+      {"C", {3ul, 4ul}},
+      {"D", {5ul, 6ul, 7ul, 8ul}},
+      {"E", {5ul, 7ul, 8ul}}};
+  std::vector<std::set<std::string>> out = GetDisjointSets(key_to_values);
+  std::vector<std::set<std::string>> model = {{"A", "B", "C"}, {"D", "E"}};
+  ASSERT_EQ(model, out);
+}
+
 }  // namespace test
 }  // namespace net
 }  // namespace ncode

@@ -37,6 +37,10 @@ class MCProblem {
   // currently infeasible or all commodities have 0 demands.
   double MaxCommodityScaleFactor();
 
+  // If the returned demand is added to all commodities the problem will be very
+  // close to being infeasible.
+  double MaxCommodityIncrement();
+
  protected:
   struct Commodity {
     std::string source;
@@ -66,8 +70,8 @@ class MCProblem {
 
  private:
   // Returns the same problem, but with all commodities' demands multiplied by
-  // the given scale factor.
-  MCProblem(const MCProblem& other, double scale_factor);
+  // the given scale factor and increased by 'increment'.
+  MCProblem(const MCProblem& other, double scale_factor, double increment);
 
   bool IsInGraph(const std::string& source);
 
