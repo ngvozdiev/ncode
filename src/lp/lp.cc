@@ -57,7 +57,8 @@ static std::pair<double, double> HandleInifinities(double min, double max) {
 }
 
 Problem::Problem(Direction direction)
-    : mip_tolerance_gap_(kDefaultMIPToleranceGap) {
+    : mip_tolerance_gap_(kDefaultMIPToleranceGap),
+      has_binary_variables_(false) {
   CPLEXHandle* handle = new CPLEXHandle(direction);
   handle_ = handle;
 }
@@ -245,7 +246,7 @@ static std::pair<CPXENVptr, CPXLPptr> GetProblem(const CPLEXHandle& handle) {
   return std::make_pair(env, lp);
 }
 
-std::unique_ptr<Solution> Problem::Solve() {
+std::unique_ptr<Solution> Problem::Solve(std::chrono::milliseconds time_limit) {
   CPLEXHandle* handle = static_cast<CPLEXHandle*>(handle_);
   auto solution = std::unique_ptr<Solution>(new Solution());
   solution->solution_type_ = INFEASIBLE_OR_UNBOUNDED;
@@ -254,8 +255,17 @@ std::unique_ptr<Solution> Problem::Solve() {
   CPXLPptr lp;
   std::tie(env, lp) = GetProblem(*handle);
   if (env == nullptr || lp == nullptr) {
-    return std::move(solution);
+    return solution;
   }
+
+  if (time_limit != std::chrono::milliseconds::max()) {
+    typedef std::chrono::duration<double> DoubleSeconds;
+    double time_sec =
+        std::chrono::duration_cast<DoubleSeconds>(time_limit).count();
+    CHECK(CPXsetdblparam(env, CPX_PARAM_TILIM, time_sec) == 0);
+  }
+
+  auto start_time = std::chrono::high_resolution_clock::now();
 
   int status;
   if (handle->binary_variables.empty()) {
@@ -264,13 +274,25 @@ std::unique_ptr<Solution> Problem::Solve() {
     CHECK(CPXsetdblparam(env, CPX_PARAM_EPGAP, mip_tolerance_gap_) == 0);
     status = CPXmipopt(env, lp);
   }
+
+  auto done_time = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+      done_time - start_time);
+  if (duration > time_limit) {
+    LOG(ERROR) << "Timed out after " << duration.count() << "ms";
+    solution->solution_type_ = TIMED_OUT;
+    CPXfreeprob(env, &lp);
+    CPXcloseCPLEX(&env);
+    return solution;
+  }
+
   if (status) {
     char errmsg[CPXMESSAGEBUFSIZE];
     CPXgeterrorstring(env, status, errmsg);
     LOG(ERROR) << "Failed to optimize LP: " << errmsg;
     CPXfreeprob(env, &lp);
     CPXcloseCPLEX(&env);
-    return std::move(solution);
+    return solution;
   }
 
   size_t cur_numcols = CPXgetnumcols(env, lp);
@@ -283,7 +305,7 @@ std::unique_ptr<Solution> Problem::Solve() {
   if (status) {
     CPXfreeprob(env, &lp);
     CPXcloseCPLEX(&env);
-    return std::move(solution);
+    return solution;
   }
 
   if (solstat == CPX_STAT_OPTIMAL || solstat == CPXMIP_OPTIMAL) {
@@ -293,7 +315,7 @@ std::unique_ptr<Solution> Problem::Solve() {
   } else {
     CPXfreeprob(env, &lp);
     CPXcloseCPLEX(&env);
-    return std::move(solution);
+    return solution;
   }
 
   solution->variables_ = std::move(x);
@@ -301,7 +323,7 @@ std::unique_ptr<Solution> Problem::Solve() {
 
   CPXfreeprob(env, &lp);
   CPXcloseCPLEX(&env);
-  return std::move(solution);
+  return solution;
 }
 
 void Problem::DumpToFile(const std::string& file) {
@@ -461,7 +483,7 @@ void Problem::SetObjectiveOffset(double value) {
   glp_set_obj_coef(handle->lp, 0, value);
 }
 
-std::unique_ptr<Solution> Problem::Solve() {
+std::unique_ptr<Solution> Problem::Solve(std::chrono::milliseconds time_limit) {
   GLPKHandle* handle = static_cast<GLPKHandle*>(handle_);
 
   int status;

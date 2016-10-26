@@ -139,36 +139,54 @@ TEST(LP, BinaryLP) {
   ASSERT_EQ(0, solution->VariableValue(x6));
 }
 
-static constexpr size_t kLargeMatrixSize = 20000;
-TEST(LP, LPLargeMatrix) {
-  Problem problem(MAXIMIZE);
-  std::vector<VariableIndex> variables(kLargeMatrixSize);
-  std::vector<ConstraintIndex> constraints(kLargeMatrixSize);
-  for (size_t i = 0; i < kLargeMatrixSize; ++i) {
-    VariableIndex variable = problem.AddVariable();
-    problem.SetObjectiveCoefficient(variable, 1.0);
-    problem.SetVariableRange(variable, Problem::kNegativeInifinity,
-                             Problem::kInifinity);
-    variables[i] = variable;
+static std::unique_ptr<Problem> GetProblem(
+    std::vector<VariableIndex>* variables) {
+  auto problem = make_unique<Problem>(MAXIMIZE);
+  size_t size = variables->size();
+  CHECK(size);
+
+  std::vector<ConstraintIndex> constraints(size);
+  for (size_t i = 0; i < size; ++i) {
+    VariableIndex variable = problem->AddVariable();
+    problem->SetObjectiveCoefficient(variable, 1.0);
+    problem->SetVariableRange(variable, Problem::kNegativeInifinity,
+                              Problem::kInifinity);
+    (*variables)[i] = variable;
   }
-  for (size_t i = 0; i < kLargeMatrixSize; ++i) {
-    ConstraintIndex constraint = problem.AddConstraint();
-    problem.SetConstraintRange(constraint, Problem::kNegativeInifinity, 10);
+  for (size_t i = 0; i < size; ++i) {
+    ConstraintIndex constraint = problem->AddConstraint();
+    problem->SetConstraintRange(constraint, Problem::kNegativeInifinity, 10);
     constraints[i] = constraint;
   }
 
   std::vector<ProblemMatrixElement> matrix_elements;
-  for (size_t i = 0; i < kLargeMatrixSize; ++i) {
-    matrix_elements.emplace_back(constraints[i], variables[i], 5.0);
+  for (size_t i = 0; i < size; ++i) {
+    matrix_elements.emplace_back(constraints[i], (*variables)[i], 5.0);
   }
-  problem.SetMatrix(matrix_elements);
+  problem->SetMatrix(matrix_elements);
 
-  auto solution = problem.Solve();
+  return problem;
+}
+
+static constexpr size_t kLargeMatrixSize = 200000;
+TEST(LP, LPLargeMatrix) {
+  std::vector<VariableIndex> variables(kLargeMatrixSize);
+  auto problem = GetProblem(&variables);
+
+  auto solution = problem->Solve();
   ASSERT_EQ(OPTIMAL, solution->type());
   ASSERT_DOUBLE_EQ(kLargeMatrixSize * 2.0, solution->ObjectiveValue());
   for (size_t i = 0; i < kLargeMatrixSize; ++i) {
     ASSERT_EQ(2.0, solution->VariableValue(variables[i]));
   }
+}
+
+TEST(LP, LPLargeMatrixTimeout) {
+  std::vector<VariableIndex> variables(kLargeMatrixSize);
+  auto problem = GetProblem(&variables);
+
+  auto solution = problem->Solve(std::chrono::milliseconds(50));
+  ASSERT_EQ(TIMED_OUT, solution->type());
 }
 
 }  // namespace

@@ -22,6 +22,7 @@ enum SolutionType {
   OPTIMAL,   // The solution is optimal.
   FEASIBLE,  // The solution meets all the constraints, but may not be optimal.
   INFEASIBLE_OR_UNBOUNDED,  // The solver failed to find a solution.
+  TIMED_OUT,                // The solver timed out.
 };
 
 class Solution {
@@ -107,8 +108,10 @@ class Problem {
   // Dumps the problem to a file in CPLEX LP format.
   void DumpToFile(const std::string& file);
 
-  // Solves the problem. Returns true if an optimal solution was found.
-  std::unique_ptr<Solution> Solve();
+  // Solves the problem and returns the solution. If the time limit is reached
+  // before a solution is found will return a solution that is TIMED_OUT.
+  std::unique_ptr<Solution> Solve(
+      std::chrono::milliseconds time_limit = std::chrono::milliseconds::max());
 
   // Sets the MIP tolerance.
   void set_mip_tolerance_gap(double gap) { mip_tolerance_gap_ = gap; }
