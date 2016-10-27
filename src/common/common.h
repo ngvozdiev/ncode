@@ -133,15 +133,18 @@ class TypesafeUintWrapper {
 
 // A class for typesafe integer indices. Similar to TypesafeUintWrapper, but can
 // be auto-casted to size_t, which allows indexing.
-template <class Tag>
+template <class Tag, class V = uint32_t>
 class Index {
  public:
+  static_assert(std::is_integral<V>::value, "Integral type needed");
+  static_assert(std::is_unsigned<V>::value, "Unsigned type needed");
+
   explicit Index() : m_val_(0) {}
-  explicit Index(uint32_t val) : m_val_(val) {}
+  explicit Index(V val) : m_val_(val) {}
   operator size_t() const { return m_val_; }
 
  private:
-  uint32_t m_val_;
+  V m_val_;
 };
 
 // Returns the per-second time average of a numeric quantity.

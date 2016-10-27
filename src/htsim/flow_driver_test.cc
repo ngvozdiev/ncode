@@ -55,7 +55,7 @@ TEST_F(UDPFlowDriverTest, ConstantRate) {
   }
 }
 
-TEST_F(UDPFlowDriverTest, OverlappingKeyFrames) {
+TEST_F(UDPFlowDriverTest, DISABLED_OverlappingKeyFrames) {
   auto at1 = event_queue_.ToTime(seconds(1));
   udp_flow_driver_.AddRateChangeKeyframes({{at1, kUDPPacketSize * 8}});
   udp_flow_driver_.AddRateChangeKeyframes({{at1, 2 * kUDPPacketSize * 8}});
@@ -176,7 +176,7 @@ TEST_F(TCPFlowDriverTest, SingleEvent) {
   ASSERT_EQ(kAddDataInfinity, manual_flow_driver_.Next());
 }
 
-TEST_F(TCPFlowDriverTest, OverlappingEvents) {
+TEST_F(TCPFlowDriverTest, DISABLED_OverlappingEvents) {
   auto at1 = EventQueueTime(1);
   ASSERT_EQ(AddDataEvent(at1, 10), manual_flow_driver_.Next());
   ASSERT_EQ(AddDataEvent(at1, 50), manual_flow_driver_.Next());

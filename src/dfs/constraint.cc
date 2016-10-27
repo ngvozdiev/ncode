@@ -62,7 +62,9 @@ bool AvoidPathConstraint::PathComplies(
   return link_sequence.links() != to_avoid_->link_sequence().links();
 }
 
-std::string AvoidPathConstraint::ToString() const {
+std::string AvoidPathConstraint::ToString(
+    const net::LinkStorage* storage) const {
+  Unused(storage);
   return "[AVOID_PATH " + to_avoid_->ToString() + "]";
 }
 
@@ -73,7 +75,7 @@ VisitEdgeConstraint::VisitEdgeConstraint(
 
 bool VisitEdgeConstraint::PathComplies(
     const net::LinkSequence& link_sequence) const {
-  for (const net::GraphLink* edge_in_path : link_sequence.links()) {
+  for (net::GraphLinkIndex edge_in_path : link_sequence.links()) {
     if (edge_in_path == edge_) {
       return true;
     }
@@ -82,9 +84,10 @@ bool VisitEdgeConstraint::PathComplies(
   return false;
 }
 
-std::string VisitEdgeConstraint::ToString() const {
-  return Substitute("[VISIT_EDGE $0 ($1)]", edge_->ToString(),
-                     static_cast<const void*>(&edge_));
+std::string VisitEdgeConstraint::ToString(
+    const net::LinkStorage* storage) const {
+  return Substitute("[VISIT_EDGE $0 ($1)]", storage->GetLink(edge_)->ToString(),
+                    static_cast<const void*>(&edge_));
 }
 
 AvoidEdgeConstraint::AvoidEdgeConstraint(
@@ -97,20 +100,21 @@ bool AvoidEdgeConstraint::PathComplies(
   return !link_sequence.Contains(edge_);
 }
 
-std::string AvoidEdgeConstraint::ToString() const {
-  return Substitute("[AVOID_EDGE $0 ($1)]", edge_->ToString(),
-                     static_cast<const void*>(&edge_));
+std::string AvoidEdgeConstraint::ToString(
+    const net::LinkStorage* storage) const {
+  return Substitute("[AVOID_EDGE $0 ($1)]", storage->GetLink(edge_)->ToString(),
+                    static_cast<const void*>(&edge_));
 }
 
 AvoidEdgesConstraint::AvoidEdgesConstraint(
-    const std::vector<const net::GraphLink*>& edges)
+    const std::vector<net::GraphLinkIndex>& edges)
     : edges_to_avoid_(edges) {
   std::sort(edges_to_avoid_.begin(), edges_to_avoid_.end());
 }
 
 bool AvoidEdgesConstraint::PathComplies(
     const net::LinkSequence& link_sequence) const {
-  for (const net::GraphLink* link : link_sequence.links()) {
+  for (net::GraphLinkIndex link : link_sequence.links()) {
     if (std::binary_search(edges_to_avoid_.begin(), edges_to_avoid_.end(),
                            link)) {
       return false;

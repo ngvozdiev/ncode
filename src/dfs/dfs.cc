@@ -34,24 +34,20 @@ DFS::DFS(const PBDFSRequest& dfs_request, const ArrayGraph& array_graph,
   stack_.resize(max_depth_hops_ + 1);  // Need to provision for n + 1 nodes
                                        // where n is the max number of edges
                                        // in the path.
-  marked_edges_.resize(graph_->edge_index_to_edge().size());
+  marked_edges_.resize(graph_->storage()->num_links());
 }
 
 bool DFS::PathFound() {
   int len = frame_pointer_;
-  std::vector<const net::GraphLink*> links(len);
-
-  const std::vector<const net::GraphLink*>& edge_index_to_edge =
-      graph_->edge_index_to_edge();
+  std::vector<net::GraphLinkIndex> links(len);
 
   for (int i = 0; i < len; ++i) {
     DFSStackFrame* frame = &stack_[i + 1];
-
-    EdgeIndex edge_index = frame->edge_index;
-    links[i] = edge_index_to_edge[edge_index];
+    net::GraphLinkIndex edge_index = frame->edge_index;
+    links[i] = edge_index;
   }
 
-  return path_found_callback_(links);
+  return path_found_callback_({links, graph_->storage()});
 }
 
 void DFS::SearchFromTopOfStack() {
@@ -81,13 +77,11 @@ void DFS::SearchFromTopOfStack() {
         break;
       }
 
-      if (curr_frame->edge_index >= 0) {
-        marked_edges_[curr_frame->edge_index] = false;
-        if (node_disjoint_) {
-          UnmarkNode(curr_frame->vertex_offset);
-        }
-        total_weight_so_far -= curr_frame->edge_weight;
+      marked_edges_[curr_frame->edge_index] = false;
+      if (node_disjoint_) {
+        UnmarkNode(curr_frame->vertex_offset);
       }
+      total_weight_so_far -= curr_frame->edge_weight;
 
       PopStackFrame();
       continue;
@@ -96,13 +90,11 @@ void DFS::SearchFromTopOfStack() {
     int next_neighbor_index = curr_frame->neighbor_index + 1;
     int neighbor_count = graph_->GetNeighborCount(curr_vertex);
     if (next_neighbor_index == neighbor_count) {
-      if (curr_frame->edge_index >= 0) {
-        marked_edges_[curr_frame->edge_index] = false;
-        if (node_disjoint_) {
-          UnmarkNode(curr_frame->vertex_offset);
-        }
-        total_weight_so_far -= curr_frame->edge_weight;
+      marked_edges_[curr_frame->edge_index] = false;
+      if (node_disjoint_) {
+        UnmarkNode(curr_frame->vertex_offset);
       }
+      total_weight_so_far -= curr_frame->edge_weight;
 
       PopStackFrame();
       continue;
@@ -115,7 +107,7 @@ void DFS::SearchFromTopOfStack() {
         graph_->GetOffsetOfNeighbor(curr_vertex, next_neighbor_index);
 
     // The index of the edge leading to the next neighbor
-    EdgeIndex edge_to_neighbor =
+    net::GraphLinkIndex edge_to_neighbor =
         graph_->GetIndexOfEdge(curr_frame->vertex_offset, next_neighbor_index);
 
     // The weight of the edge leading to the next neighbor
@@ -166,7 +158,8 @@ void DFS::Search() {
     MarkNode(src_offset_);
   }
 
-  PushNewStackFrame(src_offset_, -1, -1);
+  net::GraphLinkIndex dummy_index(0);
+  PushNewStackFrame(src_offset_, dummy_index, -1);
   SearchFromTopOfStack();
 
   if (node_disjoint_) {

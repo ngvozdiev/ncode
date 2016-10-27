@@ -33,7 +33,6 @@ ArrayGraph::ArrayGraph(const string& dst,
   num_cells_ = vertices.size();
   graph_.resize(offset_total);
 
-  EdgeIndex edge_index = 0;
   for (const auto& vertex_id_and_offset : vertex_id_to_offset_) {
     const string& vertex_id = vertex_id_and_offset.first;
     ArrayGraphOffset offset = vertex_id_and_offset.second;
@@ -43,15 +42,15 @@ ArrayGraph::ArrayGraph(const string& dst,
     SetNeighborCount(offset, neighbors.size());
     for (size_t i = 0; i < neighbors.size(); ++i) {
       const string& neighbor = neighbors.at(i).first;
-      const net::GraphLink* edge = neighbors.at(i).second;
+      net::GraphLinkIndex edge_index = neighbors.at(i).second;
+      const net::GraphLink* edge = storage->GetLink(edge_index);
 
       uint64_t delay_raw = edge->delay().count();
       CHECK(delay_raw <= std::numeric_limits<int>::max())
           << "Link delay too large";
       int weight = delay_raw;
-      SetNeighbor(offset, i, edge_index++, vertex_id_to_offset_[neighbor],
+      SetNeighbor(offset, i, edge_index, vertex_id_to_offset_[neighbor],
                   weight);
-      edge_index_to_edge_.push_back(edge);
     }
   }
 
@@ -68,7 +67,7 @@ std::unique_ptr<ArrayGraph> ArrayGraph::NewArrayGraphPrivate(
   NeighborMap neighbor_map;
 
   for (const auto& link_pb : graph.links()) {
-    const net::GraphLink* link = storage->LinkFromProtobuf(link_pb);
+    net::GraphLinkIndex link = storage->LinkFromProtobuf(link_pb);
 
     vertices.insert(link_pb.src());
     vertices.insert(link_pb.dst());
@@ -156,7 +155,7 @@ void ArrayGraph::PopulateDistanceFromSource(ArrayGraphOffset src_offset) {
 
 // Helper struct used by OrderNeighborsByDistanceToDest.
 struct NeighborData {
-  EdgeIndex edge_index;
+  net::GraphLinkIndex edge_index;
   ArrayGraphOffset neighbor_offset;
   int distance_to_destination;
   int distance_to_neighbor;
@@ -187,7 +186,7 @@ void ArrayGraph::OrderNeighborsByDistanceToDest(ArrayGraphOffset offset) {
 
 net::PBNet ToTree(const net::PBNet& graph, const std::string& root,
                   net::PathStorage* storage) {
-  std::vector<EdgeIndex> edges_in_tree;
+  std::vector<net::GraphLinkIndex> edges_in_tree;
   auto array_graph = ArrayGraph::NewArrayGraph(graph, root, storage);
   ArrayGraphOffset root_offset = array_graph->dst_offset();
 
@@ -208,7 +207,8 @@ net::PBNet ToTree(const net::PBNet& graph, const std::string& root,
         continue;
       }
 
-      EdgeIndex edge_to_neighbor = array_graph->GetIndexOfEdge(curr_vertex, i);
+      net::GraphLinkIndex edge_to_neighbor =
+          array_graph->GetIndexOfEdge(curr_vertex, i);
       visited_vertices.insert(neighbor);
 
       edges_in_tree.push_back(edge_to_neighbor);
@@ -219,9 +219,8 @@ net::PBNet ToTree(const net::PBNet& graph, const std::string& root,
   net::PBNet return_graph(graph);
   return_graph.clear_links();
 
-  for (EdgeIndex edge_index : edges_in_tree) {
-    const net::GraphLink* edge =
-        array_graph->edge_index_to_edge().at(edge_index);
+  for (net::GraphLinkIndex edge_index : edges_in_tree) {
+    const net::GraphLink* edge = storage->GetLink(edge_index);
     *return_graph.add_links() = edge->link_pb();
   }
 

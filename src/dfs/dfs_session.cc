@@ -47,11 +47,10 @@ std::vector<const net::GraphPath*> DFSSession::ProcessRequestOrThrow(
 
   {
     std::unique_lock<std::mutex> lock(mu_);
-    assert(!to_kill_ && "Session already killed");
-
-    assert(current_dfs_.get() == nullptr &&
-           "Another request in progress in the same session. Calls need to "
-           "be synchronous.");
+    CHECK(!to_kill_) << "Session already killed";
+    CHECK(current_dfs_.get() == nullptr)
+        << "Another request in progress in the same session. Calls need to "
+           "be synchronous.";
 
     current_dfs_ = make_unique<DFS>(
         request, *array_graph_, [this, &return_vector, &compiled_constraint,

@@ -23,7 +23,7 @@ TEST(Graph, SimpleGraph) {
   std::vector<DisplayMode> display_modes;
 
   for (const auto& link_pb : net_pb.links()) {
-    const net::GraphLink* link = path_storage.LinkFromProtobuf(link_pb);
+    net::GraphLinkIndex link = path_storage.LinkFromProtobuf(link_pb);
     std::vector<double> values = {0.1, 0.9};
     edge_data.emplace_back(link, values, "Some tooltip", 0);
   }
@@ -36,7 +36,7 @@ TEST(Graph, SimpleGraph) {
   display_modes.emplace_back("Mode 2");
 
   HtmlPage page;
-  GraphToHTML(edge_data, path_data, display_modes, &page);
+  GraphToHTML(edge_data, path_data, display_modes, &path_storage, &page);
   File::WriteStringToFile(page.Construct(), "graph.html");
 }
 

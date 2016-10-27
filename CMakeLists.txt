@@ -128,7 +128,7 @@ endmacro(add_test_exec)
 ################################
 # Common stuff
 ################################
-set(COMMON_HEADER_FILES src/common/common.h src/common/substitute.h src/common/logging.h src/common/file.h src/common/stringpiece.h src/common/strutil.h src/common/map_util.h src/common/stl_util.h src/common/event_queue.h src/common/free_list.h src/common/packer.h src/common/ptr_queue.h src/common/lru_cache.h)
+set(COMMON_HEADER_FILES src/common/common.h src/common/substitute.h src/common/logging.h src/common/file.h src/common/stringpiece.h src/common/strutil.h src/common/map_util.h src/common/stl_util.h src/common/event_queue.h src/common/free_list.h src/common/packer.h src/common/ptr_queue.h src/common/lru_cache.h src/common/perfect_hash.h)
 add_library(ncode_common STATIC src/common/common.cc src/common/substitute.cc src/common/logging.cc src/common/file.cc src/common/stringpiece.cc src/common/strutil.cc src/common/event_queue.cc src/common/free_list.cc src/common/packer.cc ${COMMON_HEADER_FILES})
 add_backward(ncode_common)
 
@@ -145,6 +145,7 @@ add_test_exec(common_ptr_queue_test src/common/ptr_queue_test.cc ncode_common)
 add_test_exec(common_circular_array_test src/common/circular_array_test.cc ncode_common)
 add_test_exec(common_lru_cache_test src/common/lru_cache_test.cc ncode_common)
 add_test_exec(common_thread_runner_test src/common/thread_runner_test.cc ncode_common)
+add_test_exec(common_perfect_hash_test src/common/perfect_hash_test.cc ncode_common)
 
 ################################
 # Network-releated stuff

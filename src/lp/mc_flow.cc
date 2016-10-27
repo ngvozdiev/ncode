@@ -15,7 +15,7 @@ MCProblem::MCProblem(const net::PBNet& graph, net::LinkStorage* link_storage,
                      double capacity_multiplier)
     : link_storage_(link_storage), capacity_multiplier_(capacity_multiplier) {
   for (const auto& link_pb : graph.links()) {
-    const net::GraphLink* link = link_storage->LinkFromProtobuf(link_pb);
+    const net::GraphLink* link = link_storage->LinkPtrFromProtobuf(link_pb);
 
     const std::string& out = link->src();
     const std::string& in = link->dst();

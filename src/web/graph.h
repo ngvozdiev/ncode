@@ -7,12 +7,10 @@
 #include <utility>
 #include <vector>
 
+#include "../net/net_common.h"
+
 namespace ncode {
-namespace geo {
-class Localizer;
-} /* namespace geo */
 namespace net {
-class GraphLink;
 class GraphPath;
 } /* namespace net */
 namespace web {
@@ -25,7 +23,7 @@ namespace web {
 
 // Data associated with an edge.
 struct EdgeData {
-  EdgeData(const net::GraphLink* link, const std::vector<double>& load,
+  EdgeData(net::GraphLinkIndex link, const std::vector<double>& load,
            const std::string& tooltip = "", size_t distance_hint = 0)
       : link(link),
         tooltip(tooltip),
@@ -33,7 +31,7 @@ struct EdgeData {
         load(load) {}
 
   // The link associated with this edge.
-  const net::GraphLink* link;
+  net::GraphLinkIndex link;
 
   // Tooltip to be displayed when hovering.
   std::string tooltip;
@@ -78,7 +76,8 @@ using LocalizerCallback =
     std::function<std::pair<double, double>(const std::string&)>;
 void GraphToHTML(const std::vector<EdgeData>& edges,
                  const std::vector<PathData>& paths,
-                 const std::vector<DisplayMode>& display_modes, HtmlPage* out,
+                 const std::vector<DisplayMode>& display_modes,
+                 net::LinkStorage* storage, HtmlPage* out,
                  LocalizerCallback localizer = LocalizerCallback());
 
 }  // namespace web

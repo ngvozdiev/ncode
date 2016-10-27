@@ -66,7 +66,8 @@ using LinkDataMap = std::map<size_t, std::map<size_t, LinkDataHelper>>;
 
 void GraphToHTML(const std::vector<EdgeData>& edges,
                  const std::vector<PathData>& paths,
-                 const std::vector<DisplayMode>& display_modes, HtmlPage* out,
+                 const std::vector<DisplayMode>& display_modes,
+                 net::LinkStorage* storage, HtmlPage* out,
                  LocalizerCallback localizer) {
   CHECK(!display_modes.empty()) << "At least one display mode required";
 
@@ -81,8 +82,8 @@ void GraphToHTML(const std::vector<EdgeData>& edges,
   std::vector<PathDataHelper> all_paths;
 
   for (const EdgeData& edge_data : edges) {
-    const std::string& src = edge_data.link->src();
-    const std::string& dst = edge_data.link->dst();
+    const std::string& src = storage->GetLink(edge_data.link)->src();
+    const std::string& dst = storage->GetLink(edge_data.link)->dst();
 
     CHECK(src != dst);
     size_t src_index = GetNodeIndex(src, &node_id_to_node_index);
@@ -120,10 +121,10 @@ void GraphToHTML(const std::vector<EdgeData>& edges,
     const net::GraphPath* path = path_data.path;
     path_data_helper.node_indices.reserve(path->link_sequence().size() + 1);
 
-    const auto& links_on_path = path->link_sequence().links();
-    for (const net::GraphLink* link : links_on_path) {
-      const std::string& src = link->src();
-      const std::string& dst = link->dst();
+    const net::Links& links_on_path = path->link_sequence().links();
+    for (net::GraphLinkIndex link : links_on_path) {
+      const std::string& src = storage->GetLink(link)->src();
+      const std::string& dst = storage->GetLink(link)->dst();
 
       size_t src_index = GetNodeIndex(src, &node_id_to_node_index);
       size_t dst_index = GetNodeIndex(dst, &node_id_to_node_index);

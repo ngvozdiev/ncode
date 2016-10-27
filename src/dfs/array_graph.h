@@ -29,8 +29,6 @@ using std::vector;
 using std::map;
 
 typedef int ArrayGraphOffset;
-typedef int EdgeIndex;
-
 constexpr int kArrayGraphInfiniteDistance = std::numeric_limits<int>::max();
 
 // An array graph is a fast representation of an immutable graph. It allows for
@@ -84,8 +82,8 @@ class ArrayGraph {
 
   // Returns the index of the edge to the n-th neighbor of a vertex at a given
   // offset. The first neighbor is n = 0.
-  EdgeIndex GetIndexOfEdge(ArrayGraphOffset offset, int n) const {
-    return graph_[offset + kCellSize + kNeighborSize * n];
+  net::GraphLinkIndex GetIndexOfEdge(ArrayGraphOffset offset, int n) const {
+    return net::GraphLinkIndex(graph_[offset + kCellSize + kNeighborSize * n]);
   }
 
   // Returns the offset of the n-th neighbor of a vertex at a given offset.
@@ -108,24 +106,6 @@ class ArrayGraph {
     return offset_to_vertex_id_;
   }
 
-  const vector<const net::GraphLink*>& edge_index_to_edge() const {
-    return edge_index_to_edge_;
-  }
-
-  // Finds the edge that connects the vertex with id 'src' to the one with id
-  // 'dst'. If no such edge exists returns nullptr.
-  const net::GraphLink* FindEdgeOrThrow(const string& src,
-                                        const string& dst) const {
-    for (const auto& edge : edge_index_to_edge_) {
-      if (edge->src() == src && edge->dst() == dst) {
-        return edge;
-      }
-    }
-
-    LOG(FATAL) << "Edge not found";
-    return nullptr;
-  }
-
   ArrayGraphOffset dst_offset() const { return dst_offset_; }
 
   net::PathStorage* storage() const { return storage_; }
@@ -133,7 +113,7 @@ class ArrayGraph {
  private:
   // A map from the id of a vertex to a list of <neighbor id,
   // edge to the neighbor> pairs.
-  typedef map<string, vector<std::pair<string, const net::GraphLink*>>>
+  typedef map<string, vector<std::pair<string, net::GraphLinkIndex>>>
       NeighborMap;
 
   ArrayGraph(const std::string& dst, const std::unordered_set<string>& vertices,
@@ -181,10 +161,6 @@ class ArrayGraph {
   // Mapping from offsets back to vertex ids.
   map<ArrayGraphOffset, string> offset_to_vertex_id_;
 
-  // Mapping from edge index to the edge protobuf. This is a vector because the
-  // edge indices are assigned in the range [0, num_edeges).
-  vector<const net::GraphLink*> edge_index_to_edge_;
-
   // Number of cells in the graph. This is the same as the number of vertices.
   int num_cells_;
 
@@ -202,7 +178,8 @@ class ArrayGraph {
   }
 
   // Sets the offset and the distance to the n-th neighbor of a vertex.
-  void SetNeighbor(ArrayGraphOffset offset, int n, EdgeIndex edge_index,
+  void SetNeighbor(ArrayGraphOffset offset, int n,
+                   net::GraphLinkIndex edge_index,
                    ArrayGraphOffset neighbor_offset, int distance) {
     graph_[offset + kCellSize + kNeighborSize * n] = edge_index;
     graph_[offset + kCellSize + kNeighborSize * n + 1] = neighbor_offset;

@@ -173,41 +173,6 @@ TEST(InitTest, DoubleEdge) {
   ASSERT_EQ(2000, agraph->GetDistanceToDest(offset_a));
 }
 
-TEST(InitTest, MultiAg) {
-  net::PathStorage storage;
-  net::PBNet graph;
-
-  net::PBGraphLink* edge_one = graph.add_links();
-  edge_one->set_src(kNodeA);
-  edge_one->set_dst(kNodeB);
-  edge_one->set_src_port(10);
-  edge_one->set_dst_port(11);
-  edge_one->set_delay_sec(0.002);
-
-  net::PBGraphLink* edge_two = graph.add_links();
-  edge_two->set_src(kNodeB);
-  edge_two->set_dst(kNodeA);
-  edge_two->set_delay_sec(0.003);
-  edge_two->set_src_port(12);
-  edge_two->set_dst_port(13);
-
-  // The two array graphs should contain references to the original edges, not
-  // copies, even though they are tagged for different destination nodes.
-  auto agraph_one = ArrayGraph::NewArrayGraph(graph, kNodeB, &storage);
-  auto agraph_two = ArrayGraph::NewArrayGraph(graph, kNodeA, &storage);
-
-  ASSERT_EQ((*edge_one).SerializeAsString(),
-            agraph_one->FindEdgeOrThrow(kNodeA, kNodeB)
-                ->link_pb()
-                .SerializeAsString());
-  ASSERT_EQ((*edge_two).SerializeAsString(),
-            agraph_one->FindEdgeOrThrow(kNodeB, kNodeA)
-                ->link_pb()
-                .SerializeAsString());
-  ASSERT_EQ(agraph_two->FindEdgeOrThrow(kNodeA, kNodeB),
-            agraph_one->FindEdgeOrThrow(kNodeA, kNodeB));
-}
-
 TEST_F(SingleEdgeFixture, OneEdge) {
   ASSERT_EQ(2ul, vertex_id_to_offset_->size());
   ASSERT_EQ(2ul, offset_to_vertex_id_->size());
@@ -368,10 +333,6 @@ TEST_F(BraessDstC, TestPathFromProtobufNonContiguous) {
   path.push_back(edge_two);
 
   ASSERT_DEATH(storage_.PathFromProtobuf(path, 0), ".*");
-}
-
-TEST_F(BraessDstC, TestFindEdge) {
-  ASSERT_DEATH(array_graph_->FindEdgeOrThrow("A", "D"), ".*");
 }
 
 TEST(ToTreeTest, EmptyGraph) {

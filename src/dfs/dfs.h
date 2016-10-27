@@ -31,7 +31,7 @@ struct DFSStackFrame {
   int neighbor_index;  // The index of the neighbor that was visited during this
                        // step of the DFS.
   uint32_t edge_weight;
-  EdgeIndex edge_index;            // The index of the edge.
+  net::GraphLinkIndex edge_index;  // The index of the edge.
   ArrayGraphOffset vertex_offset;  // The offset of the vertex at this hop.
 };
 
@@ -56,8 +56,8 @@ class DFS {
  private:
   // Called when the DFS jumps to a new vertex. Will update the next entry in
   // the stack.
-  void PushNewStackFrame(ArrayGraphOffset vertex_offset, int edge_index,
-                         int edge_wieght) {
+  void PushNewStackFrame(ArrayGraphOffset vertex_offset,
+                         net::GraphLinkIndex edge_index, int edge_wieght) {
     DFSStackFrame* sf = &stack_[++frame_pointer_];
     sf->vertex_offset = vertex_offset;
     sf->neighbor_index = -1;
@@ -133,9 +133,7 @@ class DFS {
   // Index into stack_.
   int frame_pointer_;
 
-  // A set of markings for edges. The array graph provides a linear indexing of
-  // edges (each edge has an index in the range [0, num_edges)) that is used to
-  // treat the vector as a set.
+  // A set of markings for edges.
   std::vector<bool> marked_edges_;
 
   // A similar to marked_edges_, but for nodes.

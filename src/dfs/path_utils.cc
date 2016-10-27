@@ -76,11 +76,11 @@ std::vector<const net::GraphPath*> PathCache::GetKLowestDelayPaths(
 // kDiversePathsDelayPenalty for each link that is contained in the
 // links_to_avoid argument.
 static std::chrono::microseconds GetDiversePathsDelayPenalty(
-    std::set<const net::GraphLink*>& links_to_avoid,
+    const net::GraphLinkSet& links_to_avoid,
     const net::LinkSequence& link_sequence) {
   std::chrono::microseconds total_delay_penalty(0);
-  for (const net::GraphLink* link : link_sequence.links()) {
-    if (ContainsKey(links_to_avoid, link)) {
+  for (net::GraphLinkIndex link : link_sequence.links()) {
+    if (links_to_avoid.Contains(link)) {
       total_delay_penalty += kDiversePathsDelayPenalty;
     }
   }
@@ -116,7 +116,7 @@ std::vector<const net::GraphPath*> PathCache::GetKDiversePaths(
     }
   }
 
-  std::set<const net::GraphLink*> links_to_avoid;
+  net::GraphLinkSet links_to_avoid;
   for (size_t i = 0; i < k; ++i) {
     for (LinkSequenceAndPenalty& link_sequence_and_penalty : scratch) {
       const net::LinkSequence& link_sequence =
@@ -129,15 +129,15 @@ std::vector<const net::GraphPath*> PathCache::GetKDiversePaths(
     }
 
     std::sort(scratch.begin(), scratch.end(),
-              [&links_to_avoid](const LinkSequenceAndPenalty& lhs,
-                                const LinkSequenceAndPenalty& rhs) {
+              [](const LinkSequenceAndPenalty& lhs,
+                 const LinkSequenceAndPenalty& rhs) {
                 return lhs.delay_plus_penalty < rhs.delay_plus_penalty;
               });
 
     const net::LinkSequence& best_link_sequence =
         *scratch.begin()->link_sequence;
-    for (const net::GraphLink* link : best_link_sequence.links()) {
-      links_to_avoid.insert(link);
+    for (net::GraphLinkIndex link : best_link_sequence.links()) {
+      links_to_avoid.Insert(link);
     }
 
     const net::GraphPath* new_path =
