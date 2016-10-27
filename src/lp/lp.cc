@@ -485,6 +485,15 @@ void Problem::SetObjectiveOffset(double value) {
 
 std::unique_ptr<Solution> Problem::Solve(std::chrono::milliseconds time_limit) {
   GLPKHandle* handle = static_cast<GLPKHandle*>(handle_);
+  auto solution = std::unique_ptr<Solution>(new Solution());
+
+  // GLPK does not support time limit. Will print an error message and return if
+  // set.
+  if (time_limit != std::chrono::milliseconds::max()) {
+    LOG(ERROR) << "Not supported yet";
+    solution->solution_type_ = TIMED_OUT;
+    return solution;
+  }
 
   int status;
   if (has_binary_variables_) {
@@ -511,7 +520,6 @@ std::unique_ptr<Solution> Problem::Solve(std::chrono::milliseconds time_limit) {
     solution_type = INFEASIBLE_OR_UNBOUNDED;
   }
 
-  auto solution = std::unique_ptr<Solution>(new Solution());
   solution->solution_type_ = solution_type;
   for (size_t variable = 0; variable < handle->num_cols; ++variable) {
     double value;

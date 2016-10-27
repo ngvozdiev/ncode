@@ -87,7 +87,7 @@ class PerfectHashSet {
 template <typename V, typename Tag, typename Value>
 class PerfectHashMap {
  public:
-  PerfectHashMap(Value null_value) : null_value_(null_value) {}
+  PerfectHashMap(Value null_value = Value()) : null_value_(null_value) {}
 
   // Adds a new value.
   void Add(Index<Tag, V> index, Value value) {
@@ -97,13 +97,20 @@ class PerfectHashMap {
 
   // Returns a copy of the value associated with an index (or null_value) if no
   // value is associated with an index.
-  Value GetValue(Index<Tag, V> index) {
+  const Value& GetValue(Index<Tag, V> index) const {
     if (values_.size() > index) {
       return values_[index];
     }
 
     return null_value_;
   }
+
+  Value& operator[](Index<Tag, V> index) {
+    values_.resize(std::max(values_.size(), index + 1), null_value_);
+    return values_[index];
+  }
+
+  const Value& operator[](Index<Tag, V> index) const { return GetValue(index); }
 
  private:
   Value null_value_;

@@ -8,6 +8,7 @@ namespace {
 struct ItemTag {};
 using Store = PerfectHashStore<std::string, uint8_t, ItemTag>;
 using Set = PerfectHashSet<uint8_t, ItemTag>;
+using Map = PerfectHashMap<uint8_t, ItemTag, std::string>;
 
 TEST(PerfectHash, Store) {
   Store store;
@@ -45,6 +46,21 @@ TEST(PerfectHash, Set) {
   set.Insert(index);
   ASSERT_TRUE(set.Contains(index));
   ASSERT_FALSE(set.Contains(other_index));
+}
+
+TEST(PerfectHash, Map) {
+  Store store;
+  auto index = store.AddItem("SomeItem");
+
+  Map map;
+  map[index] = "HI";
+
+  ASSERT_EQ("HI", map[index]);
+  ASSERT_EQ("HI", map.GetValue(index));
+
+  auto other_index = store.AddItem("OtherItem");
+  ASSERT_EQ("", map.GetValue(other_index));
+  ASSERT_EQ("", map[other_index]);
 }
 
 struct OtherItemTag {};

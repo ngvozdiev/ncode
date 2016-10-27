@@ -168,21 +168,20 @@ static std::unique_ptr<Problem> GetProblem(
   return problem;
 }
 
-static constexpr size_t kLargeMatrixSize = 200000;
 TEST(LP, LPLargeMatrix) {
-  std::vector<VariableIndex> variables(kLargeMatrixSize);
+  std::vector<VariableIndex> variables(1000);
   auto problem = GetProblem(&variables);
 
   auto solution = problem->Solve();
   ASSERT_EQ(OPTIMAL, solution->type());
-  ASSERT_DOUBLE_EQ(kLargeMatrixSize * 2.0, solution->ObjectiveValue());
-  for (size_t i = 0; i < kLargeMatrixSize; ++i) {
+  ASSERT_DOUBLE_EQ(1000 * 2.0, solution->ObjectiveValue());
+  for (size_t i = 0; i < 1000; ++i) {
     ASSERT_EQ(2.0, solution->VariableValue(variables[i]));
   }
 }
 
 TEST(LP, LPLargeMatrixTimeout) {
-  std::vector<VariableIndex> variables(kLargeMatrixSize);
+  std::vector<VariableIndex> variables(200000);
   auto problem = GetProblem(&variables);
 
   auto solution = problem->Solve(std::chrono::milliseconds(50));
