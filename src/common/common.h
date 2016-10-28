@@ -2,6 +2,7 @@
 #define NCODE_COMMON_H
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdbool>
 #include <cstdint>
