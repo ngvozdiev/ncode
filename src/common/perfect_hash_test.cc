@@ -63,6 +63,45 @@ TEST(PerfectHash, Map) {
   ASSERT_EQ("", map[other_index]);
 }
 
+TEST(PerfectHash, MapIter) {
+  Map map;
+
+  size_t i = 0;
+  for (auto index_and_value : map) {
+    Unused(index_and_value);
+    ++i;
+  }
+  ASSERT_EQ(0ul, i);
+
+  Store store;
+  auto index_one = store.AddItem("SomeItem1");
+  auto index_two = store.AddItem("SomeItem2");
+  auto index_three = store.AddItem("SomeItem3");
+  Unused(index_two);
+
+  map[index_one] = "A";
+  for (auto index_and_value : map) {
+    ASSERT_EQ(index_one, index_and_value.first);
+    ASSERT_EQ("A", *index_and_value.second);
+    ++i;
+  }
+  ASSERT_EQ(1ul, i);
+
+  i = 0;
+  map[index_three] = "B";
+  for (auto index_and_value : map) {
+    if (i == 0) {
+      ASSERT_EQ(index_one, index_and_value.first);
+      ASSERT_EQ("A", *index_and_value.second);
+    } else if (i == 1) {
+      ASSERT_EQ(index_three, index_and_value.first);
+      ASSERT_EQ("B", *index_and_value.second);
+    }
+    ++i;
+  }
+  ASSERT_EQ(2ul, i);
+}
+
 struct OtherItemTag {};
 using StoreNotCopyable =
     PerfectHashStore<std::unique_ptr<std::string>, uint8_t, OtherItemTag>;

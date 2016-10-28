@@ -129,6 +129,9 @@ class GraphLink {
 using GraphLinkIndex = Index<GraphLink, uint8_t>;
 using GraphLinkSet = PerfectHashSet<uint8_t, GraphLink>;
 
+template<typename V>
+using GraphLinkMap = PerfectHashMap<uint8_t, GraphLink, V>;
+
 // Just a bunch of links.
 using Links = std::vector<GraphLinkIndex>;
 

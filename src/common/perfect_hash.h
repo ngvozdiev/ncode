@@ -87,6 +87,29 @@ class PerfectHashSet {
 template <typename V, typename Tag, typename Value>
 class PerfectHashMap {
  public:
+  class Iterator {
+   public:
+    Iterator(PerfectHashMap<V, Tag, Value>* parent, Index<Tag, V> index)
+        : parent_(parent), index_(index) {}
+    Iterator operator++() {
+      while (index_ != parent_->values_.size()) {
+        index_ = Index<Tag, V>(index_ + 1);
+        if (parent_->HasValue(index_)) {
+          return *this;
+        }
+      }
+      return *this;
+    }
+    bool operator!=(const Iterator& other) { return index_ != other.index_; }
+    std::pair<Index<Tag, V>, Value*> operator*() const {
+      return std::make_pair(index_, &parent_->values_[index_]);
+    }
+
+   private:
+    PerfectHashMap<V, Tag, Value>* parent_;
+    Index<Tag, V> index_;
+  };
+
   PerfectHashMap(Value null_value = Value()) : null_value_(null_value) {}
 
   // Adds a new value.
@@ -105,12 +128,23 @@ class PerfectHashMap {
     return null_value_;
   }
 
+  bool HasValue(Index<Tag, V> index) const {
+    if (values_.size() > index) {
+      return values_[index] != null_value_;
+    }
+
+    return false;
+  }
+
   Value& operator[](Index<Tag, V> index) {
     values_.resize(std::max(values_.size(), index + 1), null_value_);
     return values_[index];
   }
 
   const Value& operator[](Index<Tag, V> index) const { return GetValue(index); }
+
+  Iterator begin() { return {this, Index<Tag, V>(0)}; }
+  Iterator end() { return {this, Index<Tag, V>(values_.size())}; }
 
  private:
   Value null_value_;
