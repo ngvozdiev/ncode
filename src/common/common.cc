@@ -335,6 +335,26 @@ double Empirical2DFunction::Eval(double x) {
   return 0;
 }
 
+CountdownTimer::CountdownTimer(std::chrono::nanoseconds budget)
+    : construction_time_(std::chrono::steady_clock::now()), budget_(budget) {}
+
+bool CountdownTimer::Expired() const {
+  using namespace std::chrono;
+  auto now = steady_clock::now();
+  nanoseconds delta = duration_cast<nanoseconds>(now - construction_time_);
+  return delta >= budget_;
+}
+
+std::chrono::nanoseconds CountdownTimer::RemainingTime() const {
+  using namespace std::chrono;
+  auto now = steady_clock::now();
+  nanoseconds delta = duration_cast<nanoseconds>(now - construction_time_);
+  if (delta >= budget_) {
+    return nanoseconds::zero();
+  }
+  return budget_ - delta;
+}
+
 std::string RandomString(size_t length) {
   auto randchar = []() -> char {
     const char charset[] =

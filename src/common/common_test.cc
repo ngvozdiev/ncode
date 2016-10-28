@@ -1,3 +1,6 @@
+#include <chrono>
+#include <thread>
+
 #include "common.h"
 #include "map_util.h"
 #include "gtest/gtest.h"
@@ -491,6 +494,16 @@ TEST(EmpiricalFunction, LinearMultiValues) {
     double model = -500.0 + (x + 4.0) / (4.0 + 10.0) * (100.0 + 500.0);
     ASSERT_NEAR(model, f.Eval(x), 0.00000001);
   }
+}
+
+TEST(CountdownTimer, Timer) {
+  CountdownTimer timer(std::chrono::milliseconds(100));
+  ASSERT_FALSE(timer.Expired());
+  ASSERT_TRUE(timer.RemainingTime() > std::chrono::nanoseconds::zero());
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  ASSERT_TRUE(timer.Expired());
+  ASSERT_TRUE(timer.RemainingTime() == std::chrono::nanoseconds::zero());
+  ASSERT_TRUE(timer.Expired());
 }
 
 }  // namespace

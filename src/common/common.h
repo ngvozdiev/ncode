@@ -725,6 +725,24 @@ class TimeoutEnforcer {
   std::map<T, std::vector<uint64_t>> key_to_history_;
 };
 
+// A class that is given a (real) time budget upon construction and can later be
+// queried if the budget has expired.
+class CountdownTimer {
+ public:
+  CountdownTimer(std::chrono::nanoseconds budget);
+
+  // Returns true if more time has elapsed between the time this object was
+  // created and the current time than the budget.
+  bool Expired() const;
+
+  // The remaining time.
+  std::chrono::nanoseconds RemainingTime() const;
+
+ private:
+  std::chrono::steady_clock::time_point construction_time_;
+  std::chrono::nanoseconds budget_;
+};
+
 // Generates a random string of a given length. The string will contain
 // A-Za-z0-9.
 std::string RandomString(size_t length);
