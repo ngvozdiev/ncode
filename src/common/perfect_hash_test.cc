@@ -56,10 +56,10 @@ TEST(PerfectHash, Map) {
   map[index] = "HI";
 
   ASSERT_EQ("HI", map[index]);
-  ASSERT_EQ("HI", map.GetValue(index));
+  ASSERT_EQ("HI", map.GetValueOrDie(index));
 
   auto other_index = store.AddItem("OtherItem");
-  ASSERT_EQ("", map.GetValue(other_index));
+  ASSERT_DEATH(map.GetValueOrDie(other_index), ".*");
   ASSERT_EQ("", map[other_index]);
 }
 

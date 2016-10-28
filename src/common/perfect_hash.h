@@ -102,7 +102,7 @@ class PerfectHashMap {
     }
     bool operator!=(const Iterator& other) { return index_ != other.index_; }
     std::pair<Index<Tag, V>, Value*> operator*() const {
-      return std::make_pair(index_, &parent_->values_[index_]);
+      return std::make_pair(index_, &parent_->values_[index_].second);
     }
 
    private:
@@ -110,46 +110,44 @@ class PerfectHashMap {
     Index<Tag, V> index_;
   };
 
-  PerfectHashMap(Value null_value = Value()) : null_value_(null_value) {}
-
   // Adds a new value.
   void Add(Index<Tag, V> index, Value value) {
-    values_.resize(std::max(values_.size(), index + 1), null_value_);
-    values_[index] = value;
+    values_.resize(std::max(values_.size(), index + 1));
+    values_[index] = {true, value};
   }
 
   // Returns a copy of the value associated with an index (or null_value) if no
   // value is associated with an index.
-  const Value& GetValue(Index<Tag, V> index) const {
-    if (values_.size() > index) {
-      return values_[index];
-    }
-
-    return null_value_;
+  const Value& GetValueOrDie(Index<Tag, V> index) const {
+    CHECK(values_.size() > index);
+    CHECK(values_[index].first);
+    return values_[index].second;
   }
 
   bool HasValue(Index<Tag, V> index) const {
     if (values_.size() > index) {
-      return values_[index] != null_value_;
+      return values_[index].first;
     }
 
     return false;
   }
 
   Value& operator[](Index<Tag, V> index) {
-    values_.resize(std::max(values_.size(), index + 1), null_value_);
-    return values_[index];
+    values_.resize(std::max(values_.size(), index + 1));
+    std::pair<bool, Value>& bool_and_value = values_[index];
+    bool_and_value.first = true;
+    return bool_and_value.second;
   }
 
-  const Value& operator[](Index<Tag, V> index) const { return GetValue(index); }
+  const Value& operator[](Index<Tag, V> index) const {
+    return GetValueOrDie(index);
+  }
 
   Iterator begin() { return {this, Index<Tag, V>(0)}; }
   Iterator end() { return {this, Index<Tag, V>(values_.size())}; }
 
  private:
-  Value null_value_;
-
-  std::vector<Value> values_;
+  std::vector<std::pair<bool, Value>> values_;
 };
 }
 
