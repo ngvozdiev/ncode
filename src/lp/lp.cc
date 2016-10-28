@@ -280,10 +280,7 @@ std::unique_ptr<Solution> Problem::Solve(std::chrono::milliseconds time_limit) {
       done_time - start_time);
   if (duration > time_limit) {
     LOG(ERROR) << "Timed out after " << duration.count() << "ms";
-    solution->solution_type_ = TIMED_OUT;
-    CPXfreeprob(env, &lp);
-    CPXcloseCPLEX(&env);
-    return solution;
+    solution->timed_out_ = true;
   }
 
   if (status) {
@@ -491,7 +488,7 @@ std::unique_ptr<Solution> Problem::Solve(std::chrono::milliseconds time_limit) {
   // set.
   if (time_limit != std::chrono::milliseconds::max()) {
     LOG(ERROR) << "Not supported yet";
-    solution->solution_type_ = TIMED_OUT;
+    solution->timed_out_ = true;
     return solution;
   }
 

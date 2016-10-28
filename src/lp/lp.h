@@ -23,7 +23,6 @@ enum SolutionType {
   OPTIMAL,   // The solution is optimal.
   FEASIBLE,  // The solution meets all the constraints, but may not be optimal.
   INFEASIBLE_OR_UNBOUNDED,  // The solver failed to find a solution.
-  TIMED_OUT,                // The solver timed out.
 };
 
 class Solution {
@@ -39,12 +38,20 @@ class Solution {
   // The type of the solution.
   SolutionType type() const { return solution_type_; }
 
+  // Whether or not the solution timed out.
+  bool timed_out() const { return timed_out_; }
+
  private:
-  Solution() : solution_type_(INFEASIBLE_OR_UNBOUNDED), objective_value_(0) {}
+  Solution()
+      : solution_type_(INFEASIBLE_OR_UNBOUNDED),
+        objective_value_(0),
+        timed_out_(false) {}
 
   SolutionType solution_type_;
   double objective_value_;
   std::vector<double> variables_;
+
+  bool timed_out_;
 
   friend class Problem;
   DISALLOW_COPY_AND_ASSIGN(Solution);

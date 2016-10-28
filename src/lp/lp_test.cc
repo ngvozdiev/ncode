@@ -185,7 +185,7 @@ TEST(LP, LPLargeMatrixTimeout) {
   auto problem = GetProblem(&variables);
 
   auto solution = problem->Solve(std::chrono::milliseconds(50));
-  ASSERT_EQ(TIMED_OUT, solution->type());
+  ASSERT_TRUE(solution->timed_out());
 }
 
 }  // namespace
