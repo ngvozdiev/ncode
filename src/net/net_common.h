@@ -86,6 +86,10 @@ bool IsIntraClusterLink(const PBNet& graph, const PBGraphLink& link);
 // graph.
 bool IsNodeInGraph(const PBNet& graph, const std::string& node);
 
+// Returns true if there exists at least one node that is not reachable from
+// every other node.
+bool IsPartitioned(const PBNet& graph);
+
 // A wrapper for PBGraphLink.
 class GraphLink {
  public:
@@ -129,7 +133,7 @@ class GraphLink {
 using GraphLinkIndex = Index<GraphLink, uint8_t>;
 using GraphLinkSet = PerfectHashSet<uint8_t, GraphLink>;
 
-template<typename V>
+template <typename V>
 using GraphLinkMap = PerfectHashMap<uint8_t, GraphLink, V>;
 
 // Just a bunch of links.

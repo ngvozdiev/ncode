@@ -597,5 +597,61 @@ PBGraphLink* FindEdgeOrDie(const std::string& src, const std::string& dst,
   return nullptr;
 }
 
+bool IsPartitioned(const PBNet& graph) {
+  std::map<std::string, size_t> node_to_index;
+  for (const auto& link : graph.links()) {
+    if (!ContainsKey(node_to_index, link.src())) {
+      node_to_index[link.src()] = node_to_index.size();
+    }
+
+    if (!ContainsKey(node_to_index, link.dst())) {
+      node_to_index[link.dst()] = node_to_index.size();
+    }
+  }
+
+  const size_t inf = std::numeric_limits<size_t>::max();
+  size_t nodes = node_to_index.size();
+  std::vector<std::vector<size_t>> distances;
+  for (size_t i = 0; i < nodes; ++i) {
+    distances.emplace_back(nodes, inf);
+  }
+
+  for (const auto& link : graph.links()) {
+    size_t src_index = node_to_index[link.src()];
+    size_t dst_index = node_to_index[link.dst()];
+    distances[src_index][dst_index] = 1;
+  }
+
+  for (size_t k = 0; k < nodes; ++k) {
+    distances[k][k] = 0;
+  }
+
+  for (size_t k = 0; k < nodes; ++k) {
+    for (size_t i = 0; i < nodes; ++i) {
+      for (size_t j = 0; j < nodes; ++j) {
+        size_t via_k = (distances[i][k] == inf || distances[k][j] == inf)
+                           ? inf
+                           : distances[i][k] + distances[k][j];
+
+        if (distances[i][j] > via_k) {
+          distances[i][j] = via_k;
+        }
+      }
+    }
+  }
+
+  // If the distances contain any std::numeric_limits<size_t>::max() then the
+  // network is partitioned.
+  for (size_t i = 0; i < nodes; ++i) {
+    for (size_t j = 0; j < nodes; ++j) {
+      if (distances[i][j] == inf) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 }  // namespace net
 }  // namespace ncode

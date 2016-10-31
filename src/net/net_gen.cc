@@ -427,24 +427,33 @@ net::PBNet GenerateRandom(size_t n, double edge_prob,
   auto edge_add_dist = std::uniform_real_distribution<double>(0.0, 1.0);
 
   net::PBNet return_graph;
-  for (uint32_t i = 0; i < n; ++i) {
-    for (uint32_t j = 0; j < n; ++j) {
-      if (i < j) {
-        std::string src = "N" + std::to_string(i);
-        std::string dst = "N" + std::to_string(j);
+  while (true) {
+    return_graph.Clear();
+    for (uint32_t i = 0; i < n; ++i) {
+      for (uint32_t j = 0; j < n; ++j) {
+        if (i < j) {
+          std::string src = "N" + std::to_string(i);
+          std::string dst = "N" + std::to_string(j);
 
-        double p = edge_add_dist(*generator);
-        if (p > edge_prob) {
-          continue;
+          double p = edge_add_dist(*generator);
+          if (p > edge_prob) {
+            continue;
+          }
+
+          std::chrono::microseconds delay =
+              std::chrono::microseconds(delay_dist(*generator));
+          uint64_t bw_bps = bw_dist(*generator);
+
+          AddBiEdgeToGraph(src, dst, delay, bw_bps, &return_graph);
         }
-
-        std::chrono::microseconds delay =
-            std::chrono::microseconds(delay_dist(*generator));
-        uint64_t bw_bps = bw_dist(*generator);
-
-        AddBiEdgeToGraph(src, dst, delay, bw_bps, &return_graph);
       }
     }
+
+    if (IsPartitioned(return_graph)) {
+      continue;
+    }
+
+    break;
   }
 
   return return_graph;

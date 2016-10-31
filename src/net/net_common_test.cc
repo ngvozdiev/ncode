@@ -508,6 +508,42 @@ TEST(DisjointSets, MultiKeyDisjointTransitiveTwo) {
   ASSERT_EQ(model, out);
 }
 
+TEST(Partitioned, Empty) {
+  PBNet net;
+  ASSERT_FALSE(IsPartitioned(net));
+}
+
+TEST(Partitioned, SingleUniLink) {
+  PBNet net;
+  net::PBGraphLink* link_pb = net.add_links();
+  link_pb->set_src("A");
+  link_pb->set_src("B");
+  ASSERT_TRUE(IsPartitioned(net));
+}
+
+TEST(Partitioned, SingleLink) {
+  PBNet net;
+  AddBiEdgeToGraph("A", "B", microseconds(10), 10, &net);
+  ASSERT_FALSE(IsPartitioned(net));
+}
+
+TEST(Partitioned, Partition) {
+  PBNet net;
+  AddBiEdgeToGraph("A", "B", microseconds(10), 10, &net);
+  AddBiEdgeToGraph("B", "Z", microseconds(10), 10, &net);
+  AddBiEdgeToGraph("C", "D", microseconds(10), 10, &net);
+  ASSERT_TRUE(IsPartitioned(net));
+}
+
+TEST(Partitioned, NoPartition) {
+  PBNet net;
+  AddBiEdgeToGraph("A", "B", microseconds(10), 10, &net);
+  AddBiEdgeToGraph("B", "Z", microseconds(10), 10, &net);
+  AddBiEdgeToGraph("C", "D", microseconds(10), 10, &net);
+  AddBiEdgeToGraph("C", "Z", microseconds(10), 10, &net);
+  ASSERT_FALSE(IsPartitioned(net));
+}
+
 }  // namespace test
 }  // namespace net
 }  // namespace ncode
