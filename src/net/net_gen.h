@@ -1,7 +1,11 @@
 #ifndef NCODE_NET_GEN_H
 #define NCODE_NET_GEN_H
 
-#include "net_common.h"
+#include <chrono>
+#include <cstdint>
+#include <random>
+#include <vector>
+#include "../net/net_common.h"
 
 namespace ncode {
 namespace net {
@@ -35,6 +39,17 @@ net::PBNet GenerateFullGraph(uint32_t size, uint64_t rate_bps,
 net::PBNet GenerateLadder(
     size_t levels, uint64_t rate_bps, std::chrono::microseconds delay,
     const std::vector<std::chrono::microseconds>& central_delays = {});
+
+// Generates a random graph with N nodes. Each of the n * (n - 1) edges has a
+// uniform probability of edge_prob of being part of the graph. If this is set
+// to 1.0 the graph will be a full graph. Each edge's delay and bandwidth will
+// be picked at uniform from the given ranges. Nodes will be named Ni for i in
+// [0, N).
+net::PBNet GenerateRandom(size_t n, double edge_prob,
+                          std::chrono::microseconds delay_min,
+                          std::chrono::microseconds delay_max,
+                          uint64_t bw_bps_min, uint64_t bw_bps_max,
+                          std::mt19937* generator);
 
 }  // namespace net
 }  // namespace ncode

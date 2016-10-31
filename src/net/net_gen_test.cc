@@ -57,8 +57,8 @@ TEST(NTT, Generate) {
 }
 
 TEST(HE, GenerateDelayAdd) {
-  PBNet net_pb = GenerateHE(kBandwidth, milliseconds(0), 1);
-  PBNet net_pb_plus = GenerateHE(kBandwidth, milliseconds(10), 1);
+  PBNet net_pb = GenerateHE(kBandwidth, microseconds(0), 1);
+  PBNet net_pb_plus = GenerateHE(kBandwidth, microseconds(10000), 1);
   for (int i = 0; i < net_pb.links_size(); ++i) {
     const PBGraphLink& link = net_pb.links(i);
     const PBGraphLink& link_plus = net_pb_plus.links(i);
@@ -68,8 +68,8 @@ TEST(HE, GenerateDelayAdd) {
 }
 
 TEST(HE, GenerateDelayMultiply) {
-  PBNet net_pb = GenerateHE(kBandwidth, milliseconds(0), 1);
-  PBNet net_pb_times_1000 = GenerateHE(kBandwidth, milliseconds(0), 1000);
+  PBNet net_pb = GenerateHE(kBandwidth, microseconds(0), 1);
+  PBNet net_pb_times_1000 = GenerateHE(kBandwidth, microseconds(0), 1000);
   for (int i = 0; i < net_pb.links_size(); ++i) {
     const PBGraphLink& link = net_pb.links(i);
     const PBGraphLink& link_times_1000 = net_pb_times_1000.links(i);
@@ -80,17 +80,17 @@ TEST(HE, GenerateDelayMultiply) {
 }
 
 TEST(Ladder, NoLevels) {
-  ASSERT_DEATH(GenerateLadder(0, 100000, milliseconds(10)), ".*");
+  ASSERT_DEATH(GenerateLadder(0, 100000, microseconds(10000)), ".*");
 }
 
 TEST(Ladder, SingleLevel) {
-  PBNet net_pb_ladder = GenerateLadder(1, 100000, milliseconds(10));
-  PBNet net_pb = GenerateFullGraph(2, 100000, milliseconds(10));
+  PBNet net_pb_ladder = GenerateLadder(1, 100000, microseconds(10000));
+  PBNet net_pb = GenerateFullGraph(2, 100000, microseconds(10000));
   ASSERT_EQ(net_pb.DebugString(), net_pb_ladder.DebugString());
 }
 
 TEST(Ladder, MultiLevel) {
-  PBNet net_pb = GenerateLadder(10, 100000, milliseconds(10));
+  PBNet net_pb = GenerateLadder(10, 100000, microseconds(10000));
   ASSERT_EQ((1 + 9 * 5) * 2, net_pb.links_size());
 
   std::set<std::string> nodes;
@@ -103,6 +103,50 @@ TEST(Ladder, MultiLevel) {
   }
 
   ASSERT_EQ(20ul + 18ul, nodes.size());
+}
+
+TEST(Random, ZeroSize) {
+  std::mt19937 random(1.0);
+
+  PBNet net_pb = GenerateRandom(0, 1.0, microseconds(10000),
+                                microseconds(10000), 1000, 1000, &random);
+  ASSERT_TRUE(net_pb.links().empty());
+
+  net_pb = GenerateRandom(10, 0.0, microseconds(10000), microseconds(10000),
+                          1000, 1000, &random);
+  ASSERT_TRUE(net_pb.links().empty());
+}
+
+TEST(Random, BadArgs) {
+  std::mt19937 random(1.0);
+  ASSERT_DEATH(GenerateRandom(0, 1.0, microseconds(20000), microseconds(10000),
+                              1000, 1000, &random),
+               ".*");
+  ASSERT_DEATH(GenerateRandom(0, 1.0, microseconds(10000), microseconds(10000),
+                              2000, 1000, &random),
+               ".*");
+}
+
+TEST(Random, Random) {
+  std::mt19937 random(1.0);
+  PBNet net_pb = GenerateRandom(1000, 0.1, microseconds(1000),
+                                microseconds(3000), 1000, 3000, &random);
+
+  // There should be roughly 1000 * 999 * 0.1 links.
+  ASSERT_NEAR(1000 * 999 * 0.1, net_pb.links_size(), 1000);
+
+  double delay_sum = 0;
+  uint64_t bw_sum = 0;
+  for (const auto& link : net_pb.links()) {
+    delay_sum += link.delay_sec();
+    bw_sum += link.bandwidth_bps();
+  }
+
+  double mean_delay = delay_sum / net_pb.links_size();
+  ASSERT_NEAR(0.002, mean_delay, 0.001);
+
+  double mean_bw = bw_sum / net_pb.links_size();
+  ASSERT_NEAR(2000, mean_bw, 1000);
 }
 
 }  // namespace net
