@@ -599,21 +599,22 @@ PBGraphLink* FindEdgeOrDie(const std::string& src, const std::string& dst,
 
 bool IsPartitioned(const PBNet& graph) {
   std::map<std::string, size_t> node_to_index;
+  size_t i = 0;
   for (const auto& link : graph.links()) {
     if (!ContainsKey(node_to_index, link.src())) {
-      node_to_index[link.src()] = node_to_index.size();
+      node_to_index[link.src()] = i++;
     }
 
     if (!ContainsKey(node_to_index, link.dst())) {
-      node_to_index[link.dst()] = node_to_index.size();
+      node_to_index[link.dst()] = i++;
     }
   }
 
   const size_t inf = std::numeric_limits<size_t>::max();
   size_t nodes = node_to_index.size();
-  std::vector<std::vector<size_t>> distances;
+  std::vector<std::vector<size_t>> distances(nodes);
   for (size_t i = 0; i < nodes; ++i) {
-    distances.emplace_back(nodes, inf);
+    distances[i] = std::vector<size_t>(nodes, inf);
   }
 
   for (const auto& link : graph.links()) {

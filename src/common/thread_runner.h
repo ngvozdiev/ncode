@@ -5,6 +5,7 @@
 #include <functional>
 #include <thread>
 #include <vector>
+#include <mutex>
 
 namespace ncode {
 
@@ -13,21 +14,30 @@ namespace ncode {
 // and return when all functions have completed.
 template <typename T>
 void RunInParallel(const std::vector<T>& arguments,
-                   std::function<void(const T&)> f, size_t batch_size = 4) {
-  CHECK(batch_size > 0) << "Zero batch size";
+                   std::function<void(const T&)> f, size_t batch = 4) {
+  CHECK(batch > 0) << "Zero batch size";
+
+  std::mutex mu;
+  std::vector<bool> done(arguments.size(), false);
 
   std::vector<std::thread> threads;
-  for (size_t arg_index = 0; arg_index < arguments.size(); ++arg_index) {
-    threads.emplace_back(
-        std::thread([&arguments, arg_index, &f] { f(arguments[arg_index]); }));
-
-    if (threads.size() % batch_size == 0 || arg_index == arguments.size() - 1) {
-      for (size_t i = 0; i < threads.size(); ++i) {
-        threads[i].join();
+  for (size_t j = 0; j < batch; ++j) {
+    threads.emplace_back([&arguments, &f, &mu, &done] {
+      mu.lock();
+      for (size_t i = 0; i < arguments.size(); ++i) {
+        if (!done[i]) {
+          done[i] = true;
+          mu.unlock();
+          f(arguments[i]);
+          mu.lock();
+        }
       }
+      mu.unlock();
+    });
+  }
 
-      threads.clear();
-    }
+  for (size_t i = 0; i < batch; ++i) {
+    threads[i].join();
   }
 }
 
