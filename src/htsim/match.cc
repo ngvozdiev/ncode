@@ -19,11 +19,10 @@ bool operator<(const MatchRuleKey& lhs, const MatchRuleKey& rhs) {
 
 std::string MatchRuleKey::ToString() const {
   std::string out;
-  SubstituteAndAppend(
-      &out, "sp: $0, tag: $1, tuples: [$2]", input_port_.Raw(), tag_.Raw(),
-      Join(five_tuples_, ",", [](const net::FiveTuple& five_tuple) {
-        return five_tuple.ToString();
-      }));
+  std::function<std::string(const net::FiveTuple&)> formatter = [](
+      const net::FiveTuple& five_tuple) { return five_tuple.ToString(); };
+  SubstituteAndAppend(&out, "sp: $0, tag: $1, tuples: [$2]", input_port_.Raw(),
+                      tag_.Raw(), Join(five_tuples_, ",", formatter));
   return out;
 }
 
@@ -148,11 +147,11 @@ MatchRuleAction* MatchRule::ChooseOrNull(const net::FiveTuple& five_tuple) {
 
 std::string MatchRule::ToString() const {
   std::string out;
-  StrAppend(
-      &out, key_.ToString(), " -> [",
-      Join(actions_, ",", [](const std::unique_ptr<MatchRuleAction>& action) {
-        return action->ToString();
-      }), "]");
+  std::function<std::string(const std::unique_ptr<MatchRuleAction>&)> f = [](
+      const std::unique_ptr<MatchRuleAction>& action) {
+    return action->ToString();
+  };
+  StrAppend(&out, key_.ToString(), " -> [", Join(actions_, ",", f), "]");
 
   if (parent_matcher_) {
     StrAppend(&out, " at ", parent_matcher_->id());
