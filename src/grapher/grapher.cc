@@ -354,10 +354,11 @@ void SaveSeriesToFile<DataSeries1D>(const DataSeries1D& data_series,
 template <>
 void SaveSeriesToFile<DataSeries2D>(const DataSeries2D& data_series,
                                     const std::string& file) {
-  std::string out = Join(data_series.data, "\n",
-                         [](const std::pair<double, double>& x_and_y) {
-                           return StrCat(x_and_y.first, " ", x_and_y.second);
-                         });
+  std::function<std::string(const std::pair<double, double>&)> f = [](
+      const std::pair<double, double>& x_and_y) {
+    return StrCat(x_and_y.first, " ", x_and_y.second);
+  };
+  std::string out = Join(data_series.data, "\n", f);
   File::WriteStringToFileOrDie(out, file);
 }
 
