@@ -337,7 +337,7 @@ Network::Network(EventQueueTime tcp_retx_scan_period, EventQueue* event_queue)
 }
 
 void Network::AddDevice(Device* device) {
-  device_id_to_device_.emplace(device->id(), device);
+  id_to_device_.emplace(device->id(), device);
   device->set_network(this);
 }
 
@@ -345,8 +345,8 @@ void Network::AddLink(Queue* queue, Pipe* pipe, bool internal) {
   const net::GraphLink* link = pipe->graph_link();
   CHECK(link->src() != link->dst()) << "Link source same as destination";
 
-  Device& src = FindDeviceOrDie(link->src());
-  Device& dst = FindDeviceOrDie(link->dst());
+  Device& src = FindDeviceOrDie(link->src_node()->id());
+  Device& dst = FindDeviceOrDie(link->dst_node()->id());
 
   Port* src_port = src.FindOrCreatePort(link->src_port());
   src_port->set_internal(internal);
@@ -359,11 +359,11 @@ void Network::AddLink(Queue* queue, Pipe* pipe, bool internal) {
   queue->Connect(pipe);
   pipe->Connect(dst_port);
 
-  LOG(INFO) << Substitute("Added queue $0:$1 -> $2:$3.", link->src(),
-                          link->src_port().Raw(), link->dst(),
+  LOG(INFO) << Substitute("Added queue $0:$1 -> $2:$3.", link->src_node()->id(),
+                          link->src_port().Raw(), link->dst_node()->id(),
                           link->dst_port().Raw());
-  LOG(INFO) << Substitute("Added pipe $0:$1 -> $2:$3.", link->src(),
-                          link->src_port().Raw(), link->dst(),
+  LOG(INFO) << Substitute("Added pipe $0:$1 -> $2:$3.", link->src_node()->id(),
+                          link->src_port().Raw(), link->dst_node()->id(),
                           link->dst_port().Raw());
 }
 
@@ -372,7 +372,7 @@ void Network::RegisterTCPSourceWithRetxTimer(TCPSource* src) {
 }
 
 void Network::RecordBytesReceivedByTCPSinks() {
-  for (const auto& device_id_and_device : device_id_to_device_) {
+  for (const auto& device_id_and_device : id_to_device_) {
     Device* device = device_id_and_device.second;
     device->RecordBytesReceivedByTCPSinks();
   }

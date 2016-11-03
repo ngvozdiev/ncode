@@ -6,7 +6,7 @@ namespace dfs {
 namespace test {
 
 using namespace std::chrono;
-static constexpr uint64_t kBwValue = 10000;
+static constexpr net::Bandwidth kBwValue = net::Bandwidth::FromBitsPerSecond(10000);
 
 void SingleEdgeFixture::SetUp() {
   net::PBGraphLink* edge = graph_.add_links();
@@ -15,6 +15,7 @@ void SingleEdgeFixture::SetUp() {
   edge->set_src_port(10);
   edge->set_dst_port(11);
   edge->set_delay_sec(0.001);
+  edge->set_bandwidth_bps(100);
 
   array_graph_ = ArrayGraph::NewArrayGraph(graph_, kNodeB, &storage_);
   ASSERT_NE(nullptr, array_graph_);

@@ -16,9 +16,8 @@ static constexpr char kSrc[] = "A";
 static constexpr char kDst[] = "B";
 static constexpr net::DevicePortNumber kSrcNetPort = net::DevicePortNumber(10);
 static constexpr net::DevicePortNumber kDstNetPort = net::DevicePortNumber(20);
+static constexpr net::Bandwidth kBw = net::Bandwidth::FromBitsPerSecond(20000);
 static constexpr std::chrono::milliseconds kDelay(20);
-static constexpr uint32_t kBw = 200000;
-
 static constexpr IPAddress kSrcIp = IPAddress(1);
 static constexpr IPAddress kDstIp = IPAddress(2);
 static constexpr IPProto kProto = IPProto(3);
@@ -31,11 +30,11 @@ TEST(AddEdgeTest, AddEdgeBadId) {
   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 
   net::PBNet graph;
-  ASSERT_DEATH(AddEdgeToGraph("A", "", milliseconds(10), 100, &graph),
+  ASSERT_DEATH(AddEdgeToGraph("A", "", milliseconds(10), kBw, &graph),
                "missing");
-  ASSERT_DEATH(AddEdgeToGraph("", "B", milliseconds(10), 100, &graph),
+  ASSERT_DEATH(AddEdgeToGraph("", "B", milliseconds(10), kBw, &graph),
                "missing");
-  ASSERT_DEATH(AddEdgeToGraph("A", "A", milliseconds(10), 100, &graph), "same");
+  ASSERT_DEATH(AddEdgeToGraph("A", "A", milliseconds(10), kBw, &graph), "same");
 }
 
 TEST(AddEdgeTest, AddEdge) {
@@ -47,7 +46,7 @@ TEST(AddEdgeTest, AddEdge) {
   ASSERT_EQ("A", link.src());
   ASSERT_EQ("B", link.dst());
   ASSERT_EQ(kDelay.count() / 1000.0, link.delay_sec());
-  ASSERT_EQ(kBw, link.bandwidth_bps());
+  ASSERT_EQ(kBw.bps(), link.bandwidth_bps());
 }
 
 TEST(AddEdgeTest, AddEdgeDouble) {
@@ -80,13 +79,13 @@ TEST(AddEdgeTest, AddEdgesBulk) {
   ASSERT_EQ("A", link_one.src());
   ASSERT_EQ("B", link_one.dst());
   ASSERT_EQ(kDelay.count() / 1000.0, link_one.delay_sec());
-  ASSERT_EQ(kBw, link_one.bandwidth_bps());
+  ASSERT_EQ(kBw.bps(), link_one.bandwidth_bps());
 
   const net::PBGraphLink& link_two = graph.links(1);
   ASSERT_EQ("B", link_two.src());
   ASSERT_EQ("C", link_two.dst());
   ASSERT_EQ(kDelay.count() / 1000.0, link_two.delay_sec());
-  ASSERT_EQ(kBw, link_two.bandwidth_bps());
+  ASSERT_EQ(kBw.bps(), link_two.bandwidth_bps());
 
   ASSERT_NE(link_one.src_port(), link_two.src_port());
   ASSERT_NE(link_one.dst_port(), link_two.dst_port());
@@ -137,7 +136,7 @@ TEST(ClusterTest, GetNodesInOtherClusters) {
             std::set<std::string>({"N3"}));
 }
 
-class LinkStorageTest : public ::testing::Test {
+class GraphStorageTest : public ::testing::Test {
  protected:
   void SetUp() override {
     link_pb_.set_src(kSrc);
@@ -145,16 +144,16 @@ class LinkStorageTest : public ::testing::Test {
     link_pb_.set_src_port(kSrcNetPort.Raw());
     link_pb_.set_dst_port(kDstNetPort.Raw());
     link_pb_.set_delay_sec(kDelay.count() / 1000.0);
-    link_pb_.set_bandwidth_bps(kBw);
+    link_pb_.set_bandwidth_bps(kBw.bps());
   }
 
   // Just a random valid link.
   PBGraphLink link_pb_;
 
-  LinkStorage storage_;
+  GraphStorage storage_;
 };
 
-TEST_F(LinkStorageTest, BadLink) {
+TEST_F(GraphStorageTest, BadLink) {
   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 
   PBGraphLink link_pb;
@@ -168,12 +167,9 @@ TEST_F(LinkStorageTest, BadLink) {
 
   link_pb.set_src_port(kSrcNetPort.Raw());
   ASSERT_DEATH(storage_.LinkPtrFromProtobuf(link_pb), "missing");
-
-  link_pb.set_dst_port(kDstNetPort.Raw());
-  ASSERT_NE(nullptr, storage_.LinkPtrFromProtobuf(link_pb));
 }
 
-TEST_F(LinkStorageTest, BadLinkDuplicateSrcDst) {
+TEST_F(GraphStorageTest, BadLinkDuplicateSrcDst) {
   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 
   PBGraphLink link_pb = link_pb_;
@@ -183,17 +179,17 @@ TEST_F(LinkStorageTest, BadLinkDuplicateSrcDst) {
   ASSERT_DEATH(storage_.LinkPtrFromProtobuf(link_pb), "same");
 }
 
-TEST_F(LinkStorageTest, Init) {
+TEST_F(GraphStorageTest, Init) {
   const GraphLink* link = storage_.LinkPtrFromProtobuf(link_pb_);
-  ASSERT_EQ(kSrc, link->src());
-  ASSERT_EQ(kDst, link->dst());
-  ASSERT_EQ(kBw, link->bandwidth_bps());
+  ASSERT_EQ(kSrc, link->src_node()->id());
+  ASSERT_EQ(kDst, link->dst_node()->id());
+  ASSERT_EQ(kBw, link->bandwidth());
   ASSERT_EQ(kDelay, link->delay());
   ASSERT_EQ(kDstNetPort, link->dst_port());
   ASSERT_EQ(kSrcNetPort, link->src_port());
 }
 
-TEST_F(LinkStorageTest, SameLink) {
+TEST_F(GraphStorageTest, SameLink) {
   const GraphLink* link = storage_.LinkPtrFromProtobuf(link_pb_);
   const GraphLink* link_two = storage_.LinkPtrFromProtobuf(link_pb_);
   ASSERT_EQ(link, link_two);
@@ -206,36 +202,30 @@ TEST_F(LinkStorageTest, SameLink) {
   ASSERT_EQ(storage_.LinkPtrFromProtobuf(link_pb_), link);
 }
 
-TEST_F(LinkStorageTest, LinkToString) {
+TEST_F(GraphStorageTest, LinkToString) {
   const GraphLink* link = storage_.LinkPtrFromProtobuf(link_pb_);
   ASSERT_EQ(Substitute("$0:$1->$2:$3", kSrc, kSrcNetPort.Raw(), kDst,
                        kDstNetPort.Raw()),
             link->ToString());
 }
 
-TEST_F(LinkStorageTest, LinkNoDelay) {
+TEST_F(GraphStorageTest, LinkNoDelay) {
   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 
   PBGraphLink link_no_delay = link_pb_;
   link_no_delay.clear_delay_sec();
-
-  const GraphLink* link = storage_.LinkPtrFromProtobuf(link_no_delay);
-  ASSERT_NE(nullptr, link);
-  ASSERT_DEATH(link->delay(), "zero delay");
+  ASSERT_DEATH(storage_.LinkPtrFromProtobuf(link_no_delay), "zero delay");
 }
 
-TEST_F(LinkStorageTest, LinkNoBw) {
+TEST_F(GraphStorageTest, LinkNoBw) {
   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 
   PBGraphLink link_no_delay = link_pb_;
   link_no_delay.clear_bandwidth_bps();
-
-  const GraphLink* link = storage_.LinkPtrFromProtobuf(link_no_delay);
-  ASSERT_NE(nullptr, link);
-  ASSERT_DEATH(link->bandwidth_bps(), "zero bandwidth");
+  ASSERT_DEATH(storage_.LinkPtrFromProtobuf(link_no_delay), "zero bandwidth");
 }
 
-TEST_F(LinkStorageTest, FindInverse) {
+TEST_F(GraphStorageTest, FindInverse) {
   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 
   PBGraphLink link_pb = link_pb_;
@@ -261,7 +251,7 @@ TEST_F(LinkStorageTest, FindInverse) {
   ASSERT_DEATH(storage_.FindUniqueInverseOrDie(link), ".*");
 }
 
-TEST_F(LinkStorageTest, Empty) {
+TEST_F(GraphStorageTest, Empty) {
   LinkSequence link_sequence;
   ASSERT_EQ(0ul, link_sequence.size());
   ASSERT_LT(0ul, link_sequence.InMemBytesEstimate());
@@ -269,7 +259,7 @@ TEST_F(LinkStorageTest, Empty) {
   ASSERT_EQ("[]", link_sequence.ToString(&storage_));
 }
 
-TEST_F(LinkStorageTest, LinkSequenceSingleLink) {
+TEST_F(GraphStorageTest, LinkSequenceSingleLink) {
   GraphLinkIndex link_index = storage_.LinkFromProtobuf(link_pb_);
   const GraphLink* link = storage_.GetLink(link_index);
   Links links = {link_index};
@@ -283,7 +273,7 @@ TEST_F(LinkStorageTest, LinkSequenceSingleLink) {
   ASSERT_EQ("[A->B]", link_sequence.ToStringNoPorts(&storage_));
 }
 
-TEST_F(LinkStorageTest, LinkSequenceBadDuplicateLink) {
+TEST_F(GraphStorageTest, LinkSequenceBadDuplicateLink) {
   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 
   GraphLinkIndex link = storage_.LinkFromProtobuf(link_pb_);
@@ -291,7 +281,7 @@ TEST_F(LinkStorageTest, LinkSequenceBadDuplicateLink) {
   ASSERT_DEATH(LinkSequence sequence(links, &storage_), "Duplicate link");
 }
 
-TEST_F(LinkStorageTest, LinkSequenceToProtobuf) {
+TEST_F(GraphStorageTest, LinkSequenceToProtobuf) {
   GraphLinkIndex link_index = storage_.LinkFromProtobuf(link_pb_);
 
   PBPath path;
@@ -523,24 +513,24 @@ TEST(Partitioned, SingleUniLink) {
 
 TEST(Partitioned, SingleLink) {
   PBNet net;
-  AddBiEdgeToGraph("A", "B", microseconds(10), 10, &net);
+  AddBiEdgeToGraph("A", "B", microseconds(10), kBw, &net);
   ASSERT_FALSE(IsPartitioned(net));
 }
 
 TEST(Partitioned, Partition) {
   PBNet net;
-  AddBiEdgeToGraph("A", "B", microseconds(10), 10, &net);
-  AddBiEdgeToGraph("B", "Z", microseconds(10), 10, &net);
-  AddBiEdgeToGraph("C", "D", microseconds(10), 10, &net);
+  AddBiEdgeToGraph("A", "B", microseconds(10), kBw, &net);
+  AddBiEdgeToGraph("B", "Z", microseconds(10), kBw, &net);
+  AddBiEdgeToGraph("C", "D", microseconds(10), kBw, &net);
   ASSERT_TRUE(IsPartitioned(net));
 }
 
 TEST(Partitioned, NoPartition) {
   PBNet net;
-  AddBiEdgeToGraph("A", "B", microseconds(10), 10, &net);
-  AddBiEdgeToGraph("B", "Z", microseconds(10), 10, &net);
-  AddBiEdgeToGraph("C", "D", microseconds(10), 10, &net);
-  AddBiEdgeToGraph("C", "Z", microseconds(10), 10, &net);
+  AddBiEdgeToGraph("A", "B", microseconds(10), kBw, &net);
+  AddBiEdgeToGraph("B", "Z", microseconds(10), kBw, &net);
+  AddBiEdgeToGraph("C", "D", microseconds(10), kBw, &net);
+  AddBiEdgeToGraph("C", "Z", microseconds(10), kBw, &net);
   ASSERT_FALSE(IsPartitioned(net));
 }
 

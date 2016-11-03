@@ -10,13 +10,13 @@ using namespace std::chrono;
 
 class MCTest : public ::testing::Test {
  protected:
-  net::LinkStorage link_storage_;
+  net::GraphStorage graph_storage_;
 };
 
 TEST_F(MCTest, Empty) {
   net::PBNet net;
 
-  MaxFlowMCProblem max_flow_problem(net, &link_storage_);
+  MaxFlowMCProblem max_flow_problem(net, &graph_storage_);
 
   double max_flow;
   ASSERT_TRUE(max_flow_problem.GetMaxFlow(&max_flow));
@@ -32,8 +32,9 @@ TEST_F(MCTest, UnidirectionalLink) {
   link->set_src_port(10);
   link->set_dst_port(102);
   link->set_bandwidth_bps(10000);
+  link->set_delay_sec(0.1);
 
-  MaxFlowMCProblem max_flow_problem(net, &link_storage_);
+  MaxFlowMCProblem max_flow_problem(net, &graph_storage_);
   max_flow_problem.AddCommodity("N0", "N2");
 
   double max_flow;
@@ -45,7 +46,7 @@ TEST_F(MCTest, Simple) {
   net::PBNet net = net::GenerateFullGraph(2, 10000, microseconds(10));
 
   double max_flow;
-  MaxFlowMCProblem max_flow_problem(net, &link_storage_);
+  MaxFlowMCProblem max_flow_problem(net, &graph_storage_);
   ASSERT_TRUE(max_flow_problem.GetMaxFlow(&max_flow));
   ASSERT_EQ(0, max_flow);
 
@@ -57,7 +58,7 @@ TEST_F(MCTest, Simple) {
 TEST_F(MCTest, SimpleTwoCommodities) {
   net::PBNet net = net::GenerateFullGraph(2, 10000, microseconds(10));
 
-  MaxFlowMCProblem max_flow_problem(net, &link_storage_);
+  MaxFlowMCProblem max_flow_problem(net, &graph_storage_);
   max_flow_problem.AddCommodity("N0", "N1");
   max_flow_problem.AddCommodity("N1", "N0");
 
@@ -69,7 +70,7 @@ TEST_F(MCTest, SimpleTwoCommodities) {
 TEST_F(MCTest, Triangle) {
   net::PBNet net = net::GenerateFullGraph(3, 10000, microseconds(10));
 
-  MaxFlowMCProblem max_flow_problem(net, &link_storage_);
+  MaxFlowMCProblem max_flow_problem(net, &graph_storage_);
   max_flow_problem.AddCommodity("N0", "N2");
 
   double max_flow;
@@ -84,7 +85,7 @@ TEST_F(MCTest, Triangle) {
 TEST_F(MCTest, TriangleNoFit) {
   net::PBNet net = net::GenerateFullGraph(3, 10000, microseconds(10));
 
-  MaxFlowMCProblem max_flow_problem(net, &link_storage_);
+  MaxFlowMCProblem max_flow_problem(net, &graph_storage_);
   max_flow_problem.AddCommodity("N0", "N2", 30000);
 
   double max_flow;
@@ -93,7 +94,7 @@ TEST_F(MCTest, TriangleNoFit) {
 
 TEST_F(MCTest, SimpleFeasible) {
   net::PBNet net = net::GenerateFullGraph(2, 10000, microseconds(10));
-  MCProblem mc_problem(net, &link_storage_);
+  MCProblem mc_problem(net, &graph_storage_);
   ASSERT_TRUE(mc_problem.IsFeasible());
 
   mc_problem.AddCommodity("N0", "N1", 10000);
@@ -105,7 +106,7 @@ TEST_F(MCTest, SimpleFeasible) {
 
 TEST_F(MCTest, SimpleScaleFactor) {
   net::PBNet net = net::GenerateFullGraph(2, 10000000000, microseconds(10));
-  MCProblem mc_problem(net, &link_storage_);
+  MCProblem mc_problem(net, &graph_storage_);
   ASSERT_EQ(0, mc_problem.MaxCommodityScaleFactor());
 
   mc_problem.AddCommodity("N0", "N1");
@@ -117,7 +118,7 @@ TEST_F(MCTest, SimpleScaleFactor) {
 
 TEST_F(MCTest, SimpleIncrement) {
   net::PBNet net = net::GenerateFullGraph(2, 10000000000, microseconds(10));
-  MCProblem mc_problem(net, &link_storage_);
+  MCProblem mc_problem(net, &graph_storage_);
   ASSERT_EQ(0, mc_problem.MaxCommodityIncrement());
 
   mc_problem.AddCommodity("N0", "N1");

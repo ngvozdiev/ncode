@@ -444,7 +444,8 @@ net::PBNet GenerateRandom(size_t n, double edge_prob,
               std::chrono::microseconds(delay_dist(*generator));
           uint64_t bw_bps = bw_dist(*generator);
 
-          AddBiEdgeToGraph(src, dst, delay, bw_bps, &return_graph);
+          AddBiEdgeToGraph(src, dst, delay,
+                           Bandwidth::FromBitsPerSecond(bw_bps), &return_graph);
         }
       }
     }

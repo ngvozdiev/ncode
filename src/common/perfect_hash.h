@@ -19,25 +19,27 @@ namespace ncode {
 template <typename T, typename V, typename Tag>
 class PerfectHashStore {
  public:
+  using IndexType = Index<Tag, V>;
+
   // Adds a copy of a new item to the set of items.
-  Index<Tag, V> AddItem(T item) {
+  IndexType AddItem(T item) {
     CHECK(items_.size() < std::numeric_limits<V>::max());
-    Index<Tag, V> next_index(items_.size());
+    IndexType next_index(items_.size());
     items_.emplace_back(item);
     return next_index;
   }
 
   // Adds and moves a new item to the set of items.
-  Index<Tag, V> MoveItem(T&& item) {
+  IndexType MoveItem(T&& item) {
     CHECK(items_.size() < std::numeric_limits<V>::max());
-    Index<Tag, V> next_index(items_.size());
+    IndexType next_index(items_.size());
     items_.emplace_back(std::move(item));
     return next_index;
   }
 
   // Returns the address of the item that corresponds to an index. The address
   // may not be valid after additional calls to AddItem/MoveItem.
-  const T* GetItemOrNull(Index<Tag, V> index) const {
+  const T* GetItemOrNull(IndexType index) const {
     if (index >= items_.size()) {
       return nullptr;
     }
@@ -45,7 +47,7 @@ class PerfectHashStore {
     return &items_[index];
   }
 
-  const T& GetItemOrDie(Index<Tag, V> index) const {
+  const T& GetItemOrDie(IndexType index) const {
     CHECK(index < items_.size());
     return items_[index];
   }
@@ -80,7 +82,7 @@ class PerfectHashSet {
   }
 
  private:
-  std::vector<bool> set_;
+  std::vector<char> set_;
 };
 
 // A map from index to a value with O(1) operations.

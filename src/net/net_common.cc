@@ -13,9 +13,8 @@
 namespace ncode {
 namespace net {
 
-void AddEdgeToGraph(const std::string& src, const std::string& dst,
-                    std::chrono::microseconds delay, uint64_t bw_bps,
-                    PBNet* graph) {
+void AddEdgeToGraph(const std::string& src, const std::string& dst, Delay delay,
+                    Bandwidth bw, PBNet* graph) {
   using namespace std::chrono;
 
   CHECK(src != dst) << "Source same as destination: " << src;
@@ -24,7 +23,7 @@ void AddEdgeToGraph(const std::string& src, const std::string& dst,
   edge->set_src(src);
   edge->set_dst(dst);
   edge->set_delay_sec(duration<double>(delay).count());
-  edge->set_bandwidth_bps(bw_bps);
+  edge->set_bandwidth_bps(bw.bps());
 
   uint32_t port_num = graph->links_size();
   edge->set_src_port(port_num);
@@ -32,41 +31,39 @@ void AddEdgeToGraph(const std::string& src, const std::string& dst,
 }
 
 void AddBiEdgeToGraph(const std::string& src, const std::string& dst,
-                      std::chrono::microseconds delay, uint64_t bw_bps,
-                      PBNet* graph) {
-  AddEdgeToGraph(src, dst, delay, bw_bps, graph);
-  AddEdgeToGraph(dst, src, delay, bw_bps, graph);
+                      Delay delay, Bandwidth bw, PBNet* graph) {
+  AddEdgeToGraph(src, dst, delay, bw, graph);
+  AddEdgeToGraph(dst, src, delay, bw, graph);
 }
 
 static void AddEdgesToGraphHelper(
-    const std::vector<std::pair<std::string, std::string>>& edges,
-    std::chrono::microseconds delay, uint64_t bw_bps, bool bidirectional,
-    PBNet* graph) {
+    const std::vector<std::pair<std::string, std::string>>& edges, Delay delay,
+    Bandwidth bw, bool bidirectional, PBNet* graph) {
   for (const auto& src_and_dst : edges) {
     const std::string& src = src_and_dst.first;
     const std::string& dst = src_and_dst.second;
     if (bidirectional) {
-      AddBiEdgeToGraph(src, dst, delay, bw_bps, graph);
+      AddBiEdgeToGraph(src, dst, delay, bw, graph);
     } else {
-      AddEdgeToGraph(src, dst, delay, bw_bps, graph);
+      AddEdgeToGraph(src, dst, delay, bw, graph);
     }
   }
 }
 
 void AddEdgesToGraph(
-    const std::vector<std::pair<std::string, std::string>>& edges,
-    std::chrono::microseconds delay, uint64_t bw_bps, PBNet* graph) {
-  AddEdgesToGraphHelper(edges, delay, bw_bps, false, graph);
+    const std::vector<std::pair<std::string, std::string>>& edges, Delay delay,
+    Bandwidth bw, PBNet* graph) {
+  AddEdgesToGraphHelper(edges, delay, bw, false, graph);
 }
 
 void AddBiEdgesToGraph(
-    const std::vector<std::pair<std::string, std::string>>& edges,
-    std::chrono::microseconds delay, uint64_t bw_bps, PBNet* graph) {
-  AddEdgesToGraphHelper(edges, delay, bw_bps, true, graph);
+    const std::vector<std::pair<std::string, std::string>>& edges, Delay delay,
+    Bandwidth bw, PBNet* graph) {
+  AddEdgesToGraphHelper(edges, delay, bw, true, graph);
 }
 
 std::chrono::microseconds TotalDelayOfLinks(const Links& links,
-                                            const LinkStorage* link_storage) {
+                                            const GraphStorage* link_storage) {
   std::chrono::microseconds total(0);
   for (GraphLinkIndex link_index : links) {
     const GraphLink* link = link_storage->GetLink(link_index);
@@ -76,28 +73,48 @@ std::chrono::microseconds TotalDelayOfLinks(const Links& links,
   return total;
 }
 
-GraphLinkIndex LinkStorage::FindUniqueInverseOrDie(const GraphLink* link) {
-  const std::string& src = link->src();
-  const std::string& dst = link->dst();
+GraphLinkIndex GraphStorage::FindUniqueInverseOrDie(const GraphLink* link) {
+  const std::string& src = GetNode(link->src())->id();
+  const std::string& dst = GetNode(link->dst())->id();
 
-  const auto& dst_to_links = FindOrDie(links, dst);
+  const auto& dst_to_links = FindOrDie(links_, dst);
   const Links& links = FindOrDie(dst_to_links, src);
   CHECK(links.size() == 1) << "Double edge";
   return links.front();
 }
 
-const GraphLink* LinkStorage::GetLink(GraphLinkIndex link_index) const {
-  return store.GetItemOrDie(link_index).get();
+const GraphLink* GraphStorage::GetLink(GraphLinkIndex link_index) const {
+  return link_store_.GetItemOrDie(link_index).get();
 }
 
-GraphLinkIndex LinkStorage::LinkFromProtobuf(const PBGraphLink& link_pb) {
+const GraphNode* GraphStorage::GetNode(GraphNodeIndex node_index) const {
+  return node_store_.GetItemOrDie(node_index).get();
+}
+
+GraphNodeIndex GraphStorage::NodeFromString(const std::string& id) {
+  auto it = nodes_.find(id);
+  if (it != nodes_.end()) {
+    return it->second;
+  }
+
+  auto node_ptr = std::unique_ptr<GraphNode>(new GraphNode(id));
+  GraphNodeIndex index = node_store_.MoveItem(std::move(node_ptr));
+  nodes_[id] = index;
+  return index;
+}
+
+GraphNodeIndex GraphStorage::NodeFromStringOrDie(const std::string& id) const {
+  return FindOrDie(nodes_, id);
+}
+
+GraphLinkIndex GraphStorage::LinkFromProtobuf(const PBGraphLink& link_pb) {
   // First try to find the link by the src and dst.
   CHECK(!link_pb.src().empty() && !link_pb.dst().empty())
       << "Link source or destination missing";
   CHECK(link_pb.src() != link_pb.dst()) << "Link source same as destination: "
                                         << link_pb.src();
-  auto it_one = links.find(link_pb.src());
-  if (it_one != links.end()) {
+  auto it_one = links_.find(link_pb.src());
+  if (it_one != links_.end()) {
     auto it_two = it_one->second.find(link_pb.dst());
     if (it_two != it_one->second.end()) {
       if (link_pb.src_port() == 0 && link_pb.dst_port() == 0) {
@@ -138,20 +155,23 @@ GraphLinkIndex LinkStorage::LinkFromProtobuf(const PBGraphLink& link_pb) {
       << "Source or destination port missing for new link from "
       << link_pb.src() << " to " << link_pb.dst();
 
-  auto link_ptr = std::unique_ptr<GraphLink>(new GraphLink(link_pb));
-  GraphLinkIndex index = store.MoveItem(std::move(link_ptr));
-  links[link_pb.src()][link_pb.dst()].emplace_back(index);
+  auto src_index = NodeFromString(link_pb.src());
+  auto dst_index = NodeFromString(link_pb.dst());
+  auto link_ptr = std::unique_ptr<GraphLink>(new GraphLink(
+      link_pb, src_index, dst_index, GetNode(src_index), GetNode(dst_index)));
+  GraphLinkIndex index = link_store_.MoveItem(std::move(link_ptr));
+  links_[link_pb.src()][link_pb.dst()].emplace_back(index);
   return index;
 }
 
-const GraphLink* LinkStorage::LinkPtrFromProtobuf(const PBGraphLink& link_pb) {
+const GraphLink* GraphStorage::LinkPtrFromProtobuf(const PBGraphLink& link_pb) {
   GraphLinkIndex link_index = LinkFromProtobuf(link_pb);
   return GetLink(link_index);
 }
 
 LinkSequence::LinkSequence() : delay_(0) {}
 
-LinkSequence::LinkSequence(const Links& links, const LinkStorage* storage)
+LinkSequence::LinkSequence(const Links& links, const GraphStorage* storage)
     : links_(links), delay_(TotalDelayOfLinks(links, storage)) {
   links_sorted_ = links_;
   std::sort(links_sorted_.begin(), links_sorted_.end());
@@ -167,15 +187,15 @@ bool LinkSequence::Contains(GraphLinkIndex link) const {
   return std::binary_search(links_sorted_.begin(), links_sorted_.end(), link);
 }
 
-void LinkSequence::ToProtobuf(const LinkStorage* storage,
+void LinkSequence::ToProtobuf(const GraphStorage* storage,
                               net::PBPath* out) const {
   for (GraphLinkIndex link_index : links_) {
     const GraphLink* link = storage->GetLink(link_index);
-    *out->add_links() = link->link_pb();
+    *out->add_links() = link->ToProtobuf();
   }
 }
 
-std::string LinkSequence::ToString(const LinkStorage* storage) const {
+std::string LinkSequence::ToString(const GraphStorage* storage) const {
   std::stringstream ss;
   ss << "[";
 
@@ -192,7 +212,7 @@ std::string LinkSequence::ToString(const LinkStorage* storage) const {
   return ss.str();
 }
 
-std::string LinkSequence::ToStringNoPorts(const LinkStorage* storage) const {
+std::string LinkSequence::ToStringNoPorts(const GraphStorage* storage) const {
   std::stringstream ss;
   if (links_.empty()) {
     return "[]";
@@ -201,11 +221,11 @@ std::string LinkSequence::ToStringNoPorts(const LinkStorage* storage) const {
   ss << "[";
   for (const auto& edge : links_) {
     const GraphLink* link = storage->GetLink(edge);
-    ss << link->src() << "->";
+    ss << link->src_node()->id() << "->";
   }
 
   const GraphLink* link = storage->GetLink(links_.back());
-  ss << link->dst();
+  ss << link->dst_node()->id();
   ss << "]";
   return ss.str();
 }
@@ -225,12 +245,12 @@ std::string GraphPath::ToStringNoPorts() const {
                     delay_ms);
 }
 
-const std::string& GraphPath::first_hop() const {
+GraphNodeIndex GraphPath::first_hop() const {
   GraphLinkIndex first_link = link_sequence_.links().front();
   return storage_->GetLink(first_link)->src();
 }
 
-const std::string& GraphPath::last_hop() const {
+GraphNodeIndex GraphPath::last_hop() const {
   GraphLinkIndex last_link = link_sequence_.links().back();
   return storage_->GetLink(last_link)->dst();
 }
@@ -569,20 +589,40 @@ bool IsIntraClusterLink(const PBNet& graph, const PBGraphLink& link) {
   return ContainsKey(in_same_cluster, link.dst());
 }
 
-std::chrono::microseconds GraphLink::delay() const {
-  CHECK(link_pb_.delay_sec() != 0) << "Link has zero delay";
-  std::chrono::duration<double> duration(link_pb_.delay_sec());
-  return std::chrono::duration_cast<std::chrono::microseconds>(duration);
-}
-
-uint64_t GraphLink::bandwidth_bps() const {
-  CHECK(link_pb_.bandwidth_bps() != 0) << "Link has zero bandwidth";
-  return link_pb_.bandwidth_bps();
+GraphLink::GraphLink(const net::PBGraphLink& link_pb, GraphNodeIndex src,
+                     GraphNodeIndex dst, const GraphNode* src_node,
+                     const GraphNode* dst_node)
+    : src_(src),
+      dst_(dst),
+      src_port_(link_pb.src_port()),
+      dst_port_(link_pb.dst_port()),
+      bandwidth_(Bandwidth::FromBitsPerSecond(link_pb.bandwidth_bps())),
+      src_node_(src_node),
+      dst_node_(dst_node) {
+  using namespace std::chrono;
+  CHECK(link_pb.delay_sec() != 0) << "Link has zero delay";
+  CHECK(link_pb.bandwidth_bps() != 0) << "Link has zero bandwidth";
+  duration<double> duration(link_pb.delay_sec());
+  delay_ = duration_cast<Delay>(duration);
 }
 
 std::string GraphLink::ToString() const {
-  return Substitute("$0:$1->$2:$3", link_pb_.src(), link_pb_.src_port(),
-                    link_pb_.dst(), link_pb_.dst_port());
+  return Substitute("$0:$1->$2:$3", src_node_->id(), src_port_.Raw(),
+                    dst_node_->id(), dst_port_.Raw());
+}
+
+PBGraphLink GraphLink::ToProtobuf() const {
+  PBGraphLink out_pb;
+  out_pb.set_src(src_node_->id());
+  out_pb.set_dst(dst_node_->id());
+  out_pb.set_src_port(src_port_.Raw());
+  out_pb.set_dst_port(dst_port_.Raw());
+  out_pb.set_bandwidth_bps(bandwidth_.bps());
+
+  double delay_sec =
+      std::chrono::duration_cast<std::chrono::duration<double>>(delay_).count();
+  out_pb.set_delay_sec(delay_sec);
+  return out_pb;
 }
 
 PBGraphLink* FindEdgeOrDie(const std::string& src, const std::string& dst,

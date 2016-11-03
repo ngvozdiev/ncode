@@ -37,13 +37,13 @@ elseif(UNIX)
   set(BASE_FLAGS "${BASE_FLAGS} -pthread")
 endif()
 
-set(BASE_DEBUG_FLAGS "${BASE_FLAGS} -O0 -fno-omit-frame-pointer")
+set(BASE_DEBUG_FLAGS "${BASE_FLAGS} -O0 -fno-omit-frame-pointer --coverage")
 set(BASE_OPT_FLAGS "${BASE_FLAGS} -O3 -march=native -DNDEBUG")
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${BASE_DEBUG_FLAGS}")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${BASE_OPT_FLAGS}")
-set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} ${BASE_LD_FLAGS}")
-set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_RELEASE} ${BASE_LD_FLAGS}")
+set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} ${BASE_LD_FLAGS} --coverage")
+set(CMAKE_LINKER_FLAGS_RELEASE "${CMAKE_LINKER_FLAGS_RELEASE} ${BASE_LD_FLAGS}")
 
 add_subdirectory(external/backward-cpp)
 add_subdirectory(external/googletest)
@@ -146,6 +146,10 @@ add_test_exec(common_circular_array_test src/common/circular_array_test.cc ncode
 add_test_exec(common_lru_cache_test src/common/lru_cache_test.cc ncode_common)
 add_test_exec(common_thread_runner_test src/common/thread_runner_test.cc ncode_common)
 add_test_exec(common_perfect_hash_test src/common/perfect_hash_test.cc ncode_common)
+
+add_executable(common_perfect_hash_benchmark src/common/perfect_hash_benchmark.cc)
+target_link_libraries(common_perfect_hash_benchmark ncode_common)
+
 
 ################################
 # Network-releated stuff

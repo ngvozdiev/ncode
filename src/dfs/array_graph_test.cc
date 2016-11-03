@@ -140,6 +140,7 @@ TEST(InitTest, DoubleEdge) {
   edge->set_src_port(10);
   edge->set_dst_port(11);
   edge->set_delay_sec(0.002);
+  edge->set_bandwidth_bps(100);
 
   edge = graph.add_links();
   edge->set_src(kNodeA);
@@ -147,6 +148,7 @@ TEST(InitTest, DoubleEdge) {
   edge->set_src_port(12);
   edge->set_dst_port(13);
   edge->set_delay_sec(0.003);
+  edge->set_bandwidth_bps(100);
 
   auto agraph = ArrayGraph::NewArrayGraph(graph, kNodeB, &storage);
 
@@ -366,6 +368,7 @@ TEST(ToTreeTest, SingleEdge) {
   edge->set_src_port(10);
   edge->set_dst_port(10);
   edge->set_delay_sec(0.001);
+  edge->set_bandwidth_bps(100);
 
   auto tree = ToTree(graph, "A", &storage);
 
@@ -386,6 +389,7 @@ TEST(ToTreeTest, DoubleEdge) {
   edge->set_src_port(10);
   edge->set_dst_port(10);
   edge->set_delay_sec(0.001);
+  edge->set_bandwidth_bps(100);
 
   edge = graph.add_links();
   edge->set_src(kNodeA);
@@ -393,6 +397,7 @@ TEST(ToTreeTest, DoubleEdge) {
   edge->set_src_port(11);
   edge->set_dst_port(11);
   edge->set_delay_sec(0.001);
+  edge->set_bandwidth_bps(100);
 
   auto tree = ToTree(graph, "A", &storage);
 
@@ -411,6 +416,7 @@ TEST(ToTreeTest, BidirectionalEdge) {
   edge->set_src_port(10);
   edge->set_dst_port(10);
   edge->set_delay_sec(0.001);
+  edge->set_bandwidth_bps(100);
 
   edge = graph.add_links();
   edge->set_src(kNodeB);
@@ -418,6 +424,7 @@ TEST(ToTreeTest, BidirectionalEdge) {
   edge->set_src_port(10);
   edge->set_dst_port(10);
   edge->set_delay_sec(0.001);
+  edge->set_bandwidth_bps(100);
 
   auto tree = ToTree(graph, "A", &storage);
 

@@ -77,7 +77,7 @@ using LocalizerCallback =
 void GraphToHTML(const std::vector<EdgeData>& edges,
                  const std::vector<PathData>& paths,
                  const std::vector<DisplayMode>& display_modes,
-                 net::LinkStorage* storage, HtmlPage* out,
+                 net::GraphStorage* storage, HtmlPage* out,
                  LocalizerCallback localizer = LocalizerCallback());
 
 }  // namespace web

@@ -112,6 +112,10 @@ class TypesafeUintWrapper {
     return a.m_val_ < b.m_val_;
   }
 
+  friend bool operator>(TypesafeUintWrapper a, TypesafeUintWrapper b) {
+    return a.m_val_ > b.m_val_;
+  }
+
   friend bool operator>=(TypesafeUintWrapper a, TypesafeUintWrapper b) {
     return a.m_val_ >= b.m_val_;
   }
@@ -128,7 +132,7 @@ class TypesafeUintWrapper {
 
   T* RawPtr() { return &m_val_; }
 
- private:
+ protected:
   T m_val_;
 };
 

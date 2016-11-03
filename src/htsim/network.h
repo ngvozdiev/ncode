@@ -235,11 +235,11 @@ class Network : public SimComponent {
  private:
   // Finds a single device or dies.
   Device& FindDeviceOrDie(const std::string& id) {
-    return *FindOrDie(device_id_to_device_, id);
+    return *FindOrDie(id_to_device_, id);
   }
 
   // Network components
-  std::map<std::string, Device*> device_id_to_device_;
+  std::map<std::string, Device*> id_to_device_;
   std::map<std::string, Queue*> queue_id_to_queue_;
   std::map<std::string, Pipe*> pipe_id_to_pipe_;
 

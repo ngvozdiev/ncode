@@ -18,7 +18,7 @@ class MCProblem {
  public:
   using VarMap = std::map<const net::GraphLink*, std::vector<VariableIndex>>;
 
-  MCProblem(const net::PBNet& graph, net::LinkStorage* link_storage,
+  MCProblem(const net::PBNet& graph, net::GraphStorage* link_storage,
             double capacity_multiplier = 1.0);
 
   // Adds a single commodity to the network, with a given source and sink. If
@@ -43,8 +43,8 @@ class MCProblem {
 
  protected:
   struct Commodity {
-    std::string source;
-    std::string sink;
+    net::GraphNodeIndex source;
+    net::GraphNodeIndex sink;
     double demand;
   };
 
@@ -57,15 +57,15 @@ class MCProblem {
       const VarMap& link_to_variables, Problem* problem,
       std::vector<ProblemMatrixElement>* problem_matrix);
 
-  net::LinkStorage* link_storage_;
+  net::GraphStorage* graph_storage_;
   double capacity_multiplier_;
   std::vector<const net::GraphLink*> graph_;
   std::vector<Commodity> commodities_;
 
   // For each node will keep a list of the edges going out of the node and the
   // edges coming into the node.
-  std::map<std::string, std::pair<std::vector<const net::GraphLink*>,
-                                  std::vector<const net::GraphLink*>>>
+  net::GraphNodeMap<std::pair<std::vector<const net::GraphLink*>,
+                              std::vector<const net::GraphLink*>>>
       adjacent_to_v_;
 
  private:
@@ -73,15 +73,13 @@ class MCProblem {
   // the given scale factor and increased by 'increment'.
   MCProblem(const MCProblem& other, double scale_factor, double increment);
 
-  bool IsInGraph(const std::string& source);
-
   DISALLOW_COPY_AND_ASSIGN(MCProblem);
 };
 
 // Solves the multi commodity max flow problem.
 class MaxFlowMCProblem : public MCProblem {
  public:
-  MaxFlowMCProblem(const net::PBNet& graph, net::LinkStorage* link_storage,
+  MaxFlowMCProblem(const net::PBNet& graph, net::GraphStorage* link_storage,
                    double capacity_multiplier = 1.0)
       : MCProblem(graph, link_storage, capacity_multiplier) {}
 

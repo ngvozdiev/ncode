@@ -221,7 +221,7 @@ net::PBNet ToTree(const net::PBNet& graph, const std::string& root,
 
   for (net::GraphLinkIndex edge_index : edges_in_tree) {
     const net::GraphLink* edge = storage->GetLink(edge_index);
-    *return_graph.add_links() = edge->link_pb();
+    *return_graph.add_links() = edge->ToProtobuf();
   }
 
   return return_graph;

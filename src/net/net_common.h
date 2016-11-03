@@ -37,6 +37,25 @@ struct DevicePortNumberTag {};
 using DevicePortNumber =
     TypesafeUintWrapper<DevicePortNumberTag, uint32_t, '*'>;
 
+// Bandwidth.
+struct BandwidthTag {};
+class Bandwidth : public TypesafeUintWrapper<BandwidthTag, uint64_t> {
+ public:
+  static constexpr Bandwidth FromBitsPerSecond(uint64_t bps) {
+    return Bandwidth(bps);
+  }
+  uint64_t bps() const { return m_val_; }
+  double Mbps() const { return m_val_ / 1000.0 / 1000.0; }
+  double Gbps() const { return m_val_ / 1000.0 / 1000.0 / 1000.0; }
+
+ private:
+  constexpr Bandwidth(uint64_t value_bps)
+      : TypesafeUintWrapper<BandwidthTag, uint64_t>(value_bps) {}
+};
+
+// Delay in microseconds.
+using Delay = std::chrono::microseconds;
+
 // Define some constants.
 static constexpr IPProto kProtoTCP = IPProto(6);
 static constexpr IPProto kProtoUDP = IPProto(17);
@@ -44,25 +63,23 @@ static constexpr IPProto kProtoICMP = IPProto(1);
 
 // Adds a single edge to the graph. Useful for testing. Port numbers will be
 // auto-assigned.
-void AddEdgeToGraph(const std::string& src, const std::string& dst,
-                    std::chrono::microseconds delay, uint64_t bw_bps,
-                    PBNet* graph);
+void AddEdgeToGraph(const std::string& src, const std::string& dst, Delay delay,
+                    Bandwidth bandwidth, PBNet* graph);
 
 // Like AddEdgeToGraph, but also adds an edge for dst->src.
 void AddBiEdgeToGraph(const std::string& src, const std::string& dst,
-                      std::chrono::microseconds delay, uint64_t bw_bps,
-                      PBNet* graph);
+                      Delay delay, Bandwidth bandwidth, PBNet* graph);
 
 // A version of AddEdgeToGraph that takes a list of src, dst strings. All edges
 // will have the same delay and bw, port numbers will be auto-assigned.
 void AddEdgesToGraph(
-    const std::vector<std::pair<std::string, std::string>>& edges,
-    std::chrono::microseconds delay, uint64_t bw_bps, PBNet* graph);
+    const std::vector<std::pair<std::string, std::string>>& edges, Delay delay,
+    Bandwidth bw, PBNet* graph);
 
 // Like AddEdgesToGraph, but for each edge also adds an opposite edge.
 void AddBiEdgesToGraph(
-    const std::vector<std::pair<std::string, std::string>>& edges,
-    std::chrono::microseconds delay, uint64_t bw_bps, PBNet* graph);
+    const std::vector<std::pair<std::string, std::string>>& edges, Delay delay,
+    Bandwidth bw, PBNet* graph);
 
 // Finds the edge between a source and a destination.
 PBGraphLink* FindEdgeOrDie(const std::string& src, const std::string& dst,
@@ -90,42 +107,76 @@ bool IsNodeInGraph(const PBNet& graph, const std::string& node);
 // every other node.
 bool IsPartitioned(const PBNet& graph);
 
+// Forward reference for the class that produces GraphLinkIndices and
+// GraphNodeIndices.
+class GraphStorage;
+
+// The node is just an id.
+class GraphNode {
+ public:
+  const std::string& id() const { return id_; }
+
+ private:
+  GraphNode(const std::string& id) : id_(id) {}
+
+  std::string id_;
+
+  friend class GraphStorage;
+  DISALLOW_COPY_AND_ASSIGN(GraphNode);
+};
+
+using GraphNodeIndex = Index<GraphNode, uint8_t>;
+using GraphNodeSet = PerfectHashSet<uint8_t, GraphNode>;
+
+template <typename V>
+using GraphNodeMap = PerfectHashMap<uint8_t, GraphNode, V>;
+
 // A wrapper for PBGraphLink.
 class GraphLink {
  public:
-  const PBGraphLink& link_pb() const { return link_pb_; }
+  GraphNodeIndex src() const { return src_; }
 
-  const std::string& src() const { return link_pb_.src(); }
+  const GraphNode* src_node() const { return src_node_; }
 
-  const std::string& dst() const { return link_pb_.dst(); }
+  GraphNodeIndex dst() const { return dst_; }
 
-  DevicePortNumber src_port() const {
-    return DevicePortNumber(link_pb_.src_port());
-  }
+  const GraphNode* dst_node() const { return dst_node_; }
 
-  DevicePortNumber dst_port() const {
-    return DevicePortNumber(link_pb_.dst_port());
-  }
+  DevicePortNumber src_port() const { return src_port_; }
 
-  std::chrono::microseconds delay() const;
+  DevicePortNumber dst_port() const { return dst_port_; }
 
-  uint64_t bandwidth_bps() const;
+  Delay delay() const { return delay_; }
+
+  Bandwidth bandwidth() const { return bandwidth_; }
 
   // Returns a string in the form A:sport->B:dport
   std::string ToString() const;
 
+  PBGraphLink ToProtobuf() const;
+
  private:
-  GraphLink(const net::PBGraphLink& link_pb) : link_pb_(link_pb) {}
+  GraphLink(const net::PBGraphLink& link_pb, GraphNodeIndex src,
+            GraphNodeIndex dst, const GraphNode* src_node,
+            const GraphNode* dst_node);
 
-  // The original protobuf.
-  const net::PBGraphLink link_pb_;
+  GraphNodeIndex src_;
+  GraphNodeIndex dst_;
+  DevicePortNumber src_port_;
+  DevicePortNumber dst_port_;
+  Bandwidth bandwidth_;
+  Delay delay_;
 
-  friend class LinkStorage;
+  // For convenience we also store pointers to the edpoints.
+  const GraphNode* src_node_;
+  const GraphNode* dst_node_;
+
+  friend class GraphStorage;
   DISALLOW_COPY_AND_ASSIGN(GraphLink);
 };
 
 // Will assign indices to graph links and the indices should be used instead of
-// pointers to GraphLink objects. The LinkStorage class will be able to relate
+// pointers to GraphLink objects. The GraphStorage class will be able to relate
 // from indices back to GraphLink instances. This has two advantages -- the ids
 // can be shorter than the 8 bytes required to hold a pointer, which results in
 // significant memory savings if we store a lot of paths, and the indices can be
@@ -139,12 +190,8 @@ using GraphLinkMap = PerfectHashMap<uint8_t, GraphLink, V>;
 // Just a bunch of links.
 using Links = std::vector<GraphLinkIndex>;
 
-// Forward reference for the class that produces GraphLinkIndices.
-class LinkStorage;
-
 // Sums up the delay along a series of links.
-std::chrono::microseconds TotalDelayOfLinks(const Links& links,
-                                            const LinkStorage* link_storage);
+Delay TotalDelayOfLinks(const Links& links, const GraphStorage* link_storage);
 
 // A sequence of links along with a delay. Similar to GraphPath (below), but
 // without a tag.
@@ -152,12 +199,12 @@ class LinkSequence {
  public:
   LinkSequence();
 
-  LinkSequence(const Links& links, const LinkStorage* storage);
+  LinkSequence(const Links& links, const GraphStorage* storage);
 
   bool Contains(GraphLinkIndex link) const;
 
   // The delay of all links in this sequence.
-  std::chrono::microseconds delay() const { return delay_; }
+  Delay delay() const { return delay_; }
 
   // Number of links in the sequence.
   size_t size() const { return links_.size(); }
@@ -169,13 +216,13 @@ class LinkSequence {
   const Links& links() const { return links_; }
 
   // Saves this sequence to a protobuf path.
-  void ToProtobuf(const LinkStorage* storage, net::PBPath* out) const;
+  void ToProtobuf(const GraphStorage* storage, net::PBPath* out) const;
 
   // String representation in the form [A:p1->B:p2, B:p3->C:p3]
-  std::string ToString(const LinkStorage* storage) const;
+  std::string ToString(const GraphStorage* storage) const;
 
   // Shorter string representation in the form [A->B->C]
-  std::string ToStringNoPorts(const LinkStorage* storage) const;
+  std::string ToStringNoPorts(const GraphStorage* storage) const;
 
   // Rough estimate of the number of bytes of memory this LinkSequence uses.
   size_t InMemBytesEstimate() const;
@@ -185,7 +232,7 @@ class LinkSequence {
   Links links_;
 
   // The sum of the delay values of all links.
-  std::chrono::microseconds delay_;
+  Delay delay_;
 
   // The links, sorted. Used by Contains.
   Links links_sorted_;
@@ -207,7 +254,7 @@ class GraphPath {
   const LinkSequence& link_sequence() const { return link_sequence_; }
 
   // Delay of the path.
-  std::chrono::microseconds delay() const { return link_sequence_.delay(); }
+  Delay delay() const { return link_sequence_.delay(); }
 
   // True if path is empty.
   bool empty() const { return link_sequence_.links().empty(); }
@@ -223,10 +270,10 @@ class GraphPath {
   uint32_t tag() const { return tag_; }
 
   // Id of the first node along the path.
-  const std::string& first_hop() const;
+  GraphNodeIndex first_hop() const;
 
   // Id of the last node along the path.
-  const std::string& last_hop() const;
+  GraphNodeIndex last_hop() const;
 
   // Constructs an initially empty path.
   GraphPath(PathStorage* storage) : tag_(0), storage_(storage) {}
@@ -257,45 +304,61 @@ struct PathComparator {
 };
 
 // Stores and maintains links.
-class LinkStorage {
+class GraphStorage {
  public:
-  LinkStorage() {}
+  GraphStorage() {}
 
   // At least the src and the dst need to be populated in the link_pb.
   // If there is no link between src and dst the ports need to also be populated
   // in order to create a new one.
   GraphLinkIndex LinkFromProtobuf(const PBGraphLink& link_pb);
 
+  // Returns the index of a node identified by a string.
+  GraphNodeIndex NodeFromString(const std::string& id);
+
+  // Same as NodeFromString, but dies if the node does not exist.
+  GraphNodeIndex NodeFromStringOrDie(const std::string& id) const;
+
   // Attempts to find the unique inverse of a link. If the link has no inverse,
   // or has multiple inverses will die.
   GraphLinkIndex FindUniqueInverseOrDie(const GraphLink* link);
 
-  // Relates from indices back to link objects.
+  // Relates from indices to link objects.
   const GraphLink* GetLink(GraphLinkIndex index) const;
 
+  // Relates from indices to node objects.
+  const GraphNode* GetNode(GraphNodeIndex index) const;
+
   // Number of links stored.
-  size_t num_links() const { return store.size(); }
+  size_t num_links() const { return link_store_.size(); }
 
   // Combines LinkFromProtobuf with GetLink for convenience.
   const GraphLink* LinkPtrFromProtobuf(const PBGraphLink& link_pb);
 
+  // Node ID to node index.
+  const std::map<std::string, GraphNodeIndex>& nodes() const { return nodes_; }
+
  private:
+  using LinkStore =
+      PerfectHashStore<std::unique_ptr<GraphLink>, uint8_t, GraphLink>;
+  using NodeStore =
+      PerfectHashStore<std::unique_ptr<GraphNode>, uint8_t, GraphNode>;
+
   // A map from src to dst to a list of links between that (src, dst) pair. The
   // list will only contain more than one element if double edges are used.
-  using Store =
-      PerfectHashStore<std::unique_ptr<GraphLink>, uint8_t, GraphLink>;
+  std::map<std::string, std::map<std::string, Links>> links_;
+  std::map<std::string, NodeStore::IndexType> nodes_;
+  LinkStore link_store_;
+  NodeStore node_store_;
 
-  std::map<std::string, std::map<std::string, Links>> links;
-  Store store;
-
-  DISALLOW_COPY_AND_ASSIGN(LinkStorage);
+  DISALLOW_COPY_AND_ASSIGN(GraphStorage);
 };
 
 // Stores paths and assigns tags to them. Will return the same path object for
 // the same sequence of links within the same aggregate. The same paths within
 // different aggregates will get assigned different tags and map to different
 // path objects.
-class PathStorage : public LinkStorage {
+class PathStorage : public GraphStorage {
  public:
   PathStorage() : tag_generator_(0) {
     empty_path_ = std::unique_ptr<GraphPath>(new GraphPath(this));

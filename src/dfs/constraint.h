@@ -24,7 +24,7 @@ class Constraint {
   // Whether or not a path complies.
   virtual bool PathComplies(const net::LinkSequence& link_sequence) const = 0;
 
-  virtual std::string ToString(const net::LinkStorage* storage) const = 0;
+  virtual std::string ToString(const net::GraphStorage* storage) const = 0;
 
  protected:
   Constraint() {}
@@ -45,7 +45,7 @@ class DummyConstraint : public Constraint {
     return true;
   }
 
-  std::string ToString(const net::LinkStorage* storage) const override {
+  std::string ToString(const net::GraphStorage* storage) const override {
     Unused(storage);
     return "[DUMMY]";
   }
@@ -78,7 +78,7 @@ class BinaryConstraint : public Constraint {
     return op(link_sequence, *left_constraint_, *right_constraint_);
   }
 
-  std::string ToString(const net::LinkStorage* storage) const override {
+  std::string ToString(const net::GraphStorage* storage) const override {
     return "[" + left_constraint_->ToString(storage) + " OP " +
            right_constraint_->ToString(storage) + "]";
   }
@@ -112,7 +112,7 @@ class AvoidPathConstraint : public Constraint {
 
   bool PathComplies(const net::LinkSequence& link_sequence) const override;
 
-  std::string ToString(const net::LinkStorage* storage) const override;
+  std::string ToString(const net::GraphStorage* storage) const override;
 
  private:
   const net::GraphPath* to_avoid_;
@@ -122,11 +122,11 @@ class AvoidPathConstraint : public Constraint {
 class VisitEdgeConstraint : public Constraint {
  public:
   VisitEdgeConstraint(const PBVisitEdgeConstraint& visit_edge_constraint,
-                      net::LinkStorage* storage);
+                      net::GraphStorage* storage);
 
   bool PathComplies(const net::LinkSequence& link_sequence) const override;
 
-  std::string ToString(const net::LinkStorage* storage) const override;
+  std::string ToString(const net::GraphStorage* storage) const override;
 
  private:
   net::GraphLinkIndex edge_;
@@ -136,13 +136,13 @@ class VisitEdgeConstraint : public Constraint {
 class AvoidEdgeConstraint : public Constraint {
  public:
   AvoidEdgeConstraint(const PBAvoidEdgeConstraint& avoid_edge_constraint,
-                      net::LinkStorage* storage);
+                      net::GraphStorage* storage);
 
   AvoidEdgeConstraint(net::GraphLinkIndex edge) : edge_(edge) {}
 
   bool PathComplies(const net::LinkSequence& link_sequence) const override;
 
-  std::string ToString(const net::LinkStorage* storage) const override;
+  std::string ToString(const net::GraphStorage* storage) const override;
 
  private:
   net::GraphLinkIndex edge_;
@@ -155,7 +155,7 @@ class AvoidEdgesConstraint : public Constraint {
 
   bool PathComplies(const net::LinkSequence& link_sequence) const override;
 
-  std::string ToString(const net::LinkStorage* storage) const override {
+  std::string ToString(const net::GraphStorage* storage) const override {
     Unused(storage);
     return "[BULK_AVOID " + std::to_string(edges_to_avoid_.size()) + "]";
   }
@@ -177,7 +177,7 @@ class NegateConstraint : public Constraint {
     return !constraint_->PathComplies(path);
   }
 
-  std::string ToString(const net::LinkStorage* storage) const override {
+  std::string ToString(const net::GraphStorage* storage) const override {
     return "[NEGATE " + constraint_->ToString(storage) + "]";
   }
 

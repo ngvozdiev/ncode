@@ -63,14 +63,14 @@ bool AvoidPathConstraint::PathComplies(
 }
 
 std::string AvoidPathConstraint::ToString(
-    const net::LinkStorage* storage) const {
+    const net::GraphStorage* storage) const {
   Unused(storage);
   return "[AVOID_PATH " + to_avoid_->ToString() + "]";
 }
 
 VisitEdgeConstraint::VisitEdgeConstraint(
     const PBVisitEdgeConstraint& visit_edge_constraint,
-    net::LinkStorage* storage)
+    net::GraphStorage* storage)
     : edge_(storage->LinkFromProtobuf(visit_edge_constraint.edge())) {}
 
 bool VisitEdgeConstraint::PathComplies(
@@ -85,14 +85,14 @@ bool VisitEdgeConstraint::PathComplies(
 }
 
 std::string VisitEdgeConstraint::ToString(
-    const net::LinkStorage* storage) const {
+    const net::GraphStorage* storage) const {
   return Substitute("[VISIT_EDGE $0 ($1)]", storage->GetLink(edge_)->ToString(),
                     static_cast<const void*>(&edge_));
 }
 
 AvoidEdgeConstraint::AvoidEdgeConstraint(
     const PBAvoidEdgeConstraint& avoid_edge_constraint,
-    net::LinkStorage* storage)
+    net::GraphStorage* storage)
     : edge_(storage->LinkFromProtobuf(avoid_edge_constraint.edge())) {}
 
 bool AvoidEdgeConstraint::PathComplies(
@@ -101,7 +101,7 @@ bool AvoidEdgeConstraint::PathComplies(
 }
 
 std::string AvoidEdgeConstraint::ToString(
-    const net::LinkStorage* storage) const {
+    const net::GraphStorage* storage) const {
   return Substitute("[AVOID_EDGE $0 ($1)]", storage->GetLink(edge_)->ToString(),
                     static_cast<const void*>(&edge_));
 }

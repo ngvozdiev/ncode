@@ -45,34 +45,21 @@ struct LinkDataHelper {
 
 // Like LinkData, but for paths.
 struct PathDataHelper {
-  std::vector<size_t> node_indices;
+  std::vector<net::GraphNodeIndex> node_indices;
   std::string label;
   std::string legend_label;
 };
-
-static size_t GetNodeIndex(const std::string& node_id,
-                           std::map<std::string, size_t>* node_index_map) {
-  auto it = node_index_map->find(node_id);
-  if (it != node_index_map->end()) {
-    return it->second;
-  }
-
-  size_t return_index = node_index_map->size();
-  (*node_index_map)[node_id] = return_index;
-  return return_index;
-}
 
 using LinkDataMap = std::map<size_t, std::map<size_t, LinkDataHelper>>;
 
 void GraphToHTML(const std::vector<EdgeData>& edges,
                  const std::vector<PathData>& paths,
                  const std::vector<DisplayMode>& display_modes,
-                 net::LinkStorage* storage, HtmlPage* out,
+                 net::GraphStorage* storage, HtmlPage* out,
                  LocalizerCallback localizer) {
   CHECK(!display_modes.empty()) << "At least one display mode required";
 
   // Mapping from the node id to the sequential index of the node.
-  std::map<std::string, size_t> node_id_to_node_index;
   std::set<const LinkDataHelper*> link_data_set;
 
   // All links are bidirectional.
@@ -82,12 +69,11 @@ void GraphToHTML(const std::vector<EdgeData>& edges,
   std::vector<PathDataHelper> all_paths;
 
   for (const EdgeData& edge_data : edges) {
-    const std::string& src = storage->GetLink(edge_data.link)->src();
-    const std::string& dst = storage->GetLink(edge_data.link)->dst();
-
-    CHECK(src != dst);
-    size_t src_index = GetNodeIndex(src, &node_id_to_node_index);
-    size_t dst_index = GetNodeIndex(dst, &node_id_to_node_index);
+    net::GraphNodeIndex src_index = storage->GetLink(edge_data.link)->src();
+    net::GraphNodeIndex dst_index = storage->GetLink(edge_data.link)->dst();
+    //    const std::string& src = storage->GetNode(src_index)->id();
+    //    const std::string& dst = storage->GetNode(dst_index)->id();
+    //    CHECK(src != dst);
     CHECK(src_index != dst_index);
     bool forward = true;
     if (src_index > dst_index) {
@@ -123,11 +109,9 @@ void GraphToHTML(const std::vector<EdgeData>& edges,
 
     const net::Links& links_on_path = path->link_sequence().links();
     for (net::GraphLinkIndex link : links_on_path) {
-      const std::string& src = storage->GetLink(link)->src();
-      const std::string& dst = storage->GetLink(link)->dst();
+      net::GraphNodeIndex src_index = storage->GetLink(link)->src();
+      net::GraphNodeIndex dst_index = storage->GetLink(link)->dst();
 
-      size_t src_index = GetNodeIndex(src, &node_id_to_node_index);
-      size_t dst_index = GetNodeIndex(dst, &node_id_to_node_index);
       // Each source will be added to the path's nodes, as well as the
       // destination of the last link.
       path_data_helper.node_indices.emplace_back(src_index);
@@ -147,10 +131,10 @@ void GraphToHTML(const std::vector<EdgeData>& edges,
 
   // Need to invert the node_id_to_node_index map. This will also sort the
   // NodeData instances by index.
-  std::map<size_t, std::string> node_index_to_node_id;
-  for (const auto& node_id_and_node_index : node_id_to_node_index) {
+  std::map<net::GraphNodeIndex, std::string> node_index_to_node_id;
+  for (const auto& node_id_and_node_index : storage->nodes()) {
     const std::string& node_id = node_id_and_node_index.first;
-    size_t node_index = node_id_and_node_index.second;
+    net::GraphNodeIndex node_index = node_id_and_node_index.second;
     node_index_to_node_id.emplace(node_index, node_id);
   }
 
@@ -193,8 +177,8 @@ void GraphToHTML(const std::vector<EdgeData>& edges,
     json path_object;
     path_object["label"] = path.label;
     path_object["legend_label"] = path.legend_label;
-    for (size_t node_index : path.node_indices) {
-      path_object["nodes"].push_back(node_index);
+    for (net::GraphNodeIndex node_index : path.node_indices) {
+      path_object["nodes"].push_back(static_cast<size_t>(node_index));
     }
     paths_json.push_back(path_object);
   }

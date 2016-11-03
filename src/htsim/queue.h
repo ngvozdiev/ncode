@@ -94,10 +94,10 @@ class Queue : public EventConsumer,
   const QueueStats& GetStats() const { return stats_; }
 
   // Gets the current rate.
-  virtual uint64_t GetRateBps() const = 0;
+  virtual net::Bandwidth GetRate() const = 0;
 
   // Changes the drain rate of this queue.
-  virtual void SetRate(uint64_t rate_bps) = 0;
+  virtual void SetRate(net::Bandwidth rate) = 0;
 
   // Applying the value as an animated component means changing the rate.
   void ApplyValue(double value) override;
@@ -127,7 +127,7 @@ class FIFOQueue : public Queue {
  public:
   FIFOQueue(const net::GraphLink& edge, uint64_t max_size_bytes,
             EventQueue* event_queue, bool interesting = true);
-  FIFOQueue(const std::string& src, const std::string& dst, uint64_t rate_bps,
+  FIFOQueue(const std::string& src, const std::string& dst, net::Bandwidth rate,
             uint64_t max_size_bytes, EventQueue* event_queue,
             bool interesting = true);
 
@@ -139,9 +139,9 @@ class FIFOQueue : public Queue {
 
   void HandleEvent() override;
 
-  void SetRate(uint64_t rate_bps) override;
+  void SetRate(net::Bandwidth rate) override;
 
-  uint64_t GetRateBps() const override { return rate_bps_; }
+  net::Bandwidth GetRate() const override { return rate_; }
 
  protected:
   inline EventQueueTime PacketDrainTime(const Packet& pkt) {
@@ -152,7 +152,7 @@ class FIFOQueue : public Queue {
   const uint64_t max_size_bytes_;
 
   // The drain rate of the queue.
-  uint64_t rate_bps_;
+  net::Bandwidth rate_;
 
   // Time to process a single bit.
   EventQueueTime time_per_bit_;
@@ -178,9 +178,10 @@ class RandomQueue : public FIFOQueue {
   RandomQueue(const net::GraphLink& edge, uint64_t max_size_bytes,
               uint64_t drop_threshold_bytes, double seed,
               EventQueue* event_queue, bool interesting = true);
-  RandomQueue(const std::string& src, const std::string& dst, uint64_t rate_bps,
-              uint64_t max_size_bytes, uint64_t drop_threshold_bytes,
-              double seed, EventQueue* event_queue, bool interesting = true);
+  RandomQueue(const std::string& src, const std::string& dst,
+              net::Bandwidth rate, uint64_t max_size_bytes,
+              uint64_t drop_threshold_bytes, double seed,
+              EventQueue* event_queue, bool interesting = true);
 
   bool ShouldDrop(uint64_t pkt_size_bytes) override;
 

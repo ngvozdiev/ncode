@@ -11,14 +11,14 @@
 namespace ncode {
 namespace lp {
 
-MCProblem::MCProblem(const net::PBNet& graph, net::LinkStorage* link_storage,
+MCProblem::MCProblem(const net::PBNet& graph, net::GraphStorage* graph_storage,
                      double capacity_multiplier)
-    : link_storage_(link_storage), capacity_multiplier_(capacity_multiplier) {
+    : graph_storage_(graph_storage), capacity_multiplier_(capacity_multiplier) {
   for (const auto& link_pb : graph.links()) {
-    const net::GraphLink* link = link_storage->LinkPtrFromProtobuf(link_pb);
+    const net::GraphLink* link = graph_storage->LinkPtrFromProtobuf(link_pb);
 
-    const std::string& out = link->src();
-    const std::string& in = link->dst();
+    net::GraphNodeIndex out = link->src();
+    net::GraphNodeIndex in = link->dst();
     adjacent_to_v_[out].first.emplace_back(link);
     adjacent_to_v_[in].second.emplace_back(link);
 
@@ -28,7 +28,7 @@ MCProblem::MCProblem(const net::PBNet& graph, net::LinkStorage* link_storage,
 
 MCProblem::MCProblem(const MCProblem& mc_problem, double scale_factor,
                      double increment) {
-  link_storage_ = mc_problem.link_storage_;
+  graph_storage_ = mc_problem.graph_storage_;
   capacity_multiplier_ = mc_problem.capacity_multiplier_;
   graph_ = mc_problem.graph_;
   adjacent_to_v_ = mc_problem.adjacent_to_v_;
@@ -53,7 +53,7 @@ MCProblem::VarMap MCProblem::GetLinkToVariableMap(
     // fit the capacity of the link.
     ConstraintIndex link_constraint = problem->AddConstraint();
 
-    double scaled_limit = link->bandwidth_bps() * capacity_multiplier_;
+    double scaled_limit = link->bandwidth().bps() * capacity_multiplier_;
     problem->SetConstraintRange(link_constraint, 0, scaled_limit);
 
     for (size_t commodity_index = 0; commodity_index < commodities_.size();
@@ -84,11 +84,11 @@ void MCProblem::AddFlowConservationConstraints(
     const Commodity& commodity = commodities_[c_index];
 
     for (const auto& node_and_adj_lists : adjacent_to_v_) {
-      const std::string& node = node_and_adj_lists.first;
+      net::GraphNodeIndex node = node_and_adj_lists.first;
       const std::vector<const net::GraphLink*>& edges_out =
-          node_and_adj_lists.second.first;
+          node_and_adj_lists.second->first;
       const std::vector<const net::GraphLink*>& edges_in =
-          node_and_adj_lists.second.second;
+          node_and_adj_lists.second->second;
 
       // For all nodes except the source and the sink the sum of the flow into
       // the node should be equal to the sum of the flow out. All flow into the
@@ -133,21 +133,10 @@ void MCProblem::AddFlowConservationConstraints(
   }
 }
 
-bool MCProblem::IsInGraph(const std::string& source) {
-  for (const net::GraphLink* link : graph_) {
-    if (link->src() == source || link->dst() == source) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 void MCProblem::AddCommodity(const std::string& source, const std::string& sink,
                              double demand) {
-  CHECK(IsInGraph(source));
-  CHECK(IsInGraph(sink));
-  commodities_.push_back({source, sink, demand});
+  commodities_.push_back({graph_storage_->NodeFromStringOrDie(source),
+                          graph_storage_->NodeFromStringOrDie(sink), demand});
 }
 
 bool MCProblem::IsFeasible() {
@@ -219,8 +208,8 @@ double MCProblem::MaxCommodityIncrement() {
   // The initial increment will be the max of the cpacity of all links.
   uint64_t max_capacity = 0;
   for (const net::GraphLink* link : graph_) {
-    if (link->bandwidth_bps() > max_capacity) {
-      max_capacity = link->bandwidth_bps();
+    if (link->bandwidth().bps() > max_capacity) {
+      max_capacity = link->bandwidth().bps();
     }
   }
 

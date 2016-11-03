@@ -10,6 +10,9 @@ namespace test {
 
 using namespace std::chrono;
 
+static constexpr net::Bandwidth kDefaultBw =
+    net::Bandwidth::FromBitsPerSecond(10000);
+
 static PBDFSRequest GetRequest() {
   PBDFSRequest request;
   request.set_max_depth_hops(100);
@@ -75,11 +78,9 @@ TEST_F(PathUtilsTest, KShortestPaths) {
             cache.GetKLowestDelayPaths(dummy_constraint_, 4, "A", "D", 1));
 }
 
-//// The diverse paths test needs a different topology.
+// The diverse paths test needs a different topology.
 class DiversePathsTest : public ::testing::Test {
  protected:
-  static constexpr uint64_t kDefaultBw = 10000;
-
   void SetUp() override {
     net::AddBiEdgesToGraph({{"A", "B"}, {"B", "C"}, {"C", "D"}, {"E", "C"}},
                            milliseconds(1), kDefaultBw, &graph_);

@@ -87,8 +87,8 @@ TEST_F(SingleEdgeDFSFixture, SinglePath) {
 
   net::GraphLinkIndex edge_index = paths_.at(0).links().at(0);
   const net::GraphLink* edge = storage_.GetLink(edge_index);
-  ASSERT_EQ("A", edge->src());
-  ASSERT_EQ("B", edge->dst());
+  ASSERT_EQ("A", storage_.GetNode(edge->src())->id());
+  ASSERT_EQ("B", storage_.GetNode(edge->dst())->id());
 }
 
 TEST_F(SingleEdgeDFSFixture, OneHopLimit) {

@@ -106,7 +106,7 @@ class TwoDeviceTest : public NetworkTest {
     link_pb.set_bandwidth_bps(kRateBps);
     link_pb.set_delay_sec(kDelaySec);
 
-    const net::GraphLink* link = link_storage_.LinkPtrFromProtobuf(link_pb);
+    const net::GraphLink* link = graph_storage_.LinkPtrFromProtobuf(link_pb);
     pipe_ = make_unique<Pipe>(*link, &event_queue_);
     queue_ = make_unique<FIFOQueue>(*link, queue_size, &event_queue_);
     network_.AddLink(queue_.get(), pipe_.get());
@@ -174,7 +174,7 @@ class TwoDeviceTest : public NetworkTest {
   std::unique_ptr<Pipe> pipe_;
   std::unique_ptr<Queue> queue_;
 
-  net::LinkStorage link_storage_;
+  net::GraphStorage graph_storage_;
   Device device_a_;
   Device device_b_;
 };
@@ -252,7 +252,7 @@ class TwoDeviceTCPTest : public TwoDeviceTest {
     link_pb.set_bandwidth_bps(kRateBps);
     link_pb.set_delay_sec(kDelaySec);
 
-    const net::GraphLink* link = link_storage_.LinkPtrFromProtobuf(link_pb);
+    const net::GraphLink* link = graph_storage_.LinkPtrFromProtobuf(link_pb);
     reverse_pipe_ = make_unique<Pipe>(*link, &event_queue_);
     reverse_queue_ = make_unique<FIFOQueue>(*link, queue_size, &event_queue_);
     network_.AddLink(reverse_queue_.get(), reverse_pipe_.get());
