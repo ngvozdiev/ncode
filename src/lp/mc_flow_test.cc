@@ -8,23 +8,7 @@ namespace {
 
 using namespace std::chrono;
 
-class MCTest : public ::testing::Test {
- protected:
-  net::GraphStorage graph_storage_;
-};
-
-TEST_F(MCTest, Empty) {
-  net::PBNet net;
-
-  MaxFlowMCProblem max_flow_problem(net, &graph_storage_);
-
-  double max_flow;
-  ASSERT_TRUE(max_flow_problem.GetMaxFlow(&max_flow));
-  ASSERT_EQ(0, max_flow);
-  ASSERT_DEATH(max_flow_problem.AddCommodity("N0", "N1"), ".*");
-}
-
-TEST_F(MCTest, UnidirectionalLink) {
+TEST(MCTest, UnidirectionalLink) {
   net::PBNet net = net::GenerateFullGraph(2, 10000, microseconds(10));
   net::PBGraphLink* link = net.add_links();
   link->set_src("N1");
@@ -34,7 +18,8 @@ TEST_F(MCTest, UnidirectionalLink) {
   link->set_bandwidth_bps(10000);
   link->set_delay_sec(0.1);
 
-  MaxFlowMCProblem max_flow_problem(net, &graph_storage_);
+  net::GraphStorage graph_storage(net);
+  MaxFlowMCProblem max_flow_problem(&graph_storage);
   max_flow_problem.AddCommodity("N0", "N2");
 
   double max_flow;
@@ -42,11 +27,12 @@ TEST_F(MCTest, UnidirectionalLink) {
   ASSERT_EQ(10000.0, max_flow);
 }
 
-TEST_F(MCTest, Simple) {
+TEST(MCTest, Simple) {
   net::PBNet net = net::GenerateFullGraph(2, 10000, microseconds(10));
+  net::GraphStorage graph_storage(net);
 
   double max_flow;
-  MaxFlowMCProblem max_flow_problem(net, &graph_storage_);
+  MaxFlowMCProblem max_flow_problem(&graph_storage);
   ASSERT_TRUE(max_flow_problem.GetMaxFlow(&max_flow));
   ASSERT_EQ(0, max_flow);
 
@@ -55,10 +41,11 @@ TEST_F(MCTest, Simple) {
   ASSERT_EQ(10000.0, max_flow);
 }
 
-TEST_F(MCTest, SimpleTwoCommodities) {
+TEST(MCTest, SimpleTwoCommodities) {
   net::PBNet net = net::GenerateFullGraph(2, 10000, microseconds(10));
+  net::GraphStorage graph_storage(net);
 
-  MaxFlowMCProblem max_flow_problem(net, &graph_storage_);
+  MaxFlowMCProblem max_flow_problem(&graph_storage);
   max_flow_problem.AddCommodity("N0", "N1");
   max_flow_problem.AddCommodity("N1", "N0");
 
@@ -67,10 +54,11 @@ TEST_F(MCTest, SimpleTwoCommodities) {
   ASSERT_EQ(20000.0, max_flow);
 }
 
-TEST_F(MCTest, Triangle) {
+TEST(MCTest, Triangle) {
   net::PBNet net = net::GenerateFullGraph(3, 10000, microseconds(10));
+  net::GraphStorage graph_storage(net);
 
-  MaxFlowMCProblem max_flow_problem(net, &graph_storage_);
+  MaxFlowMCProblem max_flow_problem(&graph_storage);
   max_flow_problem.AddCommodity("N0", "N2");
 
   double max_flow;
@@ -82,19 +70,22 @@ TEST_F(MCTest, Triangle) {
   ASSERT_EQ(20000.0, max_flow);
 }
 
-TEST_F(MCTest, TriangleNoFit) {
+TEST(MCTest, TriangleNoFit) {
   net::PBNet net = net::GenerateFullGraph(3, 10000, microseconds(10));
+  net::GraphStorage graph_storage(net);
 
-  MaxFlowMCProblem max_flow_problem(net, &graph_storage_);
+  MaxFlowMCProblem max_flow_problem(&graph_storage);
   max_flow_problem.AddCommodity("N0", "N2", 30000);
 
   double max_flow;
   ASSERT_FALSE(max_flow_problem.GetMaxFlow(&max_flow));
 }
 
-TEST_F(MCTest, SimpleFeasible) {
+TEST(MCTest, SimpleFeasible) {
   net::PBNet net = net::GenerateFullGraph(2, 10000, microseconds(10));
-  MCProblem mc_problem(net, &graph_storage_);
+  net::GraphStorage graph_storage(net);
+
+  MCProblem mc_problem(&graph_storage);
   ASSERT_TRUE(mc_problem.IsFeasible());
 
   mc_problem.AddCommodity("N0", "N1", 10000);
@@ -104,9 +95,11 @@ TEST_F(MCTest, SimpleFeasible) {
   ASSERT_FALSE(mc_problem.IsFeasible());
 }
 
-TEST_F(MCTest, SimpleScaleFactor) {
+TEST(MCTest, SimpleScaleFactor) {
   net::PBNet net = net::GenerateFullGraph(2, 10000000000, microseconds(10));
-  MCProblem mc_problem(net, &graph_storage_);
+  net::GraphStorage graph_storage(net);
+
+  MCProblem mc_problem(&graph_storage);
   ASSERT_EQ(0, mc_problem.MaxCommodityScaleFactor());
 
   mc_problem.AddCommodity("N0", "N1");
@@ -116,9 +109,11 @@ TEST_F(MCTest, SimpleScaleFactor) {
   ASSERT_NEAR(1250000, mc_problem.MaxCommodityScaleFactor(), 0.1);
 }
 
-TEST_F(MCTest, SimpleIncrement) {
+TEST(MCTest, SimpleIncrement) {
   net::PBNet net = net::GenerateFullGraph(2, 10000000000, microseconds(10));
-  MCProblem mc_problem(net, &graph_storage_);
+  net::GraphStorage graph_storage(net);
+
+  MCProblem mc_problem(&graph_storage);
   ASSERT_EQ(0, mc_problem.MaxCommodityIncrement());
 
   mc_problem.AddCommodity("N0", "N1");

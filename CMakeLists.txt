@@ -53,7 +53,7 @@ add_subdirectory(external/gflags)
 SET(BUILD_TESTING ${OLD_BUILD_TESTING})
 
 # Will need protobufs, pcap and ctemplate
-set(PROTOBUF_IMPORT_DIRS ${PROJECT_SOURCE_DIR}/src/net ${PROJECT_SOURCE_DIR}/src/dfs)
+set(PROTOBUF_IMPORT_DIRS ${PROJECT_SOURCE_DIR}/src/net)
 find_package(Protobuf REQUIRED)
 find_package(PCAP REQUIRED)
 find_package(Ctemplate REQUIRED)
@@ -150,36 +150,22 @@ add_test_exec(common_perfect_hash_test src/common/perfect_hash_test.cc ncode_com
 add_executable(common_perfect_hash_benchmark src/common/perfect_hash_benchmark.cc)
 target_link_libraries(common_perfect_hash_benchmark ncode_common)
 
-
 ################################
 # Network-releated stuff
 ################################
 PROTOBUF_GENERATE_CPP(PROTO_NET_SRCS PROTO_NET_HDRS src/net/net.proto)
 set_property(SOURCE ${PROTO_NET_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS "-Wno-extended-offsetof")
-set(NET_HEADER_FILES src/net/net_common.h src/net/net_gen.h src/net/pcap.h ${PROTO_NET_HDRS})
-add_library(ncode_net STATIC src/net/net_common.cc src/net/net_gen.cc src/net/pcap.cc ${PROTO_NET_SRCS} ${NET_HEADER_FILES})
+set(NET_HEADER_FILES src/net/net_common.h src/net/net_gen.h src/net/pcap.h src/net/algorithm.h src/net/constraint.h ${PROTO_NET_HDRS})
+add_library(ncode_net STATIC src/net/net_common.cc src/net/net_gen.cc src/net/pcap.cc src/net/algorithm.cc src/net/constraint.cc ${PROTO_NET_SRCS} ${NET_HEADER_FILES})
 target_link_libraries(ncode_net ${PCAP_LIBRARY} ${PROTOBUF_LIBRARIES} ncode_common)
 
 add_test_exec(net_common_test src/net/net_common_test.cc ncode_net)
 add_test_exec(net_gen_test src/net/net_gen_test.cc ncode_net)
+add_test_exec(net_algorithm_test src/net/algorithm_test.cc ncode_net)
+add_test_exec(net_constraint_test src/net/constraint_test.cc ncode_net)
 
-################################
-# DFS
-################################
-PROTOBUF_GENERATE_CPP(PROTO_DFS_SRCS PROTO_DFS_HDRS src/dfs/dfs.proto)
-set_property(SOURCE ${PROTO_DFS_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS "-Wno-extended-offsetof")
-set(DFS_HEADER_FILES src/dfs/constraint.h src/dfs/array_graph.h src/dfs/path_utils.h src/dfs/dfs.h src/dfs/dfs_session.h ${PROTO_DFS_HDRS})
-add_library(ncode_dfs STATIC src/dfs/constraint.cc src/dfs/array_graph.cc src/dfs/path_utils.cc src/dfs/dfs.cc src/dfs/dfs_session.cc ${PROTO_DFS_SRCS} ${DFS_HEADER_FILES} ${NET_HEADER_FILES})
-target_link_libraries(ncode_dfs ${PROTOBUF_LIBRARIES} ncode_common ncode_net)
-
-add_library(dfs_test_util STATIC src/dfs/test_fixtures.cc)
-target_link_libraries(dfs_test_util ncode_dfs gtest)
-
-add_test_exec(dfs_constraint_test src/dfs/constraint_test.cc ncode_dfs dfs_test_util)
-add_test_exec(dfs_array_graph_test src/dfs/array_graph_test.cc ncode_dfs dfs_test_util)
-add_test_exec(dfs_test src/dfs/dfs_test.cc ncode_dfs dfs_test_util)
-add_test_exec(dfs_path_utils_test src/dfs/path_utils_test.cc ncode_dfs dfs_test_util)
-add_test_exec(dfs_session_test src/dfs/dfs_session_test.cc ncode_dfs dfs_test_util)
+add_executable(net_algorithm_benchmark src/net/algorithm_benchmark.cc)
+target_link_libraries(net_algorithm_benchmark ncode_net)
 
 ################################
 # Web

@@ -62,6 +62,73 @@ class PerfectHashStore {
 template <typename V, typename Tag>
 class PerfectHashSet {
  public:
+  class ConstIterator {
+   public:
+    using value_type = Index<Tag, V>;
+
+    ConstIterator(const PerfectHashSet<V, Tag>* parent, Index<Tag, V> index)
+        : parent_(parent), index_(index) {}
+
+    ConstIterator operator++() {
+      while (index_ != parent_->set_.size()) {
+        index_ = Index<Tag, V>(index_ + 1);
+        if (parent_->Contains(index_)) {
+          return *this;
+        }
+      }
+      return *this;
+    }
+
+    bool operator!=(const ConstIterator& other) {
+      return index_ != other.index_;
+    }
+
+    Index<Tag, V> operator*() const { return index_; }
+
+   private:
+    const PerfectHashSet<V, Tag>* parent_;
+    Index<Tag, V> index_;
+  };
+
+  // Returns a set with all items in the store.
+  template <typename T>
+  static PerfectHashSet<V, Tag> FullSetFromStore(
+      const PerfectHashStore<T, V, Tag>& store) {
+    PerfectHashSet<V, Tag> out;
+    out.set_.resize(store.size(), true);
+    return out;
+  }
+
+  PerfectHashSet() {}
+
+  // Builds a set with the elements in the initializer list.
+  PerfectHashSet(std::initializer_list<Index<Tag, V>> init_list) {
+    for (Index<Tag, V> i : init_list) {
+      Insert(i);
+    }
+  }
+
+  // Adds all elements from another set to this one.
+  void InsertAll(const PerfectHashSet<V, Tag>& other) {
+    size_t other_size = other.set_.size();
+    set_.resize(std::max(set_.size(), other_size), false);
+    for (size_t i = 0; i < other_size; ++i) {
+      if (other.set_[i]) {
+        set_[i] = true;
+      }
+    }
+  }
+
+  // Removes all elements from another set to this one.
+  void RemoveAll(const PerfectHashSet<V, Tag>& other) {
+    size_t min_size = std::min(set_.size(), other.set_.size());
+    for (size_t i = 0; i < min_size; ++i) {
+      if (other.set_[i]) {
+        set_[i] = false;
+      }
+    }
+  }
+
   void Insert(Index<Tag, V> index) {
     set_.resize(std::max(set_.size(), index + 1), false);
     set_[index] = true;
@@ -80,6 +147,19 @@ class PerfectHashSet {
 
     return false;
   }
+
+  ConstIterator begin() const {
+    size_t i;
+    for (i = 0; i < set_.size(); ++i) {
+      if (set_[i]) {
+        break;
+      }
+    }
+
+    return {this, Index<Tag, V>(i)};
+  }
+
+  ConstIterator end() const { return {this, Index<Tag, V>(set_.size())}; }
 
  private:
   std::vector<char> set_;
@@ -109,6 +189,32 @@ class PerfectHashMap {
 
    private:
     PerfectHashMap<V, Tag, Value>* parent_;
+    Index<Tag, V> index_;
+  };
+
+  class ConstIterator {
+   public:
+    ConstIterator(const PerfectHashMap<V, Tag, Value>* parent,
+                  Index<Tag, V> index)
+        : parent_(parent), index_(index) {}
+    ConstIterator operator++() {
+      while (index_ != parent_->values_.size()) {
+        index_ = Index<Tag, V>(index_ + 1);
+        if (parent_->HasValue(index_)) {
+          return *this;
+        }
+      }
+      return *this;
+    }
+    bool operator!=(const ConstIterator& other) {
+      return index_ != other.index_;
+    }
+    std::pair<Index<Tag, V>, const Value*> operator*() const {
+      return std::make_pair(index_, &parent_->values_[index_].second);
+    }
+
+   private:
+    const PerfectHashMap<V, Tag, Value>* parent_;
     Index<Tag, V> index_;
   };
 
@@ -145,10 +251,24 @@ class PerfectHashMap {
     return GetValueOrDie(index);
   }
 
-  Iterator begin() { return {this, Index<Tag, V>(0)}; }
+  Iterator begin() { return {this, Index<Tag, V>(GetFirst())}; }
   Iterator end() { return {this, Index<Tag, V>(values_.size())}; }
 
+  ConstIterator begin() const { return {this, Index<Tag, V>(GetFirst())}; }
+  ConstIterator end() const { return {this, Index<Tag, V>(values_.size())}; }
+
  private:
+  Index<Tag, V> GetFirst() const {
+    size_t i;
+    for (i = 0; i < values_.size(); ++i) {
+      if (values_[i].first) {
+        break;
+      }
+    }
+
+    return Index<Tag, V>(i);
+  }
+
   std::vector<std::pair<bool, Value>> values_;
 };
 }

@@ -191,7 +191,7 @@ using GraphLinkMap = PerfectHashMap<uint8_t, GraphLink, V>;
 using Links = std::vector<GraphLinkIndex>;
 
 // Sums up the delay along a series of links.
-Delay TotalDelayOfLinks(const Links& links, const GraphStorage* link_storage);
+Delay TotalDelayOfLinks(const Links& links, const GraphStorage* graph_storage);
 
 // A sequence of links along with a delay. Similar to GraphPath (below), but
 // without a tag.
@@ -199,12 +199,12 @@ class LinkSequence {
  public:
   LinkSequence();
 
-  LinkSequence(const Links& links, const GraphStorage* storage);
+  LinkSequence(const Links& links, Delay delay);
 
   bool Contains(GraphLinkIndex link) const;
 
   // The delay of all links in this sequence.
-  Delay delay() const { return delay_; }
+  Delay delay() const;
 
   // Number of links in the sequence.
   size_t size() const { return links_.size(); }
@@ -224,18 +224,24 @@ class LinkSequence {
   // Shorter string representation in the form [A->B->C]
   std::string ToStringNoPorts(const GraphStorage* storage) const;
 
+  // Id of the first node along the path.
+  GraphNodeIndex FirstHop(const GraphStorage* storage) const;
+
+  // Id of the last node along the path.
+  GraphNodeIndex LastHop(const GraphStorage* storage) const;
+
   // Rough estimate of the number of bytes of memory this LinkSequence uses.
   size_t InMemBytesEstimate() const;
+
+  friend bool operator<(const LinkSequence& a, const LinkSequence& b);
+  friend bool operator==(const LinkSequence& a, const LinkSequence& b);
 
  private:
   // The links in this sequence.
   Links links_;
 
-  // The sum of the delay values of all links.
+  // The total delay of all links in the sequence.
   Delay delay_;
-
-  // The links, sorted. Used by Contains.
-  Links links_sorted_;
 };
 
 class PathStorage;
@@ -270,19 +276,16 @@ class GraphPath {
   uint32_t tag() const { return tag_; }
 
   // Id of the first node along the path.
-  GraphNodeIndex first_hop() const;
+  GraphNodeIndex FirstHop() const;
 
   // Id of the last node along the path.
-  GraphNodeIndex last_hop() const;
+  GraphNodeIndex LastHop() const;
 
   // Constructs an initially empty path.
   GraphPath(PathStorage* storage) : tag_(0), storage_(storage) {}
 
   // Populates this object.
-  void Populate(LinkSequence link_sequence, uint32_t tag) {
-    link_sequence_ = link_sequence;
-    tag_ = tag;
-  }
+  void Populate(LinkSequence link_sequence, uint32_t tag);
 
  private:
   // The sequence of links that form this path.
@@ -306,22 +309,24 @@ struct PathComparator {
 // Stores and maintains links.
 class GraphStorage {
  public:
-  GraphStorage() {}
+  GraphStorage(const PBNet& graph);
 
   // At least the src and the dst need to be populated in the link_pb.
   // If there is no link between src and dst the ports need to also be populated
   // in order to create a new one.
-  GraphLinkIndex LinkFromProtobuf(const PBGraphLink& link_pb);
+  GraphLinkIndex LinkFromProtobufOrDie(const PBGraphLink& link_pb) const;
 
-  // Returns the index of a node identified by a string.
-  GraphNodeIndex NodeFromString(const std::string& id);
+  // Finds a link between src and dst. If multiple links exist will return only
+  // one of them. Will die if no links exist.
+  GraphLinkIndex LinkOrDie(const std::string& src,
+                           const std::string& dst) const;
 
   // Same as NodeFromString, but dies if the node does not exist.
   GraphNodeIndex NodeFromStringOrDie(const std::string& id) const;
 
   // Attempts to find the unique inverse of a link. If the link has no inverse,
   // or has multiple inverses will die.
-  GraphLinkIndex FindUniqueInverseOrDie(const GraphLink* link);
+  GraphLinkIndex FindUniqueInverseOrDie(const GraphLink* link) const;
 
   // Relates from indices to link objects.
   const GraphLink* GetLink(GraphLinkIndex index) const;
@@ -330,15 +335,36 @@ class GraphStorage {
   const GraphNode* GetNode(GraphNodeIndex index) const;
 
   // Number of links stored.
-  size_t num_links() const { return link_store_.size(); }
+  size_t LinkCount() const { return link_store_.size(); }
+
+  // Number of nodes stored.
+  size_t NodeCount() const { return node_store_.size(); }
+
+  // Returns the set of all nodes in the graph.
+  GraphNodeSet AllNodes() const {
+    return GraphNodeSet::FullSetFromStore(node_store_);
+  }
+
+  // Returns the set of all links in the graph.
+  GraphLinkSet AllLinks() const {
+    return GraphLinkSet::FullSetFromStore(link_store_);
+  }
 
   // Combines LinkFromProtobuf with GetLink for convenience.
-  const GraphLink* LinkPtrFromProtobuf(const PBGraphLink& link_pb);
+  const GraphLink* LinkPtrFromProtobufOrDie(const PBGraphLink& link_pb) const;
 
   // Node ID to node index.
   const std::map<std::string, GraphNodeIndex>& nodes() const { return nodes_; }
 
  private:
+  bool LinkFromProtobuf(const PBGraphLink& link_pb,
+                        GraphLinkIndex* index) const;
+
+  GraphLinkIndex LinkFromProtobuf(const PBGraphLink& link_pb);
+
+  // Returns the index of a node identified by a string.
+  GraphNodeIndex NodeFromString(const std::string& id);
+
   using LinkStore =
       PerfectHashStore<std::unique_ptr<GraphLink>, uint8_t, GraphLink>;
   using NodeStore =
@@ -360,28 +386,27 @@ class GraphStorage {
 // path objects.
 class PathStorage : public GraphStorage {
  public:
-  PathStorage() : tag_generator_(0) {
+  PathStorage(const PBNet& graph) : GraphStorage(graph), tag_generator_(0) {
     empty_path_ = std::unique_ptr<GraphPath>(new GraphPath(this));
   }
 
   // Returns a graph path from a string of the form [A->B, B->C]. Port
   // numbers cannot be specified -- do not use if double edges are possible.
-  const GraphPath* PathFromString(const std::string& path_string,
-                                  const PBNet& graph,
-                                  uint64_t aggregate_cookie);
+  const GraphPath* PathFromStringOrDie(const std::string& path_string,
+                                       uint64_t aggregate_cookie);
 
   // Retuns a graph path from a sequence of links.
-  const GraphPath* PathFromLinks(const LinkSequence& links,
-                                 uint64_t aggregate_cookie);
+  const GraphPath* PathFromLinksOrDie(const LinkSequence& links,
+                                      uint64_t aggregate_cookie);
 
   // From a protobuf repetated field.
-  const GraphPath* PathFromProtobuf(
+  const GraphPath* PathFromProtobufOrDie(
       const google::protobuf::RepeatedPtrField<PBGraphLink>& links,
       uint64_t aggregate_cookie);
 
   // From a vector with protobufs.
-  const GraphPath* PathFromProtobuf(const std::vector<PBGraphLink>& links,
-                                    uint64_t aggregate_cookie);
+  const GraphPath* PathFromProtobufOrDie(const std::vector<PBGraphLink>& links,
+                                         uint64_t aggregate_cookie);
 
   // Returns the empty path. There is only one empty path instance per
   // PathStorage.
@@ -411,10 +436,10 @@ class PathStorage : public GraphStorage {
 
 // A convenience function equivalent to calling StringToPath followed by
 // std::find to check if haystack contains the path needle.
-bool IsInPaths(const std::string& needle, const PBNet& graph,
+bool IsInPaths(const std::string& needle,
                const std::vector<LinkSequence>& haystack, PathStorage* storage);
 
-bool IsInPaths(const std::string& needle, const PBNet& graph,
+bool IsInPaths(const std::string& needle,
                const std::vector<const GraphPath*>& haystack, uint64_t cookie,
                PathStorage* storage);
 

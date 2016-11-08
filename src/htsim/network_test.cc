@@ -84,8 +84,33 @@ TEST_F(NetworkTest, SingleDevice) {
 
 class TwoDeviceTest : public NetworkTest {
  protected:
+  static net::PBNet Graph() {
+    net::PBGraphLink link_pb;
+    link_pb.set_src("A");
+    link_pb.set_dst("B");
+    link_pb.set_src_port(10);
+    link_pb.set_dst_port(20);
+    link_pb.set_bandwidth_bps(kRateBps);
+    link_pb.set_delay_sec(kDelaySec);
+
+    net::PBNet net;
+    *net.add_links() = link_pb;
+
+    link_pb.Clear();
+    link_pb.set_src("B");
+    link_pb.set_dst("A");
+    link_pb.set_src_port(20);
+    link_pb.set_dst_port(10);
+    link_pb.set_bandwidth_bps(kRateBps);
+    link_pb.set_delay_sec(kDelaySec);
+    *net.add_links() = link_pb;
+
+    return net;
+  }
+
   TwoDeviceTest()
-      : device_a_("A", net::IPAddress(1), &event_queue_),
+      : graph_storage_(Graph()),
+        device_a_("A", net::IPAddress(1), &event_queue_),
         device_b_("B", net::IPAddress(2), &event_queue_) {}
 
   virtual ~TwoDeviceTest(){};
@@ -101,12 +126,9 @@ class TwoDeviceTest : public NetworkTest {
     net::PBGraphLink link_pb;
     link_pb.set_src("A");
     link_pb.set_dst("B");
-    link_pb.set_src_port(10);
-    link_pb.set_dst_port(20);
-    link_pb.set_bandwidth_bps(kRateBps);
-    link_pb.set_delay_sec(kDelaySec);
 
-    const net::GraphLink* link = graph_storage_.LinkPtrFromProtobuf(link_pb);
+    const net::GraphLink* link =
+        graph_storage_.LinkPtrFromProtobufOrDie(link_pb);
     pipe_ = make_unique<Pipe>(*link, &event_queue_);
     queue_ = make_unique<FIFOQueue>(*link, queue_size, &event_queue_);
     network_.AddLink(queue_.get(), pipe_.get());
@@ -247,12 +269,9 @@ class TwoDeviceTCPTest : public TwoDeviceTest {
     net::PBGraphLink link_pb;
     link_pb.set_src("B");
     link_pb.set_dst("A");
-    link_pb.set_src_port(20);
-    link_pb.set_dst_port(10);
-    link_pb.set_bandwidth_bps(kRateBps);
-    link_pb.set_delay_sec(kDelaySec);
 
-    const net::GraphLink* link = graph_storage_.LinkPtrFromProtobuf(link_pb);
+    const net::GraphLink* link =
+        graph_storage_.LinkPtrFromProtobufOrDie(link_pb);
     reverse_pipe_ = make_unique<Pipe>(*link, &event_queue_);
     reverse_queue_ = make_unique<FIFOQueue>(*link, queue_size, &event_queue_);
     network_.AddLink(reverse_queue_.get(), reverse_pipe_.get());

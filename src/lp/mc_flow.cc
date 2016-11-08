@@ -11,11 +11,11 @@
 namespace ncode {
 namespace lp {
 
-MCProblem::MCProblem(const net::PBNet& graph, net::GraphStorage* graph_storage,
+MCProblem::MCProblem(const net::GraphStorage* graph_storage,
                      double capacity_multiplier)
     : graph_storage_(graph_storage), capacity_multiplier_(capacity_multiplier) {
-  for (const auto& link_pb : graph.links()) {
-    const net::GraphLink* link = graph_storage->LinkPtrFromProtobuf(link_pb);
+  for (net::GraphLinkIndex link_index : graph_storage->AllLinks()) {
+    const net::GraphLink* link = graph_storage->GetLink(link_index);
 
     net::GraphNodeIndex out = link->src();
     net::GraphNodeIndex in = link->dst();

@@ -18,7 +18,7 @@ class MCProblem {
  public:
   using VarMap = std::map<const net::GraphLink*, std::vector<VariableIndex>>;
 
-  MCProblem(const net::PBNet& graph, net::GraphStorage* link_storage,
+  MCProblem(const net::GraphStorage* graph_storage,
             double capacity_multiplier = 1.0);
 
   // Adds a single commodity to the network, with a given source and sink. If
@@ -57,7 +57,7 @@ class MCProblem {
       const VarMap& link_to_variables, Problem* problem,
       std::vector<ProblemMatrixElement>* problem_matrix);
 
-  net::GraphStorage* graph_storage_;
+  const net::GraphStorage* graph_storage_;
   double capacity_multiplier_;
   std::vector<const net::GraphLink*> graph_;
   std::vector<Commodity> commodities_;
@@ -79,9 +79,9 @@ class MCProblem {
 // Solves the multi commodity max flow problem.
 class MaxFlowMCProblem : public MCProblem {
  public:
-  MaxFlowMCProblem(const net::PBNet& graph, net::GraphStorage* link_storage,
+  MaxFlowMCProblem(const net::GraphStorage* graph_storage,
                    double capacity_multiplier = 1.0)
-      : MCProblem(graph, link_storage, capacity_multiplier) {}
+      : MCProblem(graph_storage, capacity_multiplier) {}
 
   // Populates the maximum flow (in the same units as edge bandwidth *
   // cpacity_multiplier_) for all commodities. If there are commodities that

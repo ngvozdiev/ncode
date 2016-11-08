@@ -73,7 +73,14 @@ std::chrono::microseconds TotalDelayOfLinks(const Links& links,
   return total;
 }
 
-GraphLinkIndex GraphStorage::FindUniqueInverseOrDie(const GraphLink* link) {
+GraphStorage::GraphStorage(const PBNet& graph) {
+  for (const auto& link_pb : graph.links()) {
+    LinkFromProtobuf(link_pb);
+  }
+}
+
+GraphLinkIndex GraphStorage::FindUniqueInverseOrDie(
+    const GraphLink* link) const {
   const std::string& src = GetNode(link->src())->id();
   const std::string& dst = GetNode(link->dst())->id();
 
@@ -107,7 +114,8 @@ GraphNodeIndex GraphStorage::NodeFromStringOrDie(const std::string& id) const {
   return FindOrDie(nodes_, id);
 }
 
-GraphLinkIndex GraphStorage::LinkFromProtobuf(const PBGraphLink& link_pb) {
+bool GraphStorage::LinkFromProtobuf(const PBGraphLink& link_pb,
+                                    GraphLinkIndex* index) const {
   // First try to find the link by the src and dst.
   CHECK(!link_pb.src().empty() && !link_pb.dst().empty())
       << "Link source or destination missing";
@@ -118,7 +126,8 @@ GraphLinkIndex GraphStorage::LinkFromProtobuf(const PBGraphLink& link_pb) {
     auto it_two = it_one->second.find(link_pb.dst());
     if (it_two != it_one->second.end()) {
       if (link_pb.src_port() == 0 && link_pb.dst_port() == 0) {
-        return it_two->second.front();
+        *index = it_two->second.front();
+        return true;
       }
 
       // There are one or many links with the same src and dst addresses.
@@ -142,11 +151,45 @@ GraphLinkIndex GraphStorage::LinkFromProtobuf(const PBGraphLink& link_pb) {
         }
       }
 
-      CHECK(other_with_same_src_port == other_with_same_dst_port);
+      CHECK(other_with_same_src_port == other_with_same_dst_port)
+          << other_with_same_src_port << " != " << other_with_same_dst_port;
       if (other_with_same_src_port != nullptr) {
-        return other_with_same_src_port_index;
+        *index = other_with_same_src_port_index;
+        return true;
       }
     }
+  }
+
+  return false;
+}
+
+GraphLinkIndex GraphStorage::LinkFromProtobufOrDie(
+    const PBGraphLink& link_pb) const {
+  GraphLinkIndex out;
+  CHECK(LinkFromProtobuf(link_pb, &out));
+  return out;
+}
+
+GraphLinkIndex GraphStorage::LinkOrDie(const std::string& src,
+                                       const std::string& dst) const {
+  CHECK(!src.empty() && !dst.empty()) << "Link source or destination missing";
+  CHECK(src != dst) << "Link source same as destination: " << src;
+  auto it_one = links_.find(src);
+  if (it_one != links_.end()) {
+    auto it_two = it_one->second.find(dst);
+    if (it_two != it_one->second.end()) {
+      return it_two->second.front();
+    }
+  }
+
+  LOG(FATAL) << "No link between " << src << " and " << dst;
+  return GraphLinkIndex(0);
+}
+
+GraphLinkIndex GraphStorage::LinkFromProtobuf(const PBGraphLink& link_pb) {
+  GraphLinkIndex out;
+  if (LinkFromProtobuf(link_pb, &out)) {
+    return out;
   }
 
   // Unable to find a link, need to create new one. At this point the protobuf
@@ -164,27 +207,25 @@ GraphLinkIndex GraphStorage::LinkFromProtobuf(const PBGraphLink& link_pb) {
   return index;
 }
 
-const GraphLink* GraphStorage::LinkPtrFromProtobuf(const PBGraphLink& link_pb) {
-  GraphLinkIndex link_index = LinkFromProtobuf(link_pb);
+const GraphLink* GraphStorage::LinkPtrFromProtobufOrDie(
+    const PBGraphLink& link_pb) const {
+  GraphLinkIndex link_index = LinkFromProtobufOrDie(link_pb);
   return GetLink(link_index);
 }
 
-LinkSequence::LinkSequence() : delay_(0) {}
+LinkSequence::LinkSequence() : delay_(Delay::zero()) {}
 
-LinkSequence::LinkSequence(const Links& links, const GraphStorage* storage)
-    : links_(links), delay_(TotalDelayOfLinks(links, storage)) {
-  links_sorted_ = links_;
-  std::sort(links_sorted_.begin(), links_sorted_.end());
-  if (links_sorted_.size() > 1) {
-    for (size_t i = 0; i < links_sorted_.size() - 1; ++i) {
-      CHECK(links_sorted_[i] != links_sorted_[i + 1])
-          << "Duplicate link in LinkSequence: " << links_sorted_[i];
+LinkSequence::LinkSequence(const Links& links, Delay delay)
+    : links_(links), delay_(delay) {
+  for (size_t i = 0; i < links.size(); ++i) {
+    for (size_t j = i + 1; j < links.size(); ++j) {
+      CHECK(links[i] != links[j]) << "Duplicate link";
     }
   }
 }
 
 bool LinkSequence::Contains(GraphLinkIndex link) const {
-  return std::binary_search(links_sorted_.begin(), links_sorted_.end(), link);
+  return std::find(links_.begin(), links_.end(), link) != links_.end();
 }
 
 void LinkSequence::ToProtobuf(const GraphStorage* storage,
@@ -230,8 +271,36 @@ std::string LinkSequence::ToStringNoPorts(const GraphStorage* storage) const {
   return ss.str();
 }
 
+GraphNodeIndex LinkSequence::FirstHop(const GraphStorage* storage) const {
+  DCHECK(!links_.empty());
+  GraphLinkIndex first_link = links_.front();
+  return storage->GetLink(first_link)->src();
+}
+
+GraphNodeIndex LinkSequence::LastHop(const GraphStorage* storage) const {
+  DCHECK(!links_.empty());
+  GraphLinkIndex last_link = links_.back();
+  return storage->GetLink(last_link)->dst();
+}
+
 size_t LinkSequence::InMemBytesEstimate() const {
   return 2 * links_.capacity() * sizeof(Links::value_type) + sizeof(*this);
+}
+
+Delay LinkSequence::delay() const { return delay_; }
+
+bool operator<(const LinkSequence& lhs, const LinkSequence& rhs) {
+  net::Delay lhs_delay = lhs.delay();
+  net::Delay rhs_delay = rhs.delay();
+  if (lhs_delay != rhs_delay) {
+    return lhs_delay < rhs_delay;
+  }
+
+  return lhs.links() < rhs.links();
+}
+
+bool operator==(const LinkSequence& lhs, const LinkSequence& rhs) {
+  return lhs.links_ == rhs.links_;
 }
 
 std::string GraphPath::ToString() const {
@@ -245,19 +314,21 @@ std::string GraphPath::ToStringNoPorts() const {
                     delay_ms);
 }
 
-GraphNodeIndex GraphPath::first_hop() const {
-  GraphLinkIndex first_link = link_sequence_.links().front();
-  return storage_->GetLink(first_link)->src();
+GraphNodeIndex GraphPath::FirstHop() const {
+  return link_sequence_.FirstHop(storage_);
 }
 
-GraphNodeIndex GraphPath::last_hop() const {
-  GraphLinkIndex last_link = link_sequence_.links().back();
-  return storage_->GetLink(last_link)->dst();
+GraphNodeIndex GraphPath::LastHop() const {
+  return link_sequence_.LastHop(storage_);
 }
 
-const GraphPath* PathStorage::PathFromString(const std::string& path_string,
-                                             const PBNet& graph,
-                                             uint64_t cookie) {
+void GraphPath::Populate(LinkSequence link_sequence, uint32_t tag) {
+  link_sequence_ = link_sequence;
+  tag_ = tag;
+}
+
+const GraphPath* PathStorage::PathFromStringOrDie(
+    const std::string& path_string, uint64_t cookie) {
   CHECK(path_string.length() > 1) << "Path string malformed: " << path_string;
   CHECK(path_string.front() == '[' && path_string.back() == ']')
       << "Path string malformed: " << path_string;
@@ -280,24 +351,18 @@ const GraphPath* PathStorage::PathFromString(const std::string& path_string,
     CHECK(src.size() > 0 && dst.size() > 0) << "Path string malformed: "
                                             << path_string;
 
-    GraphLinkIndex edge_index;
-    bool found = false;
-    for (const auto& edge : graph.links()) {
-      if (edge.src() == src && edge.dst() == dst) {
-        edge_index = LinkFromProtobuf(edge);
-        found = true;
-      }
-    }
+    net::PBGraphLink link_pb;
+    link_pb.set_src(src);
+    link_pb.set_dst(dst);
 
-    CHECK(found) << "Link missing from graph: " << edge_string;
-    links.push_back(edge_index);
+    links.push_back(LinkFromProtobufOrDie(link_pb));
   }
 
-  return PathFromLinks({links, this}, cookie);
+  return PathFromLinksOrDie({links, TotalDelayOfLinks(links, this)}, cookie);
 }
 
-const GraphPath* PathStorage::PathFromLinks(const LinkSequence& link_sequence,
-                                            uint64_t cookie) {
+const GraphPath* PathStorage::PathFromLinksOrDie(
+    const LinkSequence& link_sequence, uint64_t cookie) {
   if (link_sequence.empty()) {
     return empty_path_.get();
   }
@@ -319,13 +384,13 @@ const GraphPath* PathStorage::PathFromLinks(const LinkSequence& link_sequence,
   return return_path;
 }
 
-const GraphPath* PathStorage::PathFromProtobuf(
+const GraphPath* PathStorage::PathFromProtobufOrDie(
     const google::protobuf::RepeatedPtrField<PBGraphLink>& links_pb,
     uint64_t cookie) {
   Links links;
   const std::string* old_dst = nullptr;
   for (const auto& link_pb : links_pb) {
-    links.push_back(LinkFromProtobuf(link_pb));
+    links.push_back(LinkFromProtobufOrDie(link_pb));
 
     const std::string& src = link_pb.src();
     const std::string& dst = link_pb.dst();
@@ -334,17 +399,17 @@ const GraphPath* PathStorage::PathFromProtobuf(
     old_dst = &dst;
   }
 
-  return PathFromLinks({links, this}, cookie);
+  return PathFromLinksOrDie({links, TotalDelayOfLinks(links, this)}, cookie);
 }
 
-const GraphPath* PathStorage::PathFromProtobuf(
+const GraphPath* PathStorage::PathFromProtobufOrDie(
     const std::vector<PBGraphLink>& links, uint64_t cookie) {
   google::protobuf::RepeatedPtrField<PBGraphLink> links_pb;
   for (const auto& link : links) {
     *links_pb.Add() = link;
   }
 
-  return PathFromProtobuf(links_pb, cookie);
+  return PathFromProtobufOrDie(links_pb, cookie);
 }
 
 std::string PathStorage::DumpPaths() const {
@@ -383,10 +448,10 @@ const GraphPath* PathStorage::FindPathByTagOrNull(uint32_t tag) const {
   return nullptr;
 }
 
-bool IsInPaths(const std::string& needle, const PBNet& graph,
+bool IsInPaths(const std::string& needle,
                const std::vector<LinkSequence>& haystack,
                PathStorage* storage) {
-  const GraphPath* path = storage->PathFromString(needle, graph, 0);
+  const GraphPath* path = storage->PathFromStringOrDie(needle, 0);
 
   for (const LinkSequence& path_in_haystack : haystack) {
     if (path_in_haystack.links() == path->link_sequence().links()) {
@@ -397,10 +462,10 @@ bool IsInPaths(const std::string& needle, const PBNet& graph,
   return false;
 }
 
-bool IsInPaths(const std::string& needle, const PBNet& graph,
+bool IsInPaths(const std::string& needle,
                const std::vector<const GraphPath*>& haystack, uint64_t cookie,
                PathStorage* storage) {
-  const GraphPath* path = storage->PathFromString(needle, graph, cookie);
+  const GraphPath* path = storage->PathFromStringOrDie(needle, cookie);
 
   for (const GraphPath* path_in_haystack : haystack) {
     if (path_in_haystack == path) {

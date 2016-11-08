@@ -149,24 +149,30 @@ class GraphStorageTest : public ::testing::Test {
 
   // Just a random valid link.
   PBGraphLink link_pb_;
-
-  GraphStorage storage_;
 };
 
 TEST_F(GraphStorageTest, BadLink) {
   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 
   PBGraphLink link_pb;
-  ASSERT_DEATH(storage_.LinkPtrFromProtobuf(link_pb), "missing");
+  PBNet net;
+  *net.add_links() = link_pb;
+  ASSERT_DEATH(GraphStorage s(net), "missing");
 
   link_pb.set_src(kSrc);
-  ASSERT_DEATH(storage_.LinkPtrFromProtobuf(link_pb), "missing");
+  net.Clear();
+  *net.add_links() = link_pb;
+  ASSERT_DEATH(GraphStorage s(net), "missing");
 
   link_pb.set_dst(kDst);
-  ASSERT_DEATH(storage_.LinkPtrFromProtobuf(link_pb), "missing");
+  net.Clear();
+  *net.add_links() = link_pb;
+  ASSERT_DEATH(GraphStorage s(net), "missing");
 
   link_pb.set_src_port(kSrcNetPort.Raw());
-  ASSERT_DEATH(storage_.LinkPtrFromProtobuf(link_pb), "missing");
+  net.Clear();
+  *net.add_links() = link_pb;
+  ASSERT_DEATH(GraphStorage s(net), "missing");
 }
 
 TEST_F(GraphStorageTest, BadLinkDuplicateSrcDst) {
@@ -176,11 +182,17 @@ TEST_F(GraphStorageTest, BadLinkDuplicateSrcDst) {
   link_pb.set_src(kSrc);
   link_pb.set_dst(kSrc);
 
-  ASSERT_DEATH(storage_.LinkPtrFromProtobuf(link_pb), "same");
+  PBNet net;
+  *net.add_links() = link_pb;
+  ASSERT_DEATH(GraphStorage s(net), "same");
 }
 
 TEST_F(GraphStorageTest, Init) {
-  const GraphLink* link = storage_.LinkPtrFromProtobuf(link_pb_);
+  PBNet net;
+  *net.add_links() = link_pb_;
+  GraphStorage storage(net);
+
+  const GraphLink* link = storage.LinkPtrFromProtobufOrDie(link_pb_);
   ASSERT_EQ(kSrc, link->src_node()->id());
   ASSERT_EQ(kDst, link->dst_node()->id());
   ASSERT_EQ(kBw, link->bandwidth());
@@ -190,20 +202,29 @@ TEST_F(GraphStorageTest, Init) {
 }
 
 TEST_F(GraphStorageTest, SameLink) {
-  const GraphLink* link = storage_.LinkPtrFromProtobuf(link_pb_);
-  const GraphLink* link_two = storage_.LinkPtrFromProtobuf(link_pb_);
+  PBNet net;
+  *net.add_links() = link_pb_;
+  GraphStorage storage(net);
+
+  const GraphLink* link = storage.LinkPtrFromProtobufOrDie(link_pb_);
+  const GraphLink* link_two = storage.LinkPtrFromProtobufOrDie(link_pb_);
   ASSERT_EQ(link, link_two);
 
   PBGraphLink link_no_port = link_pb_;
   link_no_port.clear_src_port();
-  ASSERT_EQ(storage_.LinkPtrFromProtobuf(link_pb_), link);
+
+  ASSERT_DEATH(storage.LinkPtrFromProtobufOrDie(link_no_port), ".*");
 
   link_no_port.clear_dst_port();
-  ASSERT_EQ(storage_.LinkPtrFromProtobuf(link_pb_), link);
+  ASSERT_EQ(storage.LinkPtrFromProtobufOrDie(link_no_port), link);
 }
 
 TEST_F(GraphStorageTest, LinkToString) {
-  const GraphLink* link = storage_.LinkPtrFromProtobuf(link_pb_);
+  PBNet net;
+  *net.add_links() = link_pb_;
+  GraphStorage storage(net);
+
+  const GraphLink* link = storage.LinkPtrFromProtobufOrDie(link_pb_);
   ASSERT_EQ(Substitute("$0:$1->$2:$3", kSrc, kSrcNetPort.Raw(), kDst,
                        kDstNetPort.Raw()),
             link->ToString());
@@ -212,32 +233,44 @@ TEST_F(GraphStorageTest, LinkToString) {
 TEST_F(GraphStorageTest, LinkNoDelay) {
   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 
+  PBNet net;
   PBGraphLink link_no_delay = link_pb_;
   link_no_delay.clear_delay_sec();
-  ASSERT_DEATH(storage_.LinkPtrFromProtobuf(link_no_delay), "zero delay");
+  *net.add_links() = link_no_delay;
+  ASSERT_DEATH(GraphStorage storage(net), "zero delay");
 }
 
 TEST_F(GraphStorageTest, LinkNoBw) {
   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 
-  PBGraphLink link_no_delay = link_pb_;
-  link_no_delay.clear_bandwidth_bps();
-  ASSERT_DEATH(storage_.LinkPtrFromProtobuf(link_no_delay), "zero bandwidth");
+  PBNet net;
+  PBGraphLink link_no_bw = link_pb_;
+  link_no_bw.clear_bandwidth_bps();
+  *net.add_links() = link_no_bw;
+  ASSERT_DEATH(GraphStorage storage(net), "zero bandwidth");
 }
 
 TEST_F(GraphStorageTest, FindInverse) {
   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 
+  PBNet net;
+  *net.add_links() = link_pb_;
+  GraphStorage storage_one(net);
+
   PBGraphLink link_pb = link_pb_;
-  const GraphLink* link = storage_.LinkPtrFromProtobuf(link_pb);
-  ASSERT_DEATH(storage_.FindUniqueInverseOrDie(link), ".*");
+  const GraphLink* link = storage_one.LinkPtrFromProtobufOrDie(link_pb);
+  ASSERT_DEATH(storage_one.FindUniqueInverseOrDie(link), ".*");
 
   PBGraphLink inverse_link_pb = link_pb_;
   inverse_link_pb.set_dst(link_pb_.src());
   inverse_link_pb.set_src(link_pb_.dst());
 
-  GraphLinkIndex inverse_link = storage_.LinkFromProtobuf(inverse_link_pb);
-  ASSERT_EQ(inverse_link, storage_.FindUniqueInverseOrDie(link));
+  *net.add_links() = inverse_link_pb;
+  GraphStorage storage_two(net);
+
+  GraphLinkIndex inverse_link =
+      storage_two.LinkFromProtobufOrDie(inverse_link_pb);
+  ASSERT_EQ(inverse_link, storage_two.FindUniqueInverseOrDie(link));
 
   PBGraphLink another_inverse_link_pb = link_pb_;
   another_inverse_link_pb.set_dst(link_pb_.src());
@@ -245,64 +278,84 @@ TEST_F(GraphStorageTest, FindInverse) {
   another_inverse_link_pb.set_dst_port(link_pb.dst_port() + 1);
   another_inverse_link_pb.set_src_port(link_pb.src_port() + 1);
 
+  *net.add_links() = another_inverse_link_pb;
+  GraphStorage storage_three(net);
+
   GraphLinkIndex another_inverse_link =
-      storage_.LinkFromProtobuf(another_inverse_link_pb);
+      storage_three.LinkFromProtobufOrDie(another_inverse_link_pb);
   CHECK_NE(another_inverse_link, inverse_link);
-  ASSERT_DEATH(storage_.FindUniqueInverseOrDie(link), ".*");
+  ASSERT_DEATH(storage_three.FindUniqueInverseOrDie(link), ".*");
 }
 
 TEST_F(GraphStorageTest, Empty) {
+  GraphStorage storage({});
+
   LinkSequence link_sequence;
   ASSERT_EQ(0ul, link_sequence.size());
   ASSERT_LT(0ul, link_sequence.InMemBytesEstimate());
   ASSERT_TRUE(link_sequence.empty());
-  ASSERT_EQ("[]", link_sequence.ToString(&storage_));
+  ASSERT_EQ("[]", link_sequence.ToString(&storage));
 }
 
 TEST_F(GraphStorageTest, LinkSequenceSingleLink) {
-  GraphLinkIndex link_index = storage_.LinkFromProtobuf(link_pb_);
-  const GraphLink* link = storage_.GetLink(link_index);
+  PBNet net;
+  *net.add_links() = link_pb_;
+  GraphStorage storage(net);
+
+  GraphLinkIndex link_index = storage.LinkFromProtobufOrDie(link_pb_);
+  const GraphLink* link = storage.GetLink(link_index);
   Links links = {link_index};
 
-  LinkSequence link_sequence(links, &storage_);
+  LinkSequence link_sequence(links, TotalDelayOfLinks(links, &storage));
   ASSERT_EQ(1ul, link_sequence.size());
   ASSERT_LT(8ul, link_sequence.InMemBytesEstimate());
   ASSERT_FALSE(link_sequence.empty());
   ASSERT_EQ(Substitute("[$0]", link->ToString()),
-            link_sequence.ToString(&storage_));
-  ASSERT_EQ("[A->B]", link_sequence.ToStringNoPorts(&storage_));
+            link_sequence.ToString(&storage));
+  ASSERT_EQ("[A->B]", link_sequence.ToStringNoPorts(&storage));
 }
 
 TEST_F(GraphStorageTest, LinkSequenceBadDuplicateLink) {
   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 
-  GraphLinkIndex link = storage_.LinkFromProtobuf(link_pb_);
+  PBNet net;
+  *net.add_links() = link_pb_;
+  GraphStorage storage(net);
+
+  GraphLinkIndex link = storage.LinkFromProtobufOrDie(link_pb_);
   Links links = {link, link};
-  ASSERT_DEATH(LinkSequence sequence(links, &storage_), "Duplicate link");
+  ASSERT_DEATH(LinkSequence sequence(links, TotalDelayOfLinks(links, &storage)),
+               "Duplicate link");
 }
 
 TEST_F(GraphStorageTest, LinkSequenceToProtobuf) {
-  GraphLinkIndex link_index = storage_.LinkFromProtobuf(link_pb_);
+  PBNet net;
+  *net.add_links() = link_pb_;
+  GraphStorage storage(net);
+
+  GraphLinkIndex link_index = storage.LinkFromProtobufOrDie(link_pb_);
 
   PBPath path;
   Links links = {link_index};
 
-  LinkSequence link_sequence(links, &storage_);
-  link_sequence.ToProtobuf(&storage_, &path);
+  LinkSequence link_sequence(links, TotalDelayOfLinks(links, &storage));
+  link_sequence.ToProtobuf(&storage, &path);
 
   ASSERT_EQ(1, path.links_size());
   ASSERT_EQ(link_pb_.SerializeAsString(), path.links(0).SerializeAsString());
 }
 
+static PBNet SetUpGraph() {
+  PBNet graph;
+  AddEdgeToGraph("A", "B", kDelay, kBw, &graph);
+  AddEdgeToGraph("B", "A", kDelay, kBw, &graph);
+  AddEdgeToGraph("B", "C", kDelay, kBw, &graph);
+  return graph;
+}
+
 class PathStorageTest : public ::testing::Test {
  protected:
-  void SetUp() {
-    AddEdgeToGraph("A", "B", kDelay, kBw, &graph_);
-    AddEdgeToGraph("B", "A", kDelay, kBw, &graph_);
-    AddEdgeToGraph("B", "C", kDelay, kBw, &graph_);
-  }
-
-  PBNet graph_;
+  PathStorageTest() : storage_(SetUpGraph()) {}
   PathStorage storage_;
 };
 
@@ -313,46 +366,40 @@ TEST_F(PathStorageTest, Empty) {
 }
 
 TEST_F(PathStorageTest, EmptyPathFromString) {
-  ASSERT_EQ(storage_.EmptyPath(), storage_.PathFromString("[]", graph_, 0));
-  ASSERT_EQ(storage_.EmptyPath(), storage_.PathFromString("[]", graph_, 1));
+  ASSERT_EQ(storage_.EmptyPath(), storage_.PathFromStringOrDie("[]", 0));
+  ASSERT_EQ(storage_.EmptyPath(), storage_.PathFromStringOrDie("[]", 1));
 }
 
 TEST_F(PathStorageTest, BadFromString) {
   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 
-  ASSERT_DEATH(storage_.PathFromString("", graph_, 0), "malformed");
-  ASSERT_DEATH(storage_.PathFromString("[", graph_, 0), "malformed");
-  ASSERT_DEATH(storage_.PathFromString("]", graph_, 0), "malformed");
-  ASSERT_DEATH(storage_.PathFromString("[A->B, B->]", graph_, 0), "malformed");
-  ASSERT_DEATH(storage_.PathFromString("A->B->C", graph_, 0), "malformed");
+  ASSERT_DEATH(storage_.PathFromStringOrDie("", 0), "malformed");
+  ASSERT_DEATH(storage_.PathFromStringOrDie("[", 0), "malformed");
+  ASSERT_DEATH(storage_.PathFromStringOrDie("]", 0), "malformed");
+  ASSERT_DEATH(storage_.PathFromStringOrDie("[A->B, B->]", 0), "malformed");
+  ASSERT_DEATH(storage_.PathFromStringOrDie("A->B->C", 0), "malformed");
 
   // Missing element
-  ASSERT_DEATH(storage_.PathFromString("[AB->D]", graph_, 0), "missing");
-  ASSERT_DEATH(storage_.PathFromString("[A->B, B->C, C->D]", graph_, 0),
-               "missing");
+  ASSERT_DEATH(storage_.PathFromStringOrDie("[AB->D]", 0), ".*");
+  ASSERT_DEATH(storage_.PathFromStringOrDie("[A->B, B->C, C->D]", 0), ".*");
 }
 
 TEST_F(PathStorageTest, FromString) {
-  const GraphPath* path_one =
-      storage_.PathFromString("[A->B, B->C]", graph_, 0);
-  const GraphPath* path_two =
-      storage_.PathFromString("[A->B, B->C]", graph_, 1);
+  const GraphPath* path_one = storage_.PathFromStringOrDie("[A->B, B->C]", 0);
+  const GraphPath* path_two = storage_.PathFromStringOrDie("[A->B, B->C]", 1);
 
   ASSERT_NE(nullptr, path_one);
   ASSERT_NE(nullptr, path_two);
   ASSERT_NE(path_one, path_two);  // Same path, but different cookies.
 
-  const GraphPath* path_three =
-      storage_.PathFromString("[A->B, B->C]", graph_, 0);
+  const GraphPath* path_three = storage_.PathFromStringOrDie("[A->B, B->C]", 0);
   ASSERT_EQ(path_one, path_three);
   ASSERT_EQ(path_one->tag(), path_three->tag());
 }
 
 TEST_F(PathStorageTest, FindByTag) {
-  const GraphPath* path_one =
-      storage_.PathFromString("[A->B, B->C]", graph_, 0);
-  const GraphPath* path_two =
-      storage_.PathFromString("[A->B, B->C]", graph_, 1);
+  const GraphPath* path_one = storage_.PathFromStringOrDie("[A->B, B->C]", 0);
+  const GraphPath* path_two = storage_.PathFromStringOrDie("[A->B, B->C]", 1);
 
   ASSERT_EQ(path_one, storage_.FindPathByTagOrNull(path_one->tag()));
   ASSERT_EQ(path_two, storage_.FindPathByTagOrNull(path_two->tag()));

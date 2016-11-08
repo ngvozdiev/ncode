@@ -79,27 +79,96 @@ TEST(PerfectHash, MapIter) {
   auto index_three = store.AddItem("SomeItem3");
   Unused(index_two);
 
-  map[index_one] = "A";
+  map[index_three] = "A";
   for (auto index_and_value : map) {
-    ASSERT_EQ(index_one, index_and_value.first);
+    ASSERT_EQ(index_three, index_and_value.first);
     ASSERT_EQ("A", *index_and_value.second);
     ++i;
   }
   ASSERT_EQ(1ul, i);
 
   i = 0;
-  map[index_three] = "B";
+  map[index_one] = "B";
   for (auto index_and_value : map) {
     if (i == 0) {
       ASSERT_EQ(index_one, index_and_value.first);
-      ASSERT_EQ("A", *index_and_value.second);
+      ASSERT_EQ("B", *index_and_value.second);
     } else if (i == 1) {
       ASSERT_EQ(index_three, index_and_value.first);
-      ASSERT_EQ("B", *index_and_value.second);
+      ASSERT_EQ("A", *index_and_value.second);
     }
     ++i;
   }
   ASSERT_EQ(2ul, i);
+}
+
+TEST(PerfectHash, SetIter) {
+  Set set;
+
+  size_t i = 0;
+  for (auto index : set) {
+    Unused(index);
+    ++i;
+  }
+  ASSERT_EQ(0ul, i);
+
+  Store store;
+  auto index_one = store.AddItem("SomeItem1");
+  auto index_two = store.AddItem("SomeItem2");
+  auto index_three = store.AddItem("SomeItem3");
+  Unused(index_two);
+
+  set.Insert(index_three);
+  ASSERT_EQ(index_three, *set.begin());
+  for (auto index : set) {
+    ASSERT_EQ(index_three, index);
+    ++i;
+  }
+  ASSERT_EQ(1ul, i);
+
+  i = 0;
+  set.Insert(index_one);
+  for (auto index : set) {
+    if (i == 0) {
+      ASSERT_EQ(index_one, index);
+    } else if (i == 1) {
+      ASSERT_EQ(index_three, index);
+    }
+    ++i;
+  }
+  ASSERT_EQ(2ul, i);
+
+  set.Remove(index_one);
+  set.Remove(index_two);
+  set.Remove(index_three);
+
+  i = 0;
+  for (auto index : set) {
+    Unused(index);
+    ++i;
+  }
+  ASSERT_EQ(0ul, i);
+}
+
+TEST(PerfectHash, FullSet) {
+  Store store;
+  auto index_one = store.AddItem("SomeItem1");
+  auto index_two = store.AddItem("SomeItem2");
+  auto index_three = store.AddItem("SomeItem3");
+
+  Set set = Set::FullSetFromStore(store);
+  size_t i = 0;
+  for (auto index : set) {
+    if (i == 0) {
+      ASSERT_EQ(index_one, index);
+    } else if (i == 1) {
+      ASSERT_EQ(index_two, index);
+    } else if (i == 2) {
+      ASSERT_EQ(index_three, index);
+    }
+    ++i;
+  }
+  ASSERT_EQ(3ul, i);
 }
 
 struct OtherItemTag {};
