@@ -47,9 +47,14 @@ void Conjunction::AddFromPath(const SimpleDirectedGraph& graph,
 }
 
 net::LinkSequence Conjunction::ShortestCompliantPath(
-    const SimpleDirectedGraph& graph, GraphNodeIndex src,
-    GraphNodeIndex dst) const {
+    const SimpleDirectedGraph& graph, const GraphLinkSet& to_avoid,
+    GraphNodeIndex src, GraphNodeIndex dst) const {
   CHECK(src != dst);
+
+  // Will combine the links that this conjunction should avoid (in to_avoid_)
+  // with the ones that the call wants to avoid (in to_avoid).
+  GraphLinkSet links_to_avoid = to_avoid_;
+  links_to_avoid.InsertAll(to_avoid);
 
   // As new paths are discovered nodes will be added to this set to make sure
   // the next paths do not include any nodes from previous paths.
@@ -67,7 +72,7 @@ net::LinkSequence Conjunction::ShortestCompliantPath(
     const GraphLink* link_ptr = graph.graph_storage()->GetLink(link);
 
     if (src != link_ptr->src()) {
-      ShortestPath sp(current_point, &graph, to_avoid_, nodes_to_avoid);
+      ShortestPath sp(current_point, &graph, links_to_avoid, nodes_to_avoid);
       LinkSequence pathlet = sp.GetPath(link_ptr->src());
       if (pathlet.empty()) {
         return {};
@@ -84,7 +89,7 @@ net::LinkSequence Conjunction::ShortestCompliantPath(
 
   if (current_point != dst) {
     // Have to connect the last hop with the destination.
-    ShortestPath sp(current_point, &graph, to_avoid_, nodes_to_avoid);
+    ShortestPath sp(current_point, &graph, links_to_avoid, nodes_to_avoid);
     LinkSequence pathlet = sp.GetPath(dst);
     if (pathlet.empty()) {
       return {};
@@ -124,14 +129,14 @@ bool Disjunction::PathComplies(const net::LinkSequence& link_sequence) const {
 }
 
 net::LinkSequence Disjunction::ShortestCompliantPath(
-    const SimpleDirectedGraph& graph, GraphNodeIndex src,
-    GraphNodeIndex dst) const {
+    const SimpleDirectedGraph& graph, const GraphLinkSet& to_avoid,
+    GraphNodeIndex src, GraphNodeIndex dst) const {
   // To produce the shortest compliant path we have to consider the shortest
   // paths of all conjunctions.
   net::LinkSequence candidate;
   for (const auto& conjunction : conjunctions_) {
     net::LinkSequence conjunction_sp =
-        conjunction->ShortestCompliantPath(graph, src, dst);
+        conjunction->ShortestCompliantPath(graph, to_avoid, src, dst);
     if (!conjunction_sp.empty() && conjunction_sp.delay() < candidate.delay()) {
       candidate = conjunction_sp;
     }
@@ -156,9 +161,9 @@ bool DummyConstraint::PathComplies(
 }
 
 net::LinkSequence DummyConstraint::ShortestCompliantPath(
-    const SimpleDirectedGraph& graph, GraphNodeIndex src,
-    GraphNodeIndex dst) const {
-  AllPairShortestPath sp(&graph);
+    const SimpleDirectedGraph& graph, const GraphLinkSet& to_avoid,
+    GraphNodeIndex src, GraphNodeIndex dst) const {
+  AllPairShortestPath sp(&graph, to_avoid);
   return sp.GetPath(src, dst);
 }
 

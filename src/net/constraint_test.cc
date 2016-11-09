@@ -1,4 +1,5 @@
 #include "constraint.h"
+#include "net_gen.h"
 #include "gtest/gtest.h"
 
 namespace ncode {
@@ -9,24 +10,10 @@ static constexpr Bandwidth kBw = Bandwidth::FromBitsPerSecond(100);
 
 using namespace std::chrono;
 
-net::PBNet GetBraess() {
-  PBNet net;
-  AddEdgeToGraph("C", "D", milliseconds(10), kBw, &net);
-  AddEdgeToGraph("D", "C", milliseconds(10), kBw, &net);
-  AddEdgeToGraph("B", "D", milliseconds(8), kBw, &net);
-  AddEdgeToGraph("D", "B", milliseconds(8), kBw, &net);
-  AddEdgeToGraph("A", "B", milliseconds(10), kBw, &net);
-  AddEdgeToGraph("B", "A", milliseconds(10), kBw, &net);
-  AddEdgeToGraph("A", "C", milliseconds(5), kBw, &net);
-  AddEdgeToGraph("C", "A", milliseconds(5), kBw, &net);
-  AddEdgeToGraph("B", "C", milliseconds(1), kBw, &net);
-
-  return net;
-}
-
 class ConstraintTest : public ::testing::Test {
  protected:
-  ConstraintTest() : path_storage_(GetBraess()), graph_(&path_storage_) {
+  ConstraintTest()
+      : path_storage_(GenerateBraess(kBw)), graph_(&path_storage_) {
     a_ = path_storage_.NodeFromStringOrDie("A");
     b_ = path_storage_.NodeFromStringOrDie("B");
     c_ = path_storage_.NodeFromStringOrDie("C");
@@ -50,9 +37,9 @@ TEST_F(ConstraintTest, Dummy) {
   DummyConstraint dummy;
   ASSERT_TRUE(dummy.PathComplies({}));
   ASSERT_EQ(GetPath("[A->C, C->D]"),
-            dummy.ShortestCompliantPath(graph_, a_, d_));
+            dummy.ShortestCompliantPath(graph_, {}, a_, d_));
   ASSERT_EQ(GetPath("[D->B, B->C]"),
-            dummy.ShortestCompliantPath(graph_, d_, c_));
+            dummy.ShortestCompliantPath(graph_, {}, d_, c_));
 }
 
 TEST_F(ConstraintTest, ConjunctionAvoidOne) {
@@ -60,9 +47,9 @@ TEST_F(ConstraintTest, ConjunctionAvoidOne) {
   Conjunction conjunction({bc}, {});
 
   ASSERT_EQ(GetPath("[D->C]"),
-            conjunction.ShortestCompliantPath(graph_, d_, c_));
+            conjunction.ShortestCompliantPath(graph_, {}, d_, c_));
   ASSERT_EQ(GetPath("[B->A, A->C]"),
-            conjunction.ShortestCompliantPath(graph_, b_, c_));
+            conjunction.ShortestCompliantPath(graph_, {}, b_, c_));
 }
 
 TEST_F(ConstraintTest, ConjunctionVisitOne) {
@@ -70,10 +57,11 @@ TEST_F(ConstraintTest, ConjunctionVisitOne) {
   Conjunction conjunction({}, {dc});
 
   ASSERT_EQ(GetPath("[D->C]"),
-            conjunction.ShortestCompliantPath(graph_, d_, c_));
+            conjunction.ShortestCompliantPath(graph_, {}, d_, c_));
   ASSERT_EQ(GetPath("[B->D, D->C, C->A]"),
-            conjunction.ShortestCompliantPath(graph_, b_, a_));
-  ASSERT_EQ(LinkSequence(), conjunction.ShortestCompliantPath(graph_, a_, b_));
+            conjunction.ShortestCompliantPath(graph_, {}, b_, a_));
+  ASSERT_EQ(LinkSequence(),
+            conjunction.ShortestCompliantPath(graph_, {}, a_, b_));
 }
 
 }  // namespace

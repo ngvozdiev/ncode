@@ -28,8 +28,16 @@ int main(int argc, char** argv) {
   net::GraphNodeIndex london_node = path_storage.NodeFromStringOrDie("london");
   net::GraphNodeIndex osaka_node = path_storage.NodeFromStringOrDie("osaka");
 
-  net::DFS dfs(&graph);
+  now = high_resolution_clock::now();
+  for (size_t i = 0; i < 1000; ++i) {
+    net::ShortestPath sp(london_node, &graph);
+    sp.GetPath(osaka_node);
+  }
+  later = high_resolution_clock::now();
+  duration = duration_cast<milliseconds>(later - now);
+  LOG(ERROR) << "1000 shortest paths in " << duration.count() << "ms";
 
+  net::DFS dfs(&graph);
   now = high_resolution_clock::now();
   std::vector<net::LinkSequence> paths;
   dfs.Paths(

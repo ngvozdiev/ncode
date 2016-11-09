@@ -155,14 +155,15 @@ target_link_libraries(common_perfect_hash_benchmark ncode_common)
 ################################
 PROTOBUF_GENERATE_CPP(PROTO_NET_SRCS PROTO_NET_HDRS src/net/net.proto)
 set_property(SOURCE ${PROTO_NET_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS "-Wno-extended-offsetof")
-set(NET_HEADER_FILES src/net/net_common.h src/net/net_gen.h src/net/pcap.h src/net/algorithm.h src/net/constraint.h ${PROTO_NET_HDRS})
-add_library(ncode_net STATIC src/net/net_common.cc src/net/net_gen.cc src/net/pcap.cc src/net/algorithm.cc src/net/constraint.cc ${PROTO_NET_SRCS} ${NET_HEADER_FILES})
+set(NET_HEADER_FILES src/net/net_common.h src/net/net_gen.h src/net/pcap.h src/net/algorithm.h src/net/constraint.h src/net/path_cache.h ${PROTO_NET_HDRS})
+add_library(ncode_net STATIC src/net/net_common.cc src/net/net_gen.cc src/net/pcap.cc src/net/algorithm.cc src/net/constraint.cc src/net/path_cache.cc ${PROTO_NET_SRCS} ${NET_HEADER_FILES})
 target_link_libraries(ncode_net ${PCAP_LIBRARY} ${PROTOBUF_LIBRARIES} ncode_common)
 
 add_test_exec(net_common_test src/net/net_common_test.cc ncode_net)
 add_test_exec(net_gen_test src/net/net_gen_test.cc ncode_net)
 add_test_exec(net_algorithm_test src/net/algorithm_test.cc ncode_net)
 add_test_exec(net_constraint_test src/net/constraint_test.cc ncode_net)
+add_test_exec(net_path_cache_test src/net/path_cache_test.cc ncode_net)
 
 add_executable(net_algorithm_benchmark src/net/algorithm_benchmark.cc)
 target_link_libraries(net_algorithm_benchmark ncode_net)

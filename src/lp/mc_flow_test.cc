@@ -8,8 +8,12 @@ namespace {
 
 using namespace std::chrono;
 
+static constexpr net::Bandwidth kBw1 = net::Bandwidth::FromBitsPerSecond(10000);
+static constexpr net::Bandwidth kBw2 =
+    net::Bandwidth::FromBitsPerSecond(10000000000);
+
 TEST(MCTest, UnidirectionalLink) {
-  net::PBNet net = net::GenerateFullGraph(2, 10000, microseconds(10));
+  net::PBNet net = net::GenerateFullGraph(2, kBw1, microseconds(10));
   net::PBGraphLink* link = net.add_links();
   link->set_src("N1");
   link->set_dst("N2");
@@ -28,7 +32,7 @@ TEST(MCTest, UnidirectionalLink) {
 }
 
 TEST(MCTest, Simple) {
-  net::PBNet net = net::GenerateFullGraph(2, 10000, microseconds(10));
+  net::PBNet net = net::GenerateFullGraph(2, kBw1, microseconds(10));
   net::GraphStorage graph_storage(net);
 
   double max_flow;
@@ -42,7 +46,7 @@ TEST(MCTest, Simple) {
 }
 
 TEST(MCTest, SimpleTwoCommodities) {
-  net::PBNet net = net::GenerateFullGraph(2, 10000, microseconds(10));
+  net::PBNet net = net::GenerateFullGraph(2, kBw1, microseconds(10));
   net::GraphStorage graph_storage(net);
 
   MaxFlowMCProblem max_flow_problem(&graph_storage);
@@ -55,7 +59,7 @@ TEST(MCTest, SimpleTwoCommodities) {
 }
 
 TEST(MCTest, Triangle) {
-  net::PBNet net = net::GenerateFullGraph(3, 10000, microseconds(10));
+  net::PBNet net = net::GenerateFullGraph(3, kBw1, microseconds(10));
   net::GraphStorage graph_storage(net);
 
   MaxFlowMCProblem max_flow_problem(&graph_storage);
@@ -71,7 +75,7 @@ TEST(MCTest, Triangle) {
 }
 
 TEST(MCTest, TriangleNoFit) {
-  net::PBNet net = net::GenerateFullGraph(3, 10000, microseconds(10));
+  net::PBNet net = net::GenerateFullGraph(3, kBw1, microseconds(10));
   net::GraphStorage graph_storage(net);
 
   MaxFlowMCProblem max_flow_problem(&graph_storage);
@@ -82,7 +86,7 @@ TEST(MCTest, TriangleNoFit) {
 }
 
 TEST(MCTest, SimpleFeasible) {
-  net::PBNet net = net::GenerateFullGraph(2, 10000, microseconds(10));
+  net::PBNet net = net::GenerateFullGraph(2, kBw1, microseconds(10));
   net::GraphStorage graph_storage(net);
 
   MCProblem mc_problem(&graph_storage);
@@ -96,7 +100,7 @@ TEST(MCTest, SimpleFeasible) {
 }
 
 TEST(MCTest, SimpleScaleFactor) {
-  net::PBNet net = net::GenerateFullGraph(2, 10000000000, microseconds(10));
+  net::PBNet net = net::GenerateFullGraph(2, kBw2, microseconds(10));
   net::GraphStorage graph_storage(net);
 
   MCProblem mc_problem(&graph_storage);
@@ -110,7 +114,7 @@ TEST(MCTest, SimpleScaleFactor) {
 }
 
 TEST(MCTest, SimpleIncrement) {
-  net::PBNet net = net::GenerateFullGraph(2, 10000000000, microseconds(10));
+  net::PBNet net = net::GenerateFullGraph(2, kBw2, microseconds(10));
   net::GraphStorage graph_storage(net);
 
   MCProblem mc_problem(&graph_storage);

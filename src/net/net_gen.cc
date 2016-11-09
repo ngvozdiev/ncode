@@ -13,16 +13,15 @@ namespace net {
 
 using namespace std::chrono;
 
-static void AddLink(uint64_t bw_bps, const std::string& src, microseconds delay,
-                    const std::string& dst, microseconds delay_add,
-                    double delay_multiply, uint64_t bw_add, double bw_multiply,
+static void AddLink(Bandwidth bw, const std::string& src, Delay delay,
+                    const std::string& dst, Delay delay_add,
+                    double delay_multiply, Bandwidth bw_add, double bw_multiply,
                     size_t* i, PBNet* out) {
   microseconds total_delay =
       duration_cast<microseconds>(delay * delay_multiply) + delay_add;
   total_delay = std::max(microseconds(1), total_delay);
   double total_delay_sec = duration<double>(total_delay).count();
-
-  uint64_t total_bw = bw_bps * bw_multiply + bw_add;
+  uint64_t total_bw = bw.bps() * bw_multiply + bw_add.bps();
 
   PBGraphLink link_pb;
   link_pb.set_bandwidth_bps(total_bw);
@@ -37,31 +36,34 @@ static void AddLink(uint64_t bw_bps, const std::string& src, microseconds delay,
   *(out->add_links()) = link_pb;
 }
 
-static void AddBiLink(uint64_t bw_bps, const std::string& src, double delay_sec,
-                      const std::string& dst, microseconds delay_add,
+static void AddBiLink(Bandwidth bw, const std::string& src, double delay_sec,
+                      const std::string& dst, Delay delay_add,
                       double delay_multiply, size_t* i, PBNet* out) {
-  auto delay = duration_cast<microseconds>(duration<double>(delay_sec));
-  AddLink(bw_bps, src, delay, dst, delay_add, delay_multiply, 0, 1.0, i, out);
-  AddLink(bw_bps, dst, delay, src, delay_add, delay_multiply, 0, 1.0, i, out);
+  auto delay = duration_cast<Delay>(duration<double>(delay_sec));
+  AddLink(bw, src, delay, dst, delay_add, delay_multiply,
+          Bandwidth::FromBitsPerSecond(0), 1.0, i, out);
+  AddLink(bw, dst, delay, src, delay_add, delay_multiply,
+          Bandwidth::FromBitsPerSecond(0), 1.0, i, out);
 }
 
 static void AddBiLink(uint64_t bw_bps, const std::string& src, double delay_sec,
-                      const std::string& dst, microseconds delay_add,
-                      double delay_multiply, uint64_t bw_add,
+                      const std::string& dst, Delay delay_add,
+                      double delay_multiply, Bandwidth bw_add,
                       double bw_multiply, size_t* i, PBNet* out) {
   auto delay = duration_cast<microseconds>(duration<double>(delay_sec));
-  AddLink(bw_bps, src, delay, dst, delay_add, delay_multiply, bw_add,
-          bw_multiply, i, out);
-  AddLink(bw_bps, dst, delay, src, delay_add, delay_multiply, bw_add,
-          bw_multiply, i, out);
+  AddLink(Bandwidth::FromBitsPerSecond(bw_bps), src, delay, dst, delay_add,
+          delay_multiply, bw_add, bw_multiply, i, out);
+  AddLink(Bandwidth::FromBitsPerSecond(bw_bps), dst, delay, src, delay_add,
+          delay_multiply, bw_add, bw_multiply, i, out);
 }
 
-static void AddBiLink(uint64_t bw_bps, const std::string& src,
-                      microseconds delay, const std::string& dst,
-                      microseconds delay_add, double delay_multiply, size_t* i,
-                      PBNet* out) {
-  AddLink(bw_bps, src, delay, dst, delay_add, delay_multiply, 0, 1.0, i, out);
-  AddLink(bw_bps, dst, delay, src, delay_add, delay_multiply, 0, 1.0, i, out);
+static void AddBiLink(Bandwidth bw, const std::string& src, Delay delay,
+                      const std::string& dst, Delay delay_add,
+                      double delay_multiply, size_t* i, PBNet* out) {
+  AddLink(bw, src, delay, dst, delay_add, delay_multiply,
+          Bandwidth::FromBitsPerSecond(0), 1.0, i, out);
+  AddLink(bw, dst, delay, src, delay_add, delay_multiply,
+          Bandwidth::FromBitsPerSecond(0), 1.0, i, out);
 }
 
 static void AddCluster(const std::string& name,
@@ -73,8 +75,7 @@ static void AddCluster(const std::string& name,
   }
 }
 
-PBNet GenerateHE(uint64_t bw_bps, microseconds delay_add,
-                 double delay_multiply) {
+PBNet GenerateHE(Bandwidth bw, Delay delay_add, double delay_multiply) {
   PBNet out;
 
   AddCluster("Asia", {"HongKong", "Singapore", "Tokyo"}, &out);
@@ -89,124 +90,124 @@ PBNet GenerateHE(uint64_t bw_bps, microseconds delay_add,
              &out);
 
   size_t i = 1;
-  AddBiLink(bw_bps, "HongKong", 0.09899999999999999, "LosAngeles", delay_add,
+  AddBiLink(bw, "HongKong", 0.09899999999999999, "LosAngeles", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "HongKong", 0.02197946590441512, "Singapore", delay_add,
+  AddBiLink(bw, "HongKong", 0.02197946590441512, "Singapore", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "HongKong", 0.024491937340699977, "Tokyo", delay_add,
+  AddBiLink(bw, "HongKong", 0.024491937340699977, "Tokyo", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Tokyo", 0.045182269059776056, "Singapore", delay_add,
+  AddBiLink(bw, "Tokyo", 0.045182269059776056, "Singapore", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "SanJose", 0.07082018626712423, "Tokyo", delay_add,
+  AddBiLink(bw, "SanJose", 0.07082018626712423, "Tokyo", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Fremont", 0.00020944320149470966, "SanJose", delay_add,
+  AddBiLink(bw, "Fremont", 0.00020944320149470966, "SanJose", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "PaloAlto", 0.0002098538430130341, "SanJose", delay_add,
+  AddBiLink(bw, "PaloAlto", 0.0002098538430130341, "SanJose", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "PaloAlto", 0.00015330384758825228, "Fremont", delay_add,
+  AddBiLink(bw, "PaloAlto", 0.00015330384758825228, "Fremont", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Portland", 0.007750976557599637, "SanJose", delay_add,
+  AddBiLink(bw, "Portland", 0.007750976557599637, "SanJose", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Seattle", 0.00970358928467878, "SanJose", delay_add,
+  AddBiLink(bw, "Seattle", 0.00970358928467878, "SanJose", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Seattle", 0.001980189853586593, "Portland", delay_add,
+  AddBiLink(bw, "Seattle", 0.001980189853586593, "Portland", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Seattle", 0.0016290555332783203, "Vancouver", delay_add,
+  AddBiLink(bw, "Seattle", 0.0016290555332783203, "Vancouver", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Denver", 0.013942438885259888, "Seattle", delay_add,
+  AddBiLink(bw, "Denver", 0.013942438885259888, "Seattle", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "LosAngeles", 0.004379930992404047, "PaloAlto", delay_add,
+  AddBiLink(bw, "LosAngeles", 0.004379930992404047, "PaloAlto", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Phoenix", 0.004878751961226585, "LosAngeles", delay_add,
+  AddBiLink(bw, "Phoenix", 0.004878751961226585, "LosAngeles", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "LasVegas", 0.003127585787117664, "LosAngeles", delay_add,
+  AddBiLink(bw, "LasVegas", 0.003127585787117664, "LosAngeles", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Denver", 0.008271265381124625, "LasVegas", delay_add,
+  AddBiLink(bw, "Denver", 0.008271265381124625, "LasVegas", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Denver", 0.012679134906052427, "SanJose", delay_add,
+  AddBiLink(bw, "Denver", 0.012679134906052427, "SanJose", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Denver", 0.009549009601746527, "Minneapolis", delay_add,
+  AddBiLink(bw, "Denver", 0.009549009601746527, "Minneapolis", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Denver", 0.00761386951297863, "KansasCity", delay_add,
+  AddBiLink(bw, "Denver", 0.00761386951297863, "KansasCity", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Dallas", 0.012085544227624674, "Phoenix", delay_add,
+  AddBiLink(bw, "Dallas", 0.012085544227624674, "Phoenix", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Dallas", 0.019896482083487595, "Fremont", delay_add,
+  AddBiLink(bw, "Dallas", 0.019896482083487595, "Fremont", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Dallas", 0.006205167979753415, "KansasCity", delay_add,
+  AddBiLink(bw, "Dallas", 0.006205167979753415, "KansasCity", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Dallas", 0.010971931036320862, "Chicago", delay_add,
+  AddBiLink(bw, "Dallas", 0.010971931036320862, "Chicago", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Dallas", 0.01588028050776086, "Ashburn", delay_add,
+  AddBiLink(bw, "Dallas", 0.01588028050776086, "Ashburn", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Dallas", 0.009845557514101322, "Atlanta", delay_add,
+  AddBiLink(bw, "Dallas", 0.009845557514101322, "Atlanta", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Dallas", 0.015180864669691761, "Miami", delay_add,
+  AddBiLink(bw, "Dallas", 0.015180864669691761, "Miami", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Miami", 0.00827928825214428, "Atlanta", delay_add,
+  AddBiLink(bw, "Miami", 0.00827928825214428, "Atlanta", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Ashburn", 0.007244818676274683, "Atlanta", delay_add,
+  AddBiLink(bw, "Ashburn", 0.007244818676274683, "Atlanta", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "KansasCity", 0.005613545439041082, "Chicago", delay_add,
+  AddBiLink(bw, "KansasCity", 0.005613545439041082, "Chicago", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "NewYork", 0.009734695650495928, "Chicago", delay_add,
+  AddBiLink(bw, "NewYork", 0.009734695650495928, "Chicago", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Toronto", 0.0059679334825478835, "Chicago", delay_add,
+  AddBiLink(bw, "Toronto", 0.0059679334825478835, "Chicago", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Minneapolis", 0.004854188292269742, "Chicago", delay_add,
+  AddBiLink(bw, "Minneapolis", 0.004854188292269742, "Chicago", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Ashburn", 0.0029763178724357656, "NewYork", delay_add,
+  AddBiLink(bw, "Ashburn", 0.0029763178724357656, "NewYork", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Toronto", 0.004719392909665924, "NewYork", delay_add,
+  AddBiLink(bw, "Toronto", 0.004719392909665924, "NewYork", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "PaloAlto", 0.03499418206738756, "NewYork", delay_add,
+  AddBiLink(bw, "PaloAlto", 0.03499418206738756, "NewYork", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "SanJose", 0.03485362282421041, "NewYork", delay_add,
+  AddBiLink(bw, "SanJose", 0.03485362282421041, "NewYork", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Ashburn", 0.03268078197594825, "SanJose", delay_add,
+  AddBiLink(bw, "Ashburn", 0.03268078197594825, "SanJose", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "London", 0.04732289625262841, "NewYork", delay_add,
+  AddBiLink(bw, "London", 0.04732289625262841, "NewYork", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Ashburn", 0.050272198201872294, "London", delay_add,
+  AddBiLink(bw, "Ashburn", 0.050272198201872294, "London", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Amsterdam", 0.049801303976444715, "NewYork", delay_add,
+  AddBiLink(bw, "Amsterdam", 0.049801303976444715, "NewYork", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Ashburn", 0.052553436093461164, "Paris", delay_add,
+  AddBiLink(bw, "Ashburn", 0.052553436093461164, "Paris", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "London", 0.0029205763165338866, "Paris", delay_add,
+  AddBiLink(bw, "London", 0.0029205763165338866, "Paris", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Zurich", 0.004154523412587286, "Paris", delay_add,
+  AddBiLink(bw, "Zurich", 0.004154523412587286, "Paris", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Frankfurt am Main", 0.004065115464977358, "Paris",
+  AddBiLink(bw, "Frankfurt am Main", 0.004065115464977358, "Paris", delay_add,
+            delay_multiply, &i, &out);
+  AddBiLink(bw, "Amsterdam", 0.003657458411802766, "Paris", delay_add,
+            delay_multiply, &i, &out);
+  AddBiLink(bw, "Amsterdam", 0.0030323776775934013, "London", delay_add,
+            delay_multiply, &i, &out);
+  AddBiLink(bw, "Frankfurt am Main", 0.005416362162592938, "London", delay_add,
+            delay_multiply, &i, &out);
+  AddBiLink(bw, "Amsterdam", 0.009561504025009172, "Stockholm", delay_add,
+            delay_multiply, &i, &out);
+  AddBiLink(bw, "Amsterdam", 0.0049050665652040255, "Berlin", delay_add,
+            delay_multiply, &i, &out);
+  AddBiLink(bw, "Amsterdam", 0.0030944299935970203, "Frankfurt am Main",
             delay_add, delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Amsterdam", 0.003657458411802766, "Paris", delay_add,
+  AddBiLink(bw, "Amsterdam", 0.005227380278661229, "Zurich", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Amsterdam", 0.0030323776775934013, "London", delay_add,
+  AddBiLink(bw, "Prague", 0.0034757563350856072, "Frankfurt am Main", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Frankfurt am Main", 0.005416362162592938, "London",
-            delay_add, delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Amsterdam", 0.009561504025009172, "Stockholm", delay_add,
+  AddBiLink(bw, "Zurich", 0.0025991945628872828, "Frankfurt am Main", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Amsterdam", 0.0049050665652040255, "Berlin", delay_add,
+  AddBiLink(bw, "Warsaw", 0.004395690813733776, "Prague", delay_add,
             delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Amsterdam", 0.0030944299935970203, "Frankfurt am Main",
-            delay_add, delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Amsterdam", 0.005227380278661229, "Zurich", delay_add,
-            delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Prague", 0.0034757563350856072, "Frankfurt am Main",
-            delay_add, delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Zurich", 0.0025991945628872828, "Frankfurt am Main",
-            delay_add, delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Warsaw", 0.004395690813733776, "Prague", delay_add,
-            delay_multiply, &i, &out);
-  AddBiLink(bw_bps, "Berlin", 0.004390355474006233, "Warsaw", delay_add,
+  AddBiLink(bw, "Berlin", 0.004390355474006233, "Warsaw", delay_add,
             delay_multiply, &i, &out);
 
   return out;
 }
 
-PBNet GenerateNTT(microseconds delay_add, double delay_multiply,
-                  uint64_t bw_add, double bw_multiply) {
+PBNet GenerateNTT(Delay delay_add, double delay_multiply, Bandwidth bw_add,
+                  double bw_multiply) {
   PBNet out;
 
   AddCluster("Asia", {"osaka", "kualalumpur", "hongkong", "brunei", "seoul",
@@ -406,24 +407,21 @@ PBNet GenerateNTT(microseconds delay_add, double delay_multiply,
   return out;
 }
 
-net::PBNet GenerateFullGraph(uint32_t size, uint64_t rate_bps,
-                             microseconds delay) {
+net::PBNet GenerateFullGraph(uint32_t size, Bandwidth bw, Delay delay) {
   std::mt19937 rnd(1.0);
-  return GenerateRandom(size, 1.0, delay, delay, rate_bps, rate_bps, &rnd);
+  return GenerateRandom(size, 1.0, delay, delay, bw, bw, &rnd);
 }
 
-net::PBNet GenerateRandom(size_t n, double edge_prob,
-                          std::chrono::microseconds delay_min,
-                          std::chrono::microseconds delay_max,
-                          uint64_t bw_bps_min, uint64_t bw_bps_max,
+net::PBNet GenerateRandom(size_t n, double edge_prob, Delay delay_min,
+                          Delay delay_max, Bandwidth bw_min, Bandwidth bw_max,
                           std::mt19937* generator) {
   CHECK(delay_min <= delay_max);
-  CHECK(bw_bps_min <= bw_bps_max);
+  CHECK(bw_min.bps() <= bw_max.bps());
 
   auto delay_dist = std::uniform_int_distribution<uint64_t>(delay_min.count(),
                                                             delay_max.count());
   auto bw_dist =
-      std::uniform_int_distribution<uint64_t>(bw_bps_min, bw_bps_max);
+      std::uniform_int_distribution<uint64_t>(bw_min.bps(), bw_max.bps());
   auto edge_add_dist = std::uniform_real_distribution<double>(0.0, 1.0);
 
   net::PBNet return_graph;
@@ -443,7 +441,6 @@ net::PBNet GenerateRandom(size_t n, double edge_prob,
           std::chrono::microseconds delay =
               std::chrono::microseconds(delay_dist(*generator));
           uint64_t bw_bps = bw_dist(*generator);
-
           AddBiEdgeToGraph(src, dst, delay,
                            Bandwidth::FromBitsPerSecond(bw_bps), &return_graph);
         }
@@ -460,7 +457,7 @@ net::PBNet GenerateRandom(size_t n, double edge_prob,
   return return_graph;
 }
 
-net::PBNet GenerateLadder(size_t levels, uint64_t bw_bps, microseconds delay,
+net::PBNet GenerateLadder(size_t levels, Bandwidth bw, Delay delay,
                           const std::vector<microseconds>& central_delays) {
   net::PBNet return_graph;
   CHECK(levels > 0) << "Tried to generate ladder with no edges,";
@@ -479,7 +476,7 @@ net::PBNet GenerateLadder(size_t levels, uint64_t bw_bps, microseconds delay,
       central_link_delay = central_delays[level];
     }
 
-    AddBiLink(bw_bps, node_left, central_link_delay, node_right,
+    AddBiLink(bw, node_left, central_link_delay, node_right,
               microseconds::zero(), 1.0, &port_gen, &return_graph);
 
     if (level != 0) {
@@ -493,19 +490,34 @@ net::PBNet GenerateLadder(size_t levels, uint64_t bw_bps, microseconds delay,
       std::string prev_node_right =
           StrCat("N", std::to_string(4 * (level - 1) + 1));
 
-      AddBiLink(bw_bps, node_left, delay, mid_node_left, microseconds::zero(),
+      AddBiLink(bw, node_left, delay, mid_node_left, microseconds::zero(), 1.0,
+                &port_gen, &return_graph);
+      AddBiLink(bw, mid_node_left, delay, prev_node_left, microseconds::zero(),
                 1.0, &port_gen, &return_graph);
-      AddBiLink(bw_bps, mid_node_left, delay, prev_node_left,
-                microseconds::zero(), 1.0, &port_gen, &return_graph);
 
-      AddBiLink(bw_bps, node_right, delay, mid_node_right, microseconds::zero(),
+      AddBiLink(bw, node_right, delay, mid_node_right, microseconds::zero(),
                 1.0, &port_gen, &return_graph);
-      AddBiLink(bw_bps, mid_node_right, delay, prev_node_right,
+      AddBiLink(bw, mid_node_right, delay, prev_node_right,
                 microseconds::zero(), 1.0, &port_gen, &return_graph);
     }
   }
 
   return return_graph;
+}
+
+net::PBNet GenerateBraess(Bandwidth bw) {
+  PBNet net;
+  AddEdgeToGraph("C", "D", milliseconds(10), bw, &net);
+  AddEdgeToGraph("D", "C", milliseconds(10), bw, &net);
+  AddEdgeToGraph("B", "D", milliseconds(8), bw, &net);
+  AddEdgeToGraph("D", "B", milliseconds(8), bw, &net);
+  AddEdgeToGraph("A", "B", milliseconds(10), bw, &net);
+  AddEdgeToGraph("B", "A", milliseconds(10), bw, &net);
+  AddEdgeToGraph("A", "C", milliseconds(5), bw, &net);
+  AddEdgeToGraph("C", "A", milliseconds(5), bw, &net);
+  AddEdgeToGraph("B", "C", milliseconds(1), bw, &net);
+
+  return net;
 }
 
 }  // namespace net

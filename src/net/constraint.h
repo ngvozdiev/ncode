@@ -22,10 +22,10 @@ class Constraint {
   // Whether or not a path complies.
   virtual bool PathComplies(const net::LinkSequence& link_sequence) const = 0;
 
-  // Returns the shortest compliant path under a given view.
+  // Returns the shortest compliant path that avoids a set of links.
   virtual net::LinkSequence ShortestCompliantPath(
-      const SimpleDirectedGraph& graph, GraphNodeIndex src,
-      GraphNodeIndex dst) const = 0;
+      const SimpleDirectedGraph& graph, const GraphLinkSet& to_avoid,
+      GraphNodeIndex src, GraphNodeIndex dst) const = 0;
 
   virtual std::string ToString(const net::GraphStorage* storage) const = 0;
 
@@ -45,6 +45,7 @@ class Conjunction : public Constraint {
   bool PathComplies(const net::LinkSequence& link_sequence) const override;
 
   net::LinkSequence ShortestCompliantPath(const SimpleDirectedGraph& graph,
+                                          const GraphLinkSet& to_avoid,
                                           GraphNodeIndex src,
                                           GraphNodeIndex dst) const override;
 
@@ -71,6 +72,7 @@ class Disjunction : public Constraint {
   bool PathComplies(const net::LinkSequence& link_sequence) const override;
 
   net::LinkSequence ShortestCompliantPath(const SimpleDirectedGraph& graph,
+                                          const GraphLinkSet& to_avoid,
                                           GraphNodeIndex src,
                                           GraphNodeIndex dst) const override;
 
@@ -89,6 +91,7 @@ class DummyConstraint : public Constraint {
   bool PathComplies(const net::LinkSequence& link_sequence) const override;
 
   net::LinkSequence ShortestCompliantPath(const SimpleDirectedGraph& graph,
+                                          const GraphLinkSet& to_avoid,
                                           GraphNodeIndex src,
                                           GraphNodeIndex dst) const override;
 

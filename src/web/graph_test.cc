@@ -15,7 +15,8 @@ namespace {
 
 TEST(Graph, SimpleGraph) {
   net::PBNet net_pb =
-      net::GenerateFullGraph(2, 10000, std::chrono::milliseconds(100));
+      net::GenerateFullGraph(2, net::Bandwidth::FromBitsPerSecond(10000),
+                             std::chrono::milliseconds(100));
   net::PathStorage path_storage(net_pb);
 
   std::vector<EdgeData> edge_data;
