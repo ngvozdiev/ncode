@@ -136,7 +136,7 @@ TEST(DFS, SingleLink) {
   DFS dfs(&graph);
 
   std::vector<Links> paths;
-  dfs.Paths(node_a, node_b, Delay(100), [&paths](const LinkSequence& path) {
+  dfs.Paths(node_a, node_b, Delay(100), 10, [&paths](const LinkSequence& path) {
     paths.emplace_back(path.links());
   });
 
@@ -144,7 +144,7 @@ TEST(DFS, SingleLink) {
   ASSERT_EQ(model_paths, paths);
 
   paths.clear();
-  dfs.Paths(node_a, node_b, Delay(99), [&paths](const LinkSequence& path) {
+  dfs.Paths(node_a, node_b, Delay(99), 10, [&paths](const LinkSequence& path) {
     paths.emplace_back(path.links());
   });
   ASSERT_TRUE(paths.empty());
@@ -169,9 +169,9 @@ TEST(DFS, MultiPath) {
   DFS dfs(&graph);
 
   std::vector<Links> paths;
-  dfs.Paths(node_a, node_d, Delay(1000), [&paths](const LinkSequence& path) {
-    paths.emplace_back(path.links());
-  });
+  dfs.Paths(
+      node_a, node_d, Delay(1000), 10,
+      [&paths](const LinkSequence& path) { paths.emplace_back(path.links()); });
 
   std::vector<Links> model_paths = {{link_ab, link_bc, link_cd}, {link_ad}};
   ASSERT_EQ(model_paths, paths);
@@ -199,7 +199,7 @@ TEST(DFS, Braess) {
   DFS dfs(&graph);
 
   std::vector<const GraphPath*> paths;
-  dfs.Paths(node_a, node_d, duration_cast<Delay>(seconds(1)),
+  dfs.Paths(node_a, node_d, duration_cast<Delay>(seconds(1)), 10,
             [&graph_storage, &paths](const LinkSequence& path) {
               paths.emplace_back(graph_storage.PathFromLinksOrDie(path, 0));
             });

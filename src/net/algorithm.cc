@@ -111,18 +111,22 @@ DFS::DFS(const SimpleDirectedGraph* graph, const GraphLinkSet& links_to_exclude,
       all_pair_sp_(graph_, links_to_exclude, nodes_to_exclude) {}
 
 void DFS::Paths(GraphNodeIndex src, GraphNodeIndex dst, Delay max_distance,
-                PathCallback path_callback) const {
+                size_t max_hops, PathCallback path_callback) const {
   Delay total_distance = Delay::zero();
   GraphNodeSet nodes_seen;
   Links scratch_path;
-  PathsRecursive(max_distance, src, dst, path_callback, &nodes_seen,
+  PathsRecursive(max_distance, max_hops, src, dst, path_callback, &nodes_seen,
                  &scratch_path, &total_distance);
 }
 
-void DFS::PathsRecursive(Delay max_distance, GraphNodeIndex at,
+void DFS::PathsRecursive(Delay max_distance, size_t max_hops, GraphNodeIndex at,
                          GraphNodeIndex dst, PathCallback path_callback,
                          GraphNodeSet* nodes_seen, Links* current,
                          Delay* total_distance) const {
+  if (current->size() > max_hops) {
+    return;
+  }
+
   if (at == dst) {
     path_callback(LinkSequence(*current, *total_distance));
     return;
@@ -156,8 +160,8 @@ void DFS::PathsRecursive(Delay max_distance, GraphNodeIndex at,
 
     current->push_back(out_link);
     *total_distance += next_link->delay();
-    PathsRecursive(max_distance, next_hop, dst, path_callback, nodes_seen,
-                   current, total_distance);
+    PathsRecursive(max_distance, max_hops, next_hop, dst, path_callback,
+                   nodes_seen, current, total_distance);
     *total_distance -= next_link->delay();
     current->pop_back();
   }

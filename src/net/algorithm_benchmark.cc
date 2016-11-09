@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
   now = high_resolution_clock::now();
   std::vector<net::LinkSequence> paths;
   dfs.Paths(
-      london_node, osaka_node, duration_cast<net::Delay>(seconds(1)),
+      london_node, osaka_node, duration_cast<net::Delay>(seconds(1)), 10,
       [&paths](const net::LinkSequence& path) { paths.emplace_back(path); });
   later = high_resolution_clock::now();
   duration = duration_cast<milliseconds>(later - now);

@@ -18,11 +18,14 @@ namespace net {
 
 using IngressEgressKey = std::tuple<GraphNodeIndex, GraphNodeIndex, uint64_t>;
 
+struct PathCacheConfig {
+  Delay max_delay;
+  size_t max_hops;
+};
+
 // Caches paths between an ingress and an edgess.
 class IngressEgressPathCache {
  public:
-  static constexpr Delay kMaxDistance = std::chrono::seconds(1);
-
   // Will return the lowest delay path.
   const GraphPath* GetLowestDelayPath(const GraphLinkSet& to_avoid = {});
 
@@ -39,25 +42,29 @@ class IngressEgressPathCache {
   const std::vector<net::LinkSequence>& CacheAll();
 
  private:
-  IngressEgressPathCache(const IngressEgressKey& ie_key,
+  IngressEgressPathCache(const PathCacheConfig& path_cache_config,
+                         const IngressEgressKey& ie_key,
                          std::unique_ptr<Constraint> constraint,
                          const SimpleDirectedGraph* graph,
                          PathStorage* path_storage)
-      : graph_(graph),
-        path_storage_(path_storage),
+      : path_cache_config_(path_cache_config),
         ie_key_(ie_key),
+        graph_(graph),
+        path_storage_(path_storage),
         constraint_(std::move(constraint)) {}
 
-  IngressEgressPathCache(const IngressEgressKey& ie_key,
+  IngressEgressPathCache(const PathCacheConfig& path_cache_config,
+                         const IngressEgressKey& ie_key,
                          const SimpleDirectedGraph* graph,
                          PathStorage* path_storage)
-      : graph_(graph), path_storage_(path_storage), ie_key_(ie_key) {
-    constraint_ = make_unique<DummyConstraint>();
-  }
+      : IngressEgressPathCache(path_cache_config, ie_key,
+                               make_unique<DummyConstraint>(), graph,
+                               path_storage) {}
 
+  const PathCacheConfig path_cache_config_;
+  const IngressEgressKey ie_key_;
   const SimpleDirectedGraph* graph_;
   PathStorage* path_storage_;
-  IngressEgressKey ie_key_;
 
   // Optional constraint.
   std::unique_ptr<Constraint> constraint_;
@@ -76,7 +83,8 @@ class PathCache {
   using ConstraintMap = std::map<IngressEgressKey, std::unique_ptr<Constraint>>;
 
   // Creates a new cache.
-  PathCache(PathStorage* path_storage, ConstraintMap* constraint_map = nullptr);
+  PathCache(const PathCacheConfig& path_cache_config, PathStorage* path_storage,
+            ConstraintMap* constraint_map = nullptr);
 
   // Populates the cache with paths for all src-dst pairs. This can take a long
   // time and eat up a lot of memory!
@@ -92,6 +100,7 @@ class PathCache {
   IngressEgressPathCache* IECache(const IngressEgressKey& key);
 
  private:
+  const PathCacheConfig path_cache_config_;
   const SimpleDirectedGraph graph_;
   PathStorage* path_storage_;
 

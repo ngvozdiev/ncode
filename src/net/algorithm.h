@@ -129,12 +129,13 @@ class DFS {
 
   // Calls a callback on all paths between a source and a destination.
   void Paths(GraphNodeIndex src, GraphNodeIndex dst, Delay max_distance,
-             PathCallback path_callback) const;
+             size_t max_hops, PathCallback path_callback) const;
 
  private:
-  void PathsRecursive(Delay max_distance, GraphNodeIndex at, GraphNodeIndex dst,
-                      PathCallback path_callback, GraphNodeSet* nodes_seen,
-                      Links* current, Delay* total_distance) const;
+  void PathsRecursive(Delay max_distance, size_t max_hops, GraphNodeIndex at,
+                      GraphNodeIndex dst, PathCallback path_callback,
+                      GraphNodeSet* nodes_seen, Links* current,
+                      Delay* total_distance) const;
 
   // The graph.
   const SimpleDirectedGraph* graph_;
