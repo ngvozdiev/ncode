@@ -11,13 +11,16 @@ namespace net {
 
 constexpr Delay IngressEgressPathCache::kMaxDistance;
 
-LinkSequence IngressEgressPathCache::GetLowestDelayPath(
+const GraphPath* IngressEgressPathCache::GetLowestDelayPath(
     const GraphLinkSet& to_avoid) {
   if (paths_.empty()) {
-    return constraint_->ShortestCompliantPath(*graph_, to_avoid, src_, dst_);
+    net::LinkSequence shortest_path = constraint_->ShortestCompliantPath(
+        *graph_, to_avoid, std::get<0>(ie_key_), std::get<1>(ie_key_));
+    return path_storage_->PathFromLinksOrDie(shortest_path,
+                                             std::get<2>(ie_key_));
   }
 
-  std::vector<LinkSequence> k_lowest = GetKLowestDelayPaths(1, to_avoid);
+  std::vector<const GraphPath*> k_lowest = GetKLowestDelayPaths(1, to_avoid);
   if (k_lowest.empty()) {
     return {};
   }
@@ -36,9 +39,9 @@ static bool PathContainsAnyOfLinks(const GraphLinkSet& to_avoid,
   return false;
 }
 
-std::vector<LinkSequence> IngressEgressPathCache::GetKLowestDelayPaths(
+std::vector<const GraphPath*> IngressEgressPathCache::GetKLowestDelayPaths(
     size_t k, const GraphLinkSet& to_avoid) {
-  std::vector<LinkSequence> return_vector;
+  std::vector<const GraphPath*> return_vector;
   if (k == 0) {
     return return_vector;
   }
@@ -55,7 +58,8 @@ std::vector<LinkSequence> IngressEgressPathCache::GetKLowestDelayPaths(
       continue;
     }
 
-    return_vector.emplace_back(path);
+    return_vector.emplace_back(
+        path_storage_->PathFromLinksOrDie(path, std::get<2>(ie_key_)));
     if (return_vector.size() == k) {
       break;
     }
@@ -64,13 +68,14 @@ std::vector<LinkSequence> IngressEgressPathCache::GetKLowestDelayPaths(
   return return_vector;
 }
 
-std::vector<LinkSequence> IngressEgressPathCache::GetPathsKHopsFromLowestDelay(
+std::vector<const GraphPath*>
+IngressEgressPathCache::GetPathsKHopsFromLowestDelay(
     size_t k, const GraphLinkSet& to_avoid) {
-  std::vector<LinkSequence> return_vector;
+  std::vector<const GraphPath*> return_vector;
   CacheAll();
 
-  LinkSequence shortest_path = GetLowestDelayPath(to_avoid);
-  size_t shortest_path_hop_count = shortest_path.size();
+  const GraphPath* shortest_path = GetLowestDelayPath(to_avoid);
+  size_t shortest_path_hop_count = shortest_path->size();
   size_t limit = shortest_path_hop_count + k;
 
   for (const auto& path : paths_) {
@@ -86,50 +91,49 @@ std::vector<LinkSequence> IngressEgressPathCache::GetPathsKHopsFromLowestDelay(
       continue;
     }
 
-    return_vector.emplace_back(path);
+    return_vector.emplace_back(
+        path_storage_->PathFromLinksOrDie(path, std::get<2>(ie_key_)));
   }
 
   return return_vector;
 }
 
-const std::vector<LinkSequence>& IngressEgressPathCache::CacheAll() {
+const std::vector<net::LinkSequence>& IngressEgressPathCache::CacheAll() {
   if (!paths_.empty()) {
     return paths_;
   }
 
   DFS dfs(graph_);
-  dfs.Paths(src_, dst_, kMaxDistance,
+  dfs.Paths(std::get<0>(ie_key_), std::get<1>(ie_key_), kMaxDistance,
             [this](const LinkSequence& path) { paths_.emplace_back(path); });
   std::sort(paths_.begin(), paths_.end());
 
   return paths_;
 }
 
-PathCache::PathCache(const SimpleDirectedGraph* graph,
-                     ConstraintMap* constraint_map)
-    : graph_(graph) {
+PathCache::PathCache(PathStorage* path_storage, ConstraintMap* constraint_map)
+    : graph_(path_storage), path_storage_(path_storage) {
   if (constraint_map) {
-    for (auto& src_dst_pair_and_constraint : *constraint_map) {
-      GraphNodeIndex src = src_dst_pair_and_constraint.first.first;
-      GraphNodeIndex dst = src_dst_pair_and_constraint.first.second;
+    for (auto& key_and_constraint : *constraint_map) {
+      const IngressEgressKey& ie_key = key_and_constraint.first;
       std::unique_ptr<Constraint> constraint =
-          std::move(src_dst_pair_and_constraint.second);
+          std::move(key_and_constraint.second);
       CHECK(constraint) << "No constraint";
 
       std::unique_ptr<IngressEgressPathCache>& ie_cache_ptr =
-          ie_caches_[{src, dst}];
-      ie_cache_ptr = make_unique<IngressEgressPathCache>(
-          src, dst, std::move(constraint), graph_);
+          ie_caches_[ie_key];
+      ie_cache_ptr =
+          std::unique_ptr<IngressEgressPathCache>(new IngressEgressPathCache(
+              ie_key, std::move(constraint), &graph_, path_storage_));
     }
   }
 }
 
-IngressEgressPathCache* PathCache::IECache(GraphNodeIndex src,
-                                           GraphNodeIndex dst) {
-  std::unique_ptr<IngressEgressPathCache>& ie_cache_ptr =
-      ie_caches_[{src, dst}];
+IngressEgressPathCache* PathCache::IECache(const IngressEgressKey& ie_key) {
+  std::unique_ptr<IngressEgressPathCache>& ie_cache_ptr = ie_caches_[ie_key];
   if (!ie_cache_ptr) {
-    ie_cache_ptr = make_unique<IngressEgressPathCache>(src, dst, graph_);
+    ie_cache_ptr = std::unique_ptr<IngressEgressPathCache>(
+        new IngressEgressPathCache(ie_key, &graph_, path_storage_));
   }
 
   return ie_cache_ptr.get();

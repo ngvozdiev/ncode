@@ -14,16 +14,15 @@ static constexpr net::Bandwidth kDefaultBw =
 
 class PathUtilsTest : public ::testing::Test {
  protected:
-  PathUtilsTest()
-      : graph_storage_(GenerateBraess(kDefaultBw)), graph_(&graph_storage_) {
-    a_ = graph_storage_.NodeFromStringOrDie("A");
-    b_ = graph_storage_.NodeFromStringOrDie("B");
-    c_ = graph_storage_.NodeFromStringOrDie("C");
-    d_ = graph_storage_.NodeFromStringOrDie("D");
+  PathUtilsTest() : path_storage_(GenerateBraess(kDefaultBw)) {
+    a_ = path_storage_.NodeFromStringOrDie("A");
+    b_ = path_storage_.NodeFromStringOrDie("B");
+    c_ = path_storage_.NodeFromStringOrDie("C");
+    d_ = path_storage_.NodeFromStringOrDie("D");
   }
 
-  net::LinkSequence GetPath(const std::string& path_string) {
-    return graph_storage_.PathFromStringOrDie(path_string, 1)->link_sequence();
+  const GraphPath* GetPath(const std::string& path_string) {
+    return path_storage_.PathFromStringOrDie(path_string, 0);
   }
 
   GraphNodeIndex a_;
@@ -31,29 +30,26 @@ class PathUtilsTest : public ::testing::Test {
   GraphNodeIndex c_;
   GraphNodeIndex d_;
 
-  PathStorage graph_storage_;
-  SimpleDirectedGraph graph_;
+  PathStorage path_storage_;
   DummyConstraint dummy_constraint_;
 };
 
 TEST_F(PathUtilsTest, ShortestPath) {
-  PathCache cache(&graph_);
+  PathCache cache(&path_storage_);
 
   ASSERT_EQ(GetPath("[A->C, C->D]"),
-            cache.IECache(a_, d_)->GetLowestDelayPath());
-  ASSERT_EQ(GetPath("[B->C]"), cache.IECache(b_, c_)->GetLowestDelayPath());
+            cache.IECache({a_, d_, 0})->GetLowestDelayPath());
+  ASSERT_EQ(GetPath("[B->C]"),
+            cache.IECache({b_, c_, 0})->GetLowestDelayPath());
 }
 
 TEST_F(PathUtilsTest, KShortestPaths) {
-  PathCache cache(&graph_);
+  PathCache cache(&path_storage_);
 
-  IngressEgressPathCache* ie_cache = cache.IECache(a_, d_);
+  IngressEgressPathCache* ie_cache = cache.IECache({a_, d_, 0});
   ASSERT_TRUE(ie_cache->GetKLowestDelayPaths(0).empty());
 
-  LOG(ERROR) << ie_cache->GetKLowestDelayPaths(1).front().ToString(
-      &graph_storage_);
-
-  std::vector<net::LinkSequence> model = {GetPath("[A->C, C->D]")};
+  std::vector<const GraphPath*> model = {GetPath("[A->C, C->D]")};
   ASSERT_EQ(model, ie_cache->GetKLowestDelayPaths(1));
 
   model = {GetPath("[A->C, C->D]")};
