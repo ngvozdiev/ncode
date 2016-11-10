@@ -45,15 +45,15 @@ TEST_F(PathUtilsTest, ShortestPath) {
   PathCache cache(GetCacheConfig(), &path_storage_);
 
   ASSERT_EQ(GetPath("[A->C, C->D]"),
-            cache.IECache({a_, d_, 0})->GetLowestDelayPath());
+            cache.IECache(std::make_tuple(a_, d_, 0))->GetLowestDelayPath());
   ASSERT_EQ(GetPath("[B->C]"),
-            cache.IECache({b_, c_, 0})->GetLowestDelayPath());
+            cache.IECache(std::make_tuple(b_, c_, 0))->GetLowestDelayPath());
 }
 
 TEST_F(PathUtilsTest, KShortestPaths) {
   PathCache cache(GetCacheConfig(), &path_storage_);
 
-  IngressEgressPathCache* ie_cache = cache.IECache({a_, d_, 0});
+  IngressEgressPathCache* ie_cache = cache.IECache(std::make_tuple(a_, d_, 0));
   ASSERT_TRUE(ie_cache->GetKLowestDelayPaths(0).empty());
 
   std::vector<const GraphPath*> model = {GetPath("[A->C, C->D]")};
