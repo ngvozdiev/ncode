@@ -86,10 +86,6 @@ class PathCache {
   PathCache(const PathCacheConfig& path_cache_config, PathStorage* path_storage,
             ConstraintMap* constraint_map = nullptr);
 
-  // Populates the cache with paths for all src-dst pairs. This can take a long
-  // time and eat up a lot of memory!
-  void CacheAllPaths();
-
   // The graph.
   const SimpleDirectedGraph* graph() const { return &graph_; }
 

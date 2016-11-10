@@ -34,8 +34,15 @@ class PathUtilsTest : public ::testing::Test {
   DummyConstraint dummy_constraint_;
 };
 
+static PathCacheConfig GetCacheConfig() {
+  PathCacheConfig path_cache_config;
+  path_cache_config.max_delay = seconds(1);
+  path_cache_config.max_hops = 10;
+  return path_cache_config;
+}
+
 TEST_F(PathUtilsTest, ShortestPath) {
-  PathCache cache(&path_storage_);
+  PathCache cache(GetCacheConfig(), &path_storage_);
 
   ASSERT_EQ(GetPath("[A->C, C->D]"),
             cache.IECache({a_, d_, 0})->GetLowestDelayPath());
@@ -44,7 +51,7 @@ TEST_F(PathUtilsTest, ShortestPath) {
 }
 
 TEST_F(PathUtilsTest, KShortestPaths) {
-  PathCache cache(&path_storage_);
+  PathCache cache(GetCacheConfig(), &path_storage_);
 
   IngressEgressPathCache* ie_cache = cache.IECache({a_, d_, 0});
   ASSERT_TRUE(ie_cache->GetKLowestDelayPaths(0).empty());
