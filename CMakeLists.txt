@@ -45,7 +45,6 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${BASE_OPT_FLAGS}")
 set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} ${BASE_LD_FLAGS} --coverage")
 set(CMAKE_LINKER_FLAGS_RELEASE "${CMAKE_LINKER_FLAGS_RELEASE} ${BASE_LD_FLAGS}")
 
-add_subdirectory(external/backward-cpp)
 add_subdirectory(external/googletest)
 SET(OLD_BUILD_TESTING ${BUILD_TESTING})
 SET(BUILD_TESTING False)
@@ -119,10 +118,9 @@ create_resources("${PROJECT_SOURCE_DIR}/data/www" "${PROJECT_BINARY_DIR}/www_res
 create_resources("${PROJECT_SOURCE_DIR}/data/grapher_templates" "${PROJECT_BINARY_DIR}/grapher_resources.c" "grapher")
 
 macro(add_test_exec name src_file deps)
-  add_executable(${name} ${src_file} ${BACKWARD_ENABLE})
+  add_executable(${name} ${src_file})
   target_link_libraries(${name} gtest gmock_main ${deps} ${ARGN})
   add_test(NAME ${name} COMMAND ${name})
-  add_backward(${name})
 endmacro(add_test_exec)  
 
 ################################
@@ -130,7 +128,6 @@ endmacro(add_test_exec)
 ################################
 set(COMMON_HEADER_FILES src/common/common.h src/common/substitute.h src/common/logging.h src/common/file.h src/common/stringpiece.h src/common/strutil.h src/common/map_util.h src/common/stl_util.h src/common/event_queue.h src/common/free_list.h src/common/packer.h src/common/ptr_queue.h src/common/lru_cache.h src/common/perfect_hash.h)
 add_library(ncode_common STATIC src/common/common.cc src/common/substitute.cc src/common/logging.cc src/common/file.cc src/common/stringpiece.cc src/common/strutil.cc src/common/event_queue.cc src/common/free_list.cc src/common/packer.cc ${COMMON_HEADER_FILES})
-add_backward(ncode_common)
 
 set_property(SOURCE src/common/stringpiece_test.cc APPEND_STRING PROPERTY COMPILE_FLAGS "-Wno-conversion-null -Wno-sign-compare")
 set_property(SOURCE src/common/strutil_test.cc APPEND_STRING PROPERTY COMPILE_FLAGS "-Wno-sign-compare")

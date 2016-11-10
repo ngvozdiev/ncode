@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include "logging.h"
-#include "../../external/backward-cpp/backward.hpp"
 
 namespace ncode {
 namespace internal {
@@ -31,12 +30,6 @@ LogMessage::~LogMessage() {}
 void LogMessage::Finish() {
   log_handler_(level_, filename_, line_, message_);
   if (level_ == LOGLEVEL_FATAL) {
-    backward::StackTrace st;
-    st.load_here(32);
-
-    backward::Printer printer;
-    printer.print(st);
-
     abort();
   }
 }
