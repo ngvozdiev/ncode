@@ -31,8 +31,37 @@ void SimpleDirectedGraph::ConstructAdjacencyList() {
   }
 }
 
+// Returns a value to be used for all depreffed links. This value will be larger
+// than the cost of any path through the graph.
+static Delay DeprefCost(const SimpleDirectedGraph* graph) {
+  const GraphStorage* storage = graph->graph_storage();
+  GraphLinkSet all_links = storage->AllLinks();
+
+  Delay total = Delay::zero();
+  for (GraphLinkIndex link_index : all_links) {
+    const GraphLink* link = storage->GetLink(link_index);
+    total += link->delay();
+  }
+
+  return total;
+}
+
+GraphSearchAlgorithm::GraphSearchAlgorithm(const GraphSearchAlgorithmArgs& args,
+                                           const SimpleDirectedGraph* graph)
+    : graph_(graph),
+      links_to_exclude_(args.links_to_exclude),
+      nodes_to_exclude_(args.nodes_to_exclude) {}
+
+DeprefSearchAlgorithm::DeprefSearchAlgorithm(
+    const DeprefSearchAlgorithmArgs& args, const SimpleDirectedGraph* graph)
+    : GraphSearchAlgorithm(args, graph),
+      links_to_depref_(args.links_to_depref),
+      nodes_to_depref_(args.nodes_to_depref),
+      depref_cost_(DeprefCost(graph)) {}
+
 net::LinkSequence AllPairShortestPath::GetPath(GraphNodeIndex src,
-                                               GraphNodeIndex dst) const {
+                                               GraphNodeIndex dst,
+                                               bool* avoid_depref) const {
   Delay dist = data_[src][dst].distance;
   if (dist == kMaxDistance) {
     return {};
@@ -46,12 +75,31 @@ net::LinkSequence AllPairShortestPath::GetPath(GraphNodeIndex src,
     next = datum.next_node;
   }
 
+  if (dist >= depref_cost_) {
+    dist = TotalDelayOfLinks(links, graph_->graph_storage());
+    if (avoid_depref) {
+      *avoid_depref = false;
+    }
+  }
+
   return {links, dist};
 }
 
-Delay AllPairShortestPath::GetDistance(GraphNodeIndex src,
-                                       GraphNodeIndex dst) const {
-  return data_[src][dst].distance;
+Delay AllPairShortestPath::GetDistance(GraphNodeIndex src, GraphNodeIndex dst,
+                                       bool* avoid_depref) const {
+  Delay distance = data_[src][dst].distance;
+  if (distance == kMaxDistance) {
+    return kMaxDistance;
+  }
+
+  if (distance >= depref_cost_) {
+    distance = GetPath(src, dst).delay();
+    if (avoid_depref) {
+      *avoid_depref = false;
+    }
+  }
+
+  return distance;
 }
 
 void AllPairShortestPath::ComputePaths() {
@@ -63,7 +111,12 @@ void AllPairShortestPath::ComputePaths() {
       continue;
     }
 
-    data_[node][node].distance = Delay::zero();
+    SPData& node_data = data_[node][node];
+    if (nodes_to_depref_.Contains(node)) {
+      node_data.distance = depref_cost_;
+    } else {
+      node_data.distance = Delay::zero();
+    }
   }
 
   for (GraphLinkIndex link : graph_storage->AllLinks()) {
@@ -72,7 +125,8 @@ void AllPairShortestPath::ComputePaths() {
     }
 
     const GraphLink* link_ptr = graph_storage->GetLink(link);
-    Delay distance = link_ptr->delay();
+    Delay distance =
+        links_to_depref_.Contains(link) ? depref_cost_ : link_ptr->delay();
 
     SPData& sp_data = data_[link_ptr->src()][link_ptr->dst()];
     sp_data.distance = distance;
@@ -102,13 +156,18 @@ void AllPairShortestPath::ComputePaths() {
   }
 }
 
-DFS::DFS(const SimpleDirectedGraph* graph, const GraphLinkSet& links_to_exclude,
-         const GraphNodeSet& nodes_to_exclude)
-    : graph_(graph),
-      links_to_exclude_(links_to_exclude),
-      nodes_to_exclude_(nodes_to_exclude),
+static DeprefSearchAlgorithmArgs FromGraphArgs(
+    const GraphSearchAlgorithmArgs& args) {
+  DeprefSearchAlgorithmArgs out;
+  out.links_to_exclude = args.links_to_exclude;
+  out.nodes_to_exclude = args.nodes_to_exclude;
+  return out;
+}
+
+DFS::DFS(const GraphSearchAlgorithmArgs& args, const SimpleDirectedGraph* graph)
+    : GraphSearchAlgorithm(args, graph),
       storage_(graph->graph_storage()),
-      all_pair_sp_(graph_, links_to_exclude, nodes_to_exclude) {}
+      all_pair_sp_(FromGraphArgs(args), graph_) {}
 
 void DFS::Paths(GraphNodeIndex src, GraphNodeIndex dst, Delay max_distance,
                 size_t max_hops, PathCallback path_callback) const {
@@ -169,7 +228,8 @@ void DFS::PathsRecursive(Delay max_distance, size_t max_hops, GraphNodeIndex at,
   nodes_seen->Remove(at);
 }
 
-LinkSequence ShortestPath::GetPath(GraphNodeIndex dst) const {
+LinkSequence ShortestPath::GetPath(GraphNodeIndex dst,
+                                   bool* avoid_depref) const {
   const GraphStorage* graph_storage = graph_->graph_storage();
   Links links_reverse;
 
@@ -187,7 +247,15 @@ LinkSequence ShortestPath::GetPath(GraphNodeIndex dst) const {
   }
 
   std::reverse(links_reverse.begin(), links_reverse.end());
-  return LinkSequence(links_reverse, min_delays_[dst].distance);
+  Delay distance = min_delays_[dst].distance;
+  if (distance >= depref_cost_) {
+    distance = TotalDelayOfLinks(links_reverse, graph_->graph_storage());
+    if (avoid_depref) {
+      *avoid_depref = false;
+    }
+  }
+
+  return {links_reverse, distance};
 }
 
 void ShortestPath::ComputePaths() {
@@ -228,7 +296,9 @@ void ShortestPath::ComputePaths() {
         continue;
       }
 
-      Delay link_delay = out_link_ptr->delay();
+      bool depref = links_to_depref_.Contains(out_link) ||
+                    nodes_to_depref_.Contains(neighbor_node);
+      Delay link_delay = depref ? depref_cost_ : out_link_ptr->delay();
       Delay distance_via_neighbor = distance + link_delay;
       Delay& curr_min_distance = min_delays_[neighbor_node].distance;
 

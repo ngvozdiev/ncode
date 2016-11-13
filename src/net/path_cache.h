@@ -27,16 +27,17 @@ struct PathCacheConfig {
 class IngressEgressPathCache {
  public:
   // Will return the lowest delay path.
-  const GraphPath* GetLowestDelayPath(const GraphLinkSet& to_avoid = {});
+  const GraphPath* GetLowestDelayPath(const GraphLinkSet& to_avoid,
+                                      bool* avoids);
 
   // Will return the K lowest delay paths.
   std::vector<const GraphPath*> GetKLowestDelayPaths(
-      size_t k, const GraphLinkSet& to_avoid = {});
+      size_t k, const GraphLinkSet& to_avoid, bool* avoids);
 
   // Will return the lowest delay path (P) and any paths that are up to
   // hop_count(P) + k hops long.
   std::vector<const GraphPath*> GetPathsKHopsFromLowestDelay(
-      size_t k, const GraphLinkSet& to_avoid = {});
+      size_t k, const GraphLinkSet& to_avoid, bool* avoids);
 
   // Caches all paths between the source and the destination.
   const std::vector<net::LinkSequence>& CacheAll();

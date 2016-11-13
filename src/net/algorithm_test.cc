@@ -33,8 +33,8 @@ TEST(AllPairShortestPath, SingleLink) {
   GraphLinkIndex link = graph_storage.LinkOrDie("A", "B");
 
   SimpleDirectedGraph graph(&graph_storage);
-  AllPairShortestPath all_pair_sp(&graph);
-  ShortestPath sp(node_a, &graph);
+  AllPairShortestPath all_pair_sp({}, &graph);
+  ShortestPath sp({}, node_a, &graph);
 
   Links model;
   ASSERT_EQ(model, all_pair_sp.GetPath(node_b, node_a).links());
@@ -62,8 +62,8 @@ TEST(AllPairShortestPath, ShortPath) {
   GraphLinkIndex link_cb = graph_storage.LinkOrDie("C", "B");
 
   SimpleDirectedGraph graph(&graph_storage);
-  AllPairShortestPath all_pair_sp(&graph);
-  ShortestPath sp(node_a, &graph);
+  AllPairShortestPath all_pair_sp({}, &graph);
+  ShortestPath sp({}, node_a, &graph);
 
   Links model;
   ASSERT_EQ(model, all_pair_sp.GetPath(node_b, node_a).links());
@@ -89,8 +89,8 @@ TEST(AllPairShortestPath, ShorterPath) {
   GraphLinkIndex link_ad = graph_storage.LinkOrDie("A", "D");
 
   SimpleDirectedGraph graph(&graph_storage);
-  AllPairShortestPath all_pair_sp(&graph);
-  ShortestPath sp(node_a, &graph);
+  AllPairShortestPath all_pair_sp({}, &graph);
+  ShortestPath sp({}, node_a, &graph);
 
   Links model = {link_ad};
   ASSERT_EQ(model, all_pair_sp.GetPath(node_a, node_d).links());
@@ -109,9 +109,12 @@ TEST(AllPairShortestPath, ShortPathMask) {
   GraphLinkIndex link_ab = graph_storage.LinkOrDie("A", "B");
   GraphLinkIndex link_bc = graph_storage.LinkOrDie("B", "C");
 
+  DeprefSearchAlgorithmArgs args;
+  args.links_to_exclude = {link_ab};
+
   SimpleDirectedGraph graph(&graph_storage);
-  AllPairShortestPath all_pair_sp(&graph, {link_ab});
-  ShortestPath sp(node_a, &graph, {link_ab});
+  AllPairShortestPath all_pair_sp(args, &graph);
+  ShortestPath sp(args, node_a, &graph);
 
   Links model;
   ASSERT_EQ(model, all_pair_sp.GetPath(node_a, node_c).links());
@@ -133,7 +136,7 @@ TEST(DFS, SingleLink) {
   GraphLinkIndex link_ab = graph_storage.LinkOrDie("A", "B");
 
   SimpleDirectedGraph graph(&graph_storage);
-  DFS dfs(&graph);
+  DFS dfs({}, &graph);
 
   std::vector<Links> paths;
   dfs.Paths(node_a, node_b, Delay(100), 10, [&paths](const LinkSequence& path) {
@@ -166,7 +169,7 @@ TEST(DFS, MultiPath) {
   GraphLinkIndex link_ad = graph_storage.LinkOrDie("A", "D");
 
   SimpleDirectedGraph graph(&graph_storage);
-  DFS dfs(&graph);
+  DFS dfs({}, &graph);
 
   std::vector<Links> paths;
   dfs.Paths(
@@ -196,7 +199,7 @@ TEST(DFS, Braess) {
   GraphNodeIndex node_d = graph_storage.NodeFromStringOrDie("D");
 
   SimpleDirectedGraph graph(&graph_storage);
-  DFS dfs(&graph);
+  DFS dfs({}, &graph);
 
   std::vector<const GraphPath*> paths;
   dfs.Paths(node_a, node_d, duration_cast<Delay>(seconds(1)), 10,

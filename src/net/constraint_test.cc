@@ -36,32 +36,39 @@ class ConstraintTest : public ::testing::Test {
 TEST_F(ConstraintTest, Dummy) {
   DummyConstraint dummy;
   ASSERT_TRUE(dummy.PathComplies({}));
+
+  bool avoids = true;
   ASSERT_EQ(GetPath("[A->C, C->D]"),
-            dummy.ShortestCompliantPath(graph_, {}, a_, d_));
+            dummy.ShortestCompliantPath(graph_, {}, a_, d_, &avoids));
   ASSERT_EQ(GetPath("[D->B, B->C]"),
-            dummy.ShortestCompliantPath(graph_, {}, d_, c_));
+            dummy.ShortestCompliantPath(graph_, {}, d_, c_, &avoids));
+  ASSERT_TRUE(avoids);
 }
 
 TEST_F(ConstraintTest, ConjunctionAvoidOne) {
   GraphLinkIndex bc = path_storage_.LinkOrDie("B", "C");
   Conjunction conjunction({bc}, {});
 
+  bool avoids = true;
   ASSERT_EQ(GetPath("[D->C]"),
-            conjunction.ShortestCompliantPath(graph_, {}, d_, c_));
+            conjunction.ShortestCompliantPath(graph_, {}, d_, c_, &avoids));
   ASSERT_EQ(GetPath("[B->A, A->C]"),
-            conjunction.ShortestCompliantPath(graph_, {}, b_, c_));
+            conjunction.ShortestCompliantPath(graph_, {}, b_, c_, &avoids));
+  ASSERT_TRUE(avoids);
 }
 
 TEST_F(ConstraintTest, ConjunctionVisitOne) {
   GraphLinkIndex dc = path_storage_.LinkOrDie("D", "C");
   Conjunction conjunction({}, {dc});
 
+  bool avoids = true;
   ASSERT_EQ(GetPath("[D->C]"),
-            conjunction.ShortestCompliantPath(graph_, {}, d_, c_));
+            conjunction.ShortestCompliantPath(graph_, {}, d_, c_, &avoids));
   ASSERT_EQ(GetPath("[B->D, D->C, C->A]"),
-            conjunction.ShortestCompliantPath(graph_, {}, b_, a_));
+            conjunction.ShortestCompliantPath(graph_, {}, b_, a_, &avoids));
   ASSERT_EQ(LinkSequence(),
-            conjunction.ShortestCompliantPath(graph_, {}, a_, b_));
+            conjunction.ShortestCompliantPath(graph_, {}, a_, b_, &avoids));
+  ASSERT_TRUE(avoids);
 }
 
 }  // namespace

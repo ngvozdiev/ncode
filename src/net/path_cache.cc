@@ -10,20 +10,10 @@ namespace ncode {
 namespace net {
 
 const GraphPath* IngressEgressPathCache::GetLowestDelayPath(
-    const GraphLinkSet& to_avoid) {
-  if (paths_.empty()) {
-    net::LinkSequence shortest_path = constraint_->ShortestCompliantPath(
-        *graph_, to_avoid, std::get<0>(ie_key_), std::get<1>(ie_key_));
-    return path_storage_->PathFromLinksOrDie(shortest_path,
-                                             std::get<2>(ie_key_));
-  }
-
-  std::vector<const GraphPath*> k_lowest = GetKLowestDelayPaths(1, to_avoid);
-  if (k_lowest.empty()) {
-    return {};
-  }
-
-  return k_lowest.front();
+    const GraphLinkSet& to_avoid, bool* avoids) {
+  net::LinkSequence shortest_path = constraint_->ShortestCompliantPath(
+      *graph_, to_avoid, std::get<0>(ie_key_), std::get<1>(ie_key_), avoids);
+  return path_storage_->PathFromLinksOrDie(shortest_path, std::get<2>(ie_key_));
 }
 
 static bool PathContainsAnyOfLinks(const GraphLinkSet& to_avoid,
@@ -38,7 +28,8 @@ static bool PathContainsAnyOfLinks(const GraphLinkSet& to_avoid,
 }
 
 std::vector<const GraphPath*> IngressEgressPathCache::GetKLowestDelayPaths(
-    size_t k, const GraphLinkSet& to_avoid) {
+    size_t k, const GraphLinkSet& to_avoid, bool* avoids) {
+  CHECK(avoids == nullptr) << "Not supported yet";
   std::vector<const GraphPath*> return_vector;
   if (k == 0) {
     return return_vector;
@@ -68,11 +59,12 @@ std::vector<const GraphPath*> IngressEgressPathCache::GetKLowestDelayPaths(
 
 std::vector<const GraphPath*>
 IngressEgressPathCache::GetPathsKHopsFromLowestDelay(
-    size_t k, const GraphLinkSet& to_avoid) {
+    size_t k, const GraphLinkSet& to_avoid, bool* avoids) {
+  CHECK(avoids == nullptr) << "Not supported yet";
   std::vector<const GraphPath*> return_vector;
   CacheAll();
 
-  const GraphPath* shortest_path = GetLowestDelayPath(to_avoid);
+  const GraphPath* shortest_path = GetLowestDelayPath(to_avoid, avoids);
   size_t shortest_path_hop_count = shortest_path->size();
   size_t limit = shortest_path_hop_count + k;
 
@@ -101,7 +93,7 @@ const std::vector<net::LinkSequence>& IngressEgressPathCache::CacheAll() {
     return paths_;
   }
 
-  DFS dfs(graph_);
+  DFS dfs({}, graph_);
   dfs.Paths(std::get<0>(ie_key_), std::get<1>(ie_key_),
             path_cache_config_.max_delay, path_cache_config_.max_hops,
             [this](const LinkSequence& path) { paths_.emplace_back(path); });

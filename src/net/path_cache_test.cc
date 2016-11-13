@@ -44,31 +44,37 @@ static PathCacheConfig GetCacheConfig() {
 TEST_F(PathUtilsTest, ShortestPath) {
   PathCache cache(GetCacheConfig(), &path_storage_);
 
+  bool avoid = true;
+  GraphLinkSet to_avoid;
+
   ASSERT_EQ(GetPath("[A->C, C->D]"),
-            cache.IECache(std::make_tuple(a_, d_, 0))->GetLowestDelayPath());
-  ASSERT_EQ(GetPath("[B->C]"),
-            cache.IECache(std::make_tuple(b_, c_, 0))->GetLowestDelayPath());
+            cache.IECache(std::make_tuple(a_, d_, 0))
+                ->GetLowestDelayPath(to_avoid, &avoid));
+  ASSERT_EQ(GetPath("[B->C]"), cache.IECache(std::make_tuple(b_, c_, 0))
+                                   ->GetLowestDelayPath(to_avoid, &avoid));
+  ASSERT_TRUE(avoid);
 }
 
 TEST_F(PathUtilsTest, KShortestPaths) {
   PathCache cache(GetCacheConfig(), &path_storage_);
+  GraphLinkSet to_avoid;
 
   IngressEgressPathCache* ie_cache = cache.IECache(std::make_tuple(a_, d_, 0));
-  ASSERT_TRUE(ie_cache->GetKLowestDelayPaths(0).empty());
+  ASSERT_TRUE(ie_cache->GetKLowestDelayPaths(0, to_avoid, nullptr).empty());
 
   std::vector<const GraphPath*> model = {GetPath("[A->C, C->D]")};
-  ASSERT_EQ(model, ie_cache->GetKLowestDelayPaths(1));
+  ASSERT_EQ(model, ie_cache->GetKLowestDelayPaths(1, to_avoid, nullptr));
 
   model = {GetPath("[A->C, C->D]")};
-  ASSERT_EQ(model, ie_cache->GetKLowestDelayPaths(1));
+  ASSERT_EQ(model, ie_cache->GetKLowestDelayPaths(1, to_avoid, nullptr));
 
   model = {GetPath("[A->C, C->D]"), GetPath("[A->B, B->D]")};
-  ASSERT_EQ(model, ie_cache->GetKLowestDelayPaths(2));
+  ASSERT_EQ(model, ie_cache->GetKLowestDelayPaths(2, to_avoid, nullptr));
 
   model = {GetPath("[A->C, C->D]"), GetPath("[A->B, B->D]"),
            GetPath("[A->B, B->C, C->D]")};
-  ASSERT_EQ(model, ie_cache->GetKLowestDelayPaths(3));
-  ASSERT_EQ(model, ie_cache->GetKLowestDelayPaths(4));
+  ASSERT_EQ(model, ie_cache->GetKLowestDelayPaths(3, to_avoid, nullptr));
+  ASSERT_EQ(model, ie_cache->GetKLowestDelayPaths(4, to_avoid, nullptr));
 }
 
 }  // namespace net
