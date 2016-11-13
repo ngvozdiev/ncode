@@ -417,6 +417,13 @@ net::PBNet GenerateRandom(size_t n, double edge_prob, Delay delay_min,
                           std::mt19937* generator) {
   CHECK(delay_min <= delay_max);
   CHECK(bw_min.bps() <= bw_max.bps());
+  if (n == 0) {
+    return {};
+  }
+
+  std::vector<size_t> ids(n);
+  std::iota(ids.begin(), ids.end(), 0);
+  std::shuffle(ids.begin(), ids.end(), *generator);
 
   auto delay_dist = std::uniform_int_distribution<uint64_t>(delay_min.count(),
                                                             delay_max.count());
@@ -424,34 +431,45 @@ net::PBNet GenerateRandom(size_t n, double edge_prob, Delay delay_min,
       std::uniform_int_distribution<uint64_t>(bw_min.bps(), bw_max.bps());
   auto edge_add_dist = std::uniform_real_distribution<double>(0.0, 1.0);
 
-  net::PBNet return_graph;
-  while (true) {
-    return_graph.Clear();
-    for (uint32_t i = 0; i < n; ++i) {
-      for (uint32_t j = 0; j < n; ++j) {
-        if (i < j) {
-          std::string src = "N" + std::to_string(i);
-          std::string dst = "N" + std::to_string(j);
+  // Add links between ids, then add randomly pick pairs and add links.
+  std::set<std::pair<size_t, size_t>> added;
+  for (size_t i = 0; i < n - 1; ++i) {
+    size_t src = ids[i];
+    size_t dst = ids[i + 1];
+    if (src > dst) {
+      std::swap(src, dst);
+    }
 
-          double p = edge_add_dist(*generator);
-          if (p > edge_prob) {
-            continue;
-          }
+    added.emplace(src, dst);
+  }
 
-          std::chrono::microseconds delay =
-              std::chrono::microseconds(delay_dist(*generator));
-          uint64_t bw_bps = bw_dist(*generator);
-          AddBiEdgeToGraph(src, dst, delay,
-                           Bandwidth::FromBitsPerSecond(bw_bps), &return_graph);
-        }
+  for (uint32_t i = 0; i < n; ++i) {
+    for (uint32_t j = 0; j < n; ++j) {
+      size_t src = i;
+      size_t dst = j;
+      if (src >= dst) {
+        continue;
       }
-    }
 
-    if (IsPartitioned(return_graph)) {
-      continue;
-    }
+      double p = edge_add_dist(*generator);
+      if (p > edge_prob) {
+        continue;
+      }
 
-    break;
+      added.emplace(src, dst);
+    }
+  }
+
+  net::PBNet return_graph;
+  for (const auto& src_and_dst : added) {
+    std::string src = "N" + std::to_string(src_and_dst.first);
+    std::string dst = "N" + std::to_string(src_and_dst.second);
+
+    std::chrono::microseconds delay =
+        std::chrono::microseconds(delay_dist(*generator));
+    uint64_t bw_bps = bw_dist(*generator);
+    AddBiEdgeToGraph(src, dst, delay, Bandwidth::FromBitsPerSecond(bw_bps),
+                     &return_graph);
   }
 
   return return_graph;

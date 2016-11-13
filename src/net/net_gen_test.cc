@@ -112,9 +112,10 @@ TEST(Random, ZeroSize) {
                                 kBandwidth, &random);
   ASSERT_TRUE(net_pb.links().empty());
 
+  // Even with 0 probability the graph should be connected.
   net_pb = GenerateRandom(10, 0.0, Delay(10000), Delay(10000), kBandwidth,
                           kBandwidth, &random);
-  ASSERT_TRUE(net_pb.links().empty());
+  ASSERT_EQ(18, net_pb.links_size());
 }
 
 TEST(Random, BadArgs) {
