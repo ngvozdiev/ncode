@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <limits>
+#include <queue>
 
 #include "net_common.h"
 
@@ -136,6 +137,37 @@ class ShortestPath : public DeprefSearchAlgorithm {
 
   // Delays from each node to the destination.
   GraphNodeMap<DistanceFromSource> min_delays_;
+};
+
+class KShortestPaths : public DeprefSearchAlgorithm {
+ public:
+  KShortestPaths(const DeprefSearchAlgorithmArgs& args, GraphNodeIndex src,
+                 GraphNodeIndex dst, const SimpleDirectedGraph* graph);
+
+  // Returns the next path.
+  LinkSequence NextPath();
+
+ private:
+  // Returns true if prefix_path[0:index] == path[0:index]
+  static bool HasPrefix(const Links& path, const Links& prefix);
+
+  DeprefSearchAlgorithmArgs GetArgs() const;
+
+  // Returns a set of links that contains: for any path in k_paths_ that starts
+  // with the same links as root_path pick the next link -- the one after.
+  GraphLinkSet GetLinkExclusionSet(const Links& root_path);
+
+  // The source.
+  GraphNodeIndex src_;
+
+  // The destination.
+  GraphNodeIndex dst_;
+
+  // Stores the K shortest paths in order.
+  std::vector<LinkSequence> k_paths_;
+
+  // Stores candidates for K shortest paths.
+  std::priority_queue<LinkSequence> candidates_;
 };
 
 // Simple depth-limited DFS.

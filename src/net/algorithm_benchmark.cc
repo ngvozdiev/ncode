@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
   net::SimpleDirectedGraph graph(&path_storage);
 
   auto now = high_resolution_clock::now();
-  net::AllPairShortestPath all_pair_sp(&graph);
+  net::AllPairShortestPath all_pair_sp({}, &graph);
   auto later = high_resolution_clock::now();
   auto duration = duration_cast<milliseconds>(later - now);
   LOG(ERROR) << "All pair shortest paths in " << duration.count() << "ms";
@@ -30,14 +30,14 @@ int main(int argc, char** argv) {
 
   now = high_resolution_clock::now();
   for (size_t i = 0; i < 1000; ++i) {
-    net::ShortestPath sp(london_node, &graph);
+    net::ShortestPath sp({}, london_node, &graph);
     sp.GetPath(osaka_node);
   }
   later = high_resolution_clock::now();
   duration = duration_cast<milliseconds>(later - now);
-  LOG(ERROR) << "1000 shortest paths in " << duration.count() << "ms";
+  LOG(ERROR) << "1000 calls to shortest path in " << duration.count() << "ms";
 
-  net::DFS dfs(&graph);
+  net::DFS dfs({}, &graph);
   now = high_resolution_clock::now();
   std::vector<net::LinkSequence> paths;
   dfs.Paths(

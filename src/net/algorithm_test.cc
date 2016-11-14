@@ -6,6 +6,7 @@
 #include <thread>
 
 #include "../common/substitute.h"
+#include "net_gen.h"
 #include "gtest/gtest.h"
 
 namespace ncode {
@@ -35,6 +36,7 @@ TEST(AllPairShortestPath, SingleLink) {
   SimpleDirectedGraph graph(&graph_storage);
   AllPairShortestPath all_pair_sp({}, &graph);
   ShortestPath sp({}, node_a, &graph);
+  KShortestPaths ksp({}, node_a, node_b, &graph);
 
   Links model;
   ASSERT_EQ(model, all_pair_sp.GetPath(node_b, node_a).links());
@@ -45,6 +47,9 @@ TEST(AllPairShortestPath, SingleLink) {
   model.emplace_back(link);
   ASSERT_EQ(model, all_pair_sp.GetPath(node_a, node_b).links());
   ASSERT_EQ(model, sp.GetPath(node_b).links());
+
+  ASSERT_EQ(model, ksp.NextPath().links());
+  ASSERT_TRUE(ksp.NextPath().empty());
 }
 
 TEST(AllPairShortestPath, ShortPath) {
@@ -64,6 +69,7 @@ TEST(AllPairShortestPath, ShortPath) {
   SimpleDirectedGraph graph(&graph_storage);
   AllPairShortestPath all_pair_sp({}, &graph);
   ShortestPath sp({}, node_a, &graph);
+  KShortestPaths ksp({}, node_a, node_c, &graph);
 
   Links model;
   ASSERT_EQ(model, all_pair_sp.GetPath(node_b, node_a).links());
@@ -71,6 +77,8 @@ TEST(AllPairShortestPath, ShortPath) {
   model = {link_ab, link_bc};
   ASSERT_EQ(model, all_pair_sp.GetPath(node_a, node_c).links());
   ASSERT_EQ(model, sp.GetPath(node_c).links());
+  ASSERT_EQ(model, ksp.NextPath().links());
+  ASSERT_TRUE(ksp.NextPath().empty());
 
   model = {link_cb};
   ASSERT_EQ(model, all_pair_sp.GetPath(node_c, node_b).links());
@@ -91,10 +99,20 @@ TEST(AllPairShortestPath, ShorterPath) {
   SimpleDirectedGraph graph(&graph_storage);
   AllPairShortestPath all_pair_sp({}, &graph);
   ShortestPath sp({}, node_a, &graph);
+  KShortestPaths ksp({}, node_a, node_d, &graph);
 
   Links model = {link_ad};
   ASSERT_EQ(model, all_pair_sp.GetPath(node_a, node_d).links());
   ASSERT_EQ(model, sp.GetPath(node_d).links());
+  ASSERT_EQ(model, ksp.NextPath().links());
+
+  GraphLinkIndex link_ab = graph_storage.LinkOrDie("A", "B");
+  GraphLinkIndex link_bc = graph_storage.LinkOrDie("B", "C");
+  GraphLinkIndex link_cd = graph_storage.LinkOrDie("C", "D");
+
+  model = {link_ab, link_bc, link_cd};
+  ASSERT_EQ(model, ksp.NextPath().links());
+  ASSERT_TRUE(ksp.NextPath().empty());
 }
 
 TEST(AllPairShortestPath, ShortPathMask) {
@@ -181,18 +199,8 @@ TEST(DFS, MultiPath) {
 }
 
 TEST(DFS, Braess) {
-  PBNet net;
-
   using namespace std::chrono;
-  AddEdgeToGraph("C", "D", milliseconds(10), kBw, &net);
-  AddEdgeToGraph("D", "C", milliseconds(10), kBw, &net);
-  AddEdgeToGraph("B", "D", milliseconds(8), kBw, &net);
-  AddEdgeToGraph("D", "B", milliseconds(8), kBw, &net);
-  AddEdgeToGraph("A", "B", milliseconds(10), kBw, &net);
-  AddEdgeToGraph("B", "A", milliseconds(10), kBw, &net);
-  AddEdgeToGraph("A", "C", milliseconds(5), kBw, &net);
-  AddEdgeToGraph("C", "A", milliseconds(5), kBw, &net);
-  AddEdgeToGraph("B", "C", milliseconds(1), kBw, &net);
+  PBNet net = GenerateBraess(kBw);
 
   PathStorage graph_storage(net);
   GraphNodeIndex node_a = graph_storage.NodeFromStringOrDie("A");
@@ -212,6 +220,30 @@ TEST(DFS, Braess) {
   ASSERT_TRUE(IsInPaths("[A->C, C->D]", paths, 0, &graph_storage));
   ASSERT_TRUE(IsInPaths("[A->B, B->D]", paths, 0, &graph_storage));
   ASSERT_TRUE(IsInPaths("[A->B, B->C, C->D]", paths, 0, &graph_storage));
+}
+
+TEST(KShortest, Braess) {
+  PBNet net = GenerateBraess(kBw);
+
+  PathStorage graph_storage(net);
+  GraphNodeIndex node_a = graph_storage.NodeFromStringOrDie("A");
+  GraphNodeIndex node_d = graph_storage.NodeFromStringOrDie("D");
+  GraphLinkIndex link_ab = graph_storage.LinkOrDie("A", "B");
+  GraphLinkIndex link_ac = graph_storage.LinkOrDie("A", "C");
+  GraphLinkIndex link_bc = graph_storage.LinkOrDie("B", "C");
+  GraphLinkIndex link_cd = graph_storage.LinkOrDie("C", "D");
+  GraphLinkIndex link_bd = graph_storage.LinkOrDie("B", "D");
+
+  SimpleDirectedGraph graph(&graph_storage);
+  KShortestPaths ksp({}, node_a, node_d, &graph);
+
+  std::vector<Links> model_paths = {
+      {link_ac, link_cd}, {link_ab, link_bd}, {link_ab, link_bc, link_cd}};
+
+  std::vector<Links> paths = {ksp.NextPath().links(), ksp.NextPath().links(),
+                              ksp.NextPath().links()};
+  ASSERT_EQ(model_paths, paths);
+  ASSERT_TRUE(ksp.NextPath().empty());
 }
 
 }  // namespace

@@ -312,5 +312,108 @@ void ShortestPath::ComputePaths() {
   }
 }
 
+KShortestPaths::KShortestPaths(const DeprefSearchAlgorithmArgs& args,
+                               GraphNodeIndex src, GraphNodeIndex dst,
+                               const SimpleDirectedGraph* graph)
+    : DeprefSearchAlgorithm(args, graph), src_(src), dst_(dst) {}
+
+DeprefSearchAlgorithmArgs KShortestPaths::GetArgs() const {
+  DeprefSearchAlgorithmArgs args;
+  args.links_to_exclude = links_to_exclude_;
+  args.links_to_depref = links_to_depref_;
+  args.nodes_to_exclude = nodes_to_exclude_;
+  args.nodes_to_depref = nodes_to_depref_;
+
+  return args;
+}
+
+LinkSequence KShortestPaths::NextPath() {
+  const GraphStorage* graph_storage = graph_->graph_storage();
+  if (k_paths_.empty()) {
+    ShortestPath sp(GetArgs(), src_, graph_);
+    LinkSequence path = sp.GetPath(dst_, nullptr);
+    k_paths_.emplace_back(path);
+    return path;
+  }
+
+  const LinkSequence& last_path = k_paths_.back();
+  const Links& last_path_links = last_path.links();
+
+  LOG(ERROR) << "Last path " << last_path.ToString(graph_storage);
+
+  GraphNodeSet node_exclusion_set;
+  Links root_path;
+  for (GraphLinkIndex link_index : last_path_links) {
+    const GraphLink* link = graph_storage->GetLink(link_index);
+    GraphNodeIndex spur_node = link->src();
+    GraphLinkSet link_exclusion_set = GetLinkExclusionSet(root_path);
+
+    LOG(ERROR) << "Spur " << graph_storage->GetNode(spur_node)->id();
+
+    DeprefSearchAlgorithmArgs args = GetArgs();
+    args.links_to_exclude.InsertAll(link_exclusion_set);
+    args.nodes_to_exclude.InsertAll(node_exclusion_set);
+    ShortestPath sp(args, spur_node, graph_);
+
+    LinkSequence spur_path = sp.GetPath(dst_, nullptr);
+    if (!spur_path.empty()) {
+      LOG(ERROR) << "Spur path " << spur_path.ToString(graph_storage);
+      const Links& spur_path_links = spur_path.links();
+
+      Links candidate_links = root_path;
+      candidate_links.insert(candidate_links.end(), spur_path_links.begin(),
+                             spur_path_links.end());
+      LinkSequence candidate_path(
+          candidate_links, TotalDelayOfLinks(candidate_links, graph_storage));
+      candidates_.push(candidate_path);
+    }
+
+    node_exclusion_set.Insert(spur_node);
+    root_path.emplace_back(link_index);
+  }
+
+  if (candidates_.empty()) {
+    return {};
+  }
+
+  LinkSequence min_candidate = candidates_.top();
+  candidates_.pop();
+  k_paths_.emplace_back(min_candidate);
+  return min_candidate;
+}
+
+bool KShortestPaths::HasPrefix(const Links& path, const Links& prefix) {
+  CHECK(prefix.size() <= path.size()) << prefix.size() << " vs " << path.size();
+  for (size_t i = 0; i < prefix.size(); ++i) {
+    if (path[i] != prefix[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+GraphLinkSet KShortestPaths::GetLinkExclusionSet(const Links& root_path) {
+  GraphLinkSet out;
+  const GraphStorage* storage = graph_->graph_storage();
+  for (const LinkSequence& k_path : k_paths_) {
+    if (k_path.size() < root_path.size()) {
+      continue;
+    }
+
+    const Links& k_path_links = k_path.links();
+    if (HasPrefix(k_path_links, root_path)) {
+      CHECK(k_path_links.size() > root_path.size());
+      LOG(ERROR) << "To exclude "
+                 << storage->GetLink(k_path_links[root_path.size()])->ToString()
+                 << " root path " << root_path.size() << " kpl "
+                 << k_path_links.size();
+      out.Insert(k_path_links[root_path.size()]);
+    }
+  }
+
+  return out;
+}
+
 }  // namespace net
 }  // namespace ncode
