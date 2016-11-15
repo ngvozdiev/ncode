@@ -129,7 +129,7 @@ TEST(AllPairShortestPath, ShortPathMask) {
 
   GraphLinkSet links_to_exclude = {link_ab};
   GraphSearchAlgorithmConfig config;
-  config.links_to_exclude = &links_to_exclude;
+  config.AddToExcludeLinks(&links_to_exclude);
 
   SimpleDirectedGraph graph(&graph_storage);
   AllPairShortestPath all_pair_sp(config, &graph);

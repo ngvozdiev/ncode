@@ -51,10 +51,12 @@ std::unique_ptr<ShortestPathGenerator> Conjunction::PathGenerator(
     const SimpleDirectedGraph& graph, GraphNodeIndex src,
     GraphNodeIndex dst) const {
   KSPathGenerator* generator = new KSPathGenerator();
-  generator->to_exclude_ = to_exclude_;
-
   GraphSearchAlgorithmConfig config;
-  config.links_to_exclude = &generator->to_exclude_;
+  if (!to_exclude_.Empty()) {
+    generator->to_exclude_ = to_exclude_;
+    config.AddToExcludeLinks(&generator->to_exclude_);
+  }
+
   generator->k_shortest_paths_ =
       make_unique<KShortestPaths>(config, to_visit_, src, dst, &graph);
   return std::unique_ptr<ShortestPathGenerator>(generator);

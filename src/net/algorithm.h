@@ -32,10 +32,40 @@ class SimpleDirectedGraph {
   GraphNodeMap<std::vector<GraphLinkIndex>> adjacency_list_;
 };
 
-struct GraphSearchAlgorithmConfig {
+class GraphSearchAlgorithmConfig {
+ public:
+  void AddToExcludeLinks(const GraphLinkSet* set) {
+    link_sets_to_exclude_.emplace_back(set);
+  }
+
+  void AddToExcludeNodes(const GraphNodeSet* set) {
+    node_sets_to_exclude_.emplace_back(set);
+  }
+
+  bool CanExcludeLink(const GraphLinkIndex link) const {
+    for (const GraphLinkSet* set : link_sets_to_exclude_) {
+      if (set->Contains(link)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  bool CanExcludeNode(const GraphNodeIndex node) const {
+    for (const GraphNodeSet* set : node_sets_to_exclude_) {
+      if (set->Contains(node)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+ private:
   // Links/nodes that will be excluded from the graph.
-  const GraphLinkSet* links_to_exclude = nullptr;
-  const GraphNodeSet* nodes_to_exclude = nullptr;
+  std::vector<const GraphLinkSet*> link_sets_to_exclude_;
+  std::vector<const GraphNodeSet*> node_sets_to_exclude_;
 };
 
 class GraphSearchAlgorithm {
@@ -144,7 +174,7 @@ class KShortestPaths : public GraphSearchAlgorithm {
 
   // Returns a set of links that contains: for any path in k_paths_ that starts
   // with the same links as root_path pick the next link -- the one after.
-  GraphLinkSet GetLinkExclusionSet(const Links& root_path);
+  void GetLinkExclusionSet(const Links& root_path, GraphLinkSet* out);
 
   // Waypoints.
   const std::vector<GraphLinkIndex> waypoints_;

@@ -140,6 +140,18 @@ class PerfectHashSet {
     }
   }
 
+  bool Empty() const {
+    for (char x : set_) {
+      if (x) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  void Clear() { set_.clear(); }
+
   bool Contains(Index<Tag, V> index) const {
     if (set_.size() > index) {
       return set_[index];

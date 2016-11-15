@@ -60,12 +60,10 @@ Delay AllPairShortestPath::GetDistance(GraphNodeIndex src,
 
 void AllPairShortestPath::ComputePaths() {
   const GraphStorage* graph_storage = graph_->graph_storage();
-  const GraphNodeSet* nodes_to_exclude = config_.nodes_to_exclude;
-  const GraphLinkSet* links_to_exclude = config_.links_to_exclude;
 
   const GraphNodeSet nodes = graph_storage->AllNodes();
   for (GraphNodeIndex node : nodes) {
-    if (nodes_to_exclude && nodes_to_exclude->Contains(node)) {
+    if (config_.CanExcludeNode(node)) {
       continue;
     }
 
@@ -74,7 +72,7 @@ void AllPairShortestPath::ComputePaths() {
   }
 
   for (GraphLinkIndex link : graph_storage->AllLinks()) {
-    if (links_to_exclude && links_to_exclude->Contains(link)) {
+    if (config_.CanExcludeLink(link)) {
       continue;
     }
 
@@ -151,16 +149,14 @@ void DFS::PathsRecursive(Delay max_distance, size_t max_hops, GraphNodeIndex at,
   const auto& adjacency_list = graph_->AdjacencyList();
   const std::vector<GraphLinkIndex>& outgoing_links = adjacency_list[at];
 
-  const GraphNodeSet* nodes_to_exclude = config_.nodes_to_exclude;
-  const GraphLinkSet* links_to_exclude = config_.links_to_exclude;
   for (GraphLinkIndex out_link : outgoing_links) {
-    if (links_to_exclude && links_to_exclude->Contains(out_link)) {
+    if (config_.CanExcludeLink(out_link)) {
       continue;
     }
 
     const GraphLink* next_link = storage_->GetLink(out_link);
     GraphNodeIndex next_hop = next_link->dst();
-    if (nodes_to_exclude && nodes_to_exclude->Contains(next_hop)) {
+    if (config_.CanExcludeNode(next_hop)) {
       continue;
     }
 
@@ -205,10 +201,7 @@ void ShortestPath::ComputePaths() {
   const GraphNodeMap<std::vector<GraphLinkIndex>>& adjacency_list =
       graph_->AdjacencyList();
   const GraphStorage* graph_storage = graph_->graph_storage();
-  const GraphNodeSet* nodes_to_exclude = config_.nodes_to_exclude;
-  const GraphLinkSet* links_to_exclude = config_.links_to_exclude;
-
-  if (nodes_to_exclude && nodes_to_exclude->Contains(src_)) {
+  if (config_.CanExcludeNode(src_)) {
     return;
   }
 
@@ -227,18 +220,19 @@ void ShortestPath::ComputePaths() {
     }
 
     if (distance > min_delays_[current].distance) {
+      // Bogus leftover node, since we never delete nodes from the heap.
       continue;
     }
 
     const std::vector<GraphLinkIndex>& neighbors = adjacency_list[current];
     for (GraphLinkIndex out_link : neighbors) {
-      if (links_to_exclude && links_to_exclude->Contains(out_link)) {
+      if (config_.CanExcludeLink(out_link)) {
         continue;
       }
 
       const GraphLink* out_link_ptr = graph_storage->GetLink(out_link);
       GraphNodeIndex neighbor_node = out_link_ptr->dst();
-      if (nodes_to_exclude && nodes_to_exclude->Contains(neighbor_node)) {
+      if (config_.CanExcludeNode(neighbor_node)) {
         continue;
       }
 
@@ -277,10 +271,9 @@ LinkSequence WaypointShortestPath(const GraphSearchAlgorithmConfig& config,
 
   // As new paths are discovered nodes will be added to this set to make sure
   // the next paths do not include any nodes from previous paths.
+  GraphSearchAlgorithmConfig config_copy = config;
   GraphNodeSet nodes_to_exclude;
-  if (config.nodes_to_exclude) {
-    nodes_to_exclude = *config.nodes_to_exclude;
-  }
+  config_copy.AddToExcludeNodes(&nodes_to_exclude);
 
   // The shortest path is the combination of the shortest paths between the
   // nodes that we have to visit.
@@ -294,11 +287,7 @@ LinkSequence WaypointShortestPath(const GraphSearchAlgorithmConfig& config,
     const GraphLink* link_ptr = graph_storage->GetLink(link);
 
     if (src != link_ptr->src()) {
-      GraphSearchAlgorithmConfig sp_config;
-      sp_config.links_to_exclude = config.links_to_exclude;
-      sp_config.nodes_to_exclude = &nodes_to_exclude;
-
-      ShortestPath sp(sp_config, current_point, graph);
+      ShortestPath sp(config_copy, current_point, graph);
       LinkSequence pathlet = sp.GetPath(link_ptr->src());
       if (pathlet.empty()) {
         return {};
@@ -315,11 +304,7 @@ LinkSequence WaypointShortestPath(const GraphSearchAlgorithmConfig& config,
 
   if (current_point != dst) {
     // Have to connect the last hop with the destination.
-    GraphSearchAlgorithmConfig sp_config;
-    sp_config.links_to_exclude = config.links_to_exclude;
-    sp_config.nodes_to_exclude = &nodes_to_exclude;
-
-    ShortestPath sp(sp_config, current_point, graph);
+    ShortestPath sp(config_copy, current_point, graph);
     LinkSequence pathlet = sp.GetPath(dst);
     if (pathlet.empty()) {
       return {};
@@ -355,15 +340,11 @@ LinkSequence KShortestPaths::NextPath() {
   const Links& last_path_links = last_path.links();
   size_t start_index = last_path_and_start_index.second;
 
-  GraphNodeSet nodes_to_exclude;
-  if (config_.nodes_to_exclude) {
-    nodes_to_exclude = *config_.nodes_to_exclude;
-  }
-
+  GraphSearchAlgorithmConfig config_copy = config_;
   GraphLinkSet links_to_exclude;
-  if (config_.links_to_exclude) {
-    links_to_exclude = *config_.links_to_exclude;
-  }
+  GraphNodeSet nodes_to_exclude;
+  config_copy.AddToExcludeLinks(&links_to_exclude);
+  config_copy.AddToExcludeNodes(&nodes_to_exclude);
 
   Links root_path;
   for (size_t i = 0; i < last_path_links.size(); ++i) {
@@ -376,15 +357,9 @@ LinkSequence KShortestPaths::NextPath() {
       continue;
     }
 
-    GraphLinkSet link_exclusion_set = GetLinkExclusionSet(root_path);
-    links_to_exclude.InsertAll(link_exclusion_set);
-
-    GraphSearchAlgorithmConfig config;
-    config.links_to_exclude = &links_to_exclude;
-    config.nodes_to_exclude = &nodes_to_exclude;
-
+    GetLinkExclusionSet(root_path, &links_to_exclude);
     LinkSequence spur_path =
-        WaypointShortestPath(config, waypoints_, spur_node, dst_, graph_);
+        WaypointShortestPath(config_copy, waypoints_, spur_node, dst_, graph_);
     if (!spur_path.empty()) {
       const Links& spur_path_links = spur_path.links();
 
@@ -396,7 +371,7 @@ LinkSequence KShortestPaths::NextPath() {
       candidates_.emplace(candidate_path, i);
     }
 
-    links_to_exclude.RemoveAll(link_exclusion_set);
+    links_to_exclude.Clear();
     nodes_to_exclude.Insert(spur_node);
     root_path.emplace_back(link_index);
   }
@@ -422,8 +397,8 @@ bool KShortestPaths::HasPrefix(const Links& path, const Links& prefix) {
   return true;
 }
 
-GraphLinkSet KShortestPaths::GetLinkExclusionSet(const Links& root_path) {
-  GraphLinkSet out;
+void KShortestPaths::GetLinkExclusionSet(const Links& root_path,
+                                         GraphLinkSet* out) {
   for (const PathAndStartIndex& k_path_and_start_index : k_paths_) {
     const LinkSequence& k_path = k_path_and_start_index.first;
     if (k_path.size() < root_path.size()) {
@@ -433,11 +408,9 @@ GraphLinkSet KShortestPaths::GetLinkExclusionSet(const Links& root_path) {
     const Links& k_path_links = k_path.links();
     if (HasPrefix(k_path_links, root_path)) {
       CHECK(k_path_links.size() > root_path.size());
-      out.Insert(k_path_links[root_path.size()]);
+      out->Insert(k_path_links[root_path.size()]);
     }
   }
-
-  return out;
 }
 
 }  // namespace net
