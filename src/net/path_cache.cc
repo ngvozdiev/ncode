@@ -48,9 +48,10 @@ const std::vector<net::LinkSequence>& IngressEgressPathCache::CacheAll() {
   return paths_;
 }
 
-std::unique_ptr<ShortestPathGenerator> IngressEgressPathCache::PathGenerator() {
+std::unique_ptr<ShortestPathGenerator> IngressEgressPathCache::PathGenerator(
+    const GraphLinkSet* to_exclude) {
   return constraint_->PathGenerator(*graph_, std::get<0>(ie_key_),
-                                    std::get<1>(ie_key_));
+                                    std::get<1>(ie_key_), to_exclude);
 }
 
 PathCache::PathCache(const PathCacheConfig& path_cache_config,

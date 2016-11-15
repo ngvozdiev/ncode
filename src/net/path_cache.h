@@ -27,15 +27,17 @@ struct PathCacheConfig {
 class IngressEgressPathCache {
  public:
   // Will return the lowest delay path.
-  const GraphPath* GetLowestDelayPath() {
-    auto gen = PathGenerator();
+  const GraphPath* GetLowestDelayPath(
+      const GraphLinkSet* to_exclude = nullptr) {
+    auto gen = PathGenerator(to_exclude);
     return path_storage_->PathFromLinksOrDie(gen->NextPath(),
                                              std::get<2>(ie_key_));
   }
 
   // Will return the K lowest delay paths.
-  std::vector<const GraphPath*> GetKLowestDelayPaths(size_t k) {
-    auto gen = PathGenerator();
+  std::vector<const GraphPath*> GetKLowestDelayPaths(
+      size_t k, const GraphLinkSet* to_exclude = nullptr) {
+    auto gen = PathGenerator(to_exclude);
     std::vector<const GraphPath*> paths;
     for (size_t i = 0; i < k; ++i) {
       LinkSequence next_link_seq = gen->NextPath();
@@ -75,7 +77,8 @@ class IngressEgressPathCache {
       : IngressEgressPathCache(path_cache_config, ie_key, DummyConstraint(),
                                graph, path_storage) {}
 
-  std::unique_ptr<ShortestPathGenerator> PathGenerator();
+  std::unique_ptr<ShortestPathGenerator> PathGenerator(
+      const GraphLinkSet* to_exclude);
 
   const PathCacheConfig path_cache_config_;
   const IngressEgressKey ie_key_;

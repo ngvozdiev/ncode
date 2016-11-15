@@ -38,9 +38,9 @@ TEST_F(ConstraintTest, Dummy) {
   ASSERT_TRUE(dummy->PathComplies({}));
 
   ASSERT_EQ(GetPath("[A->C, C->D]"),
-            dummy->PathGenerator(graph_, a_, d_)->NextPath());
+            dummy->PathGenerator(graph_, a_, d_, nullptr)->NextPath());
   ASSERT_EQ(GetPath("[D->B, B->C]"),
-            dummy->PathGenerator(graph_, d_, c_)->NextPath());
+            dummy->PathGenerator(graph_, d_, c_, nullptr)->NextPath());
 }
 
 TEST_F(ConstraintTest, ConjunctionAvoidOne) {
@@ -48,9 +48,9 @@ TEST_F(ConstraintTest, ConjunctionAvoidOne) {
   Conjunction conjunction({bc}, {});
 
   ASSERT_EQ(GetPath("[D->C]"),
-            conjunction.PathGenerator(graph_, d_, c_)->NextPath());
+            conjunction.PathGenerator(graph_, d_, c_, nullptr)->NextPath());
   ASSERT_EQ(GetPath("[B->A, A->C]"),
-            conjunction.PathGenerator(graph_, b_, c_)->NextPath());
+            conjunction.PathGenerator(graph_, b_, c_, nullptr)->NextPath());
 }
 
 TEST_F(ConstraintTest, ConjunctionVisitOne) {
@@ -58,11 +58,11 @@ TEST_F(ConstraintTest, ConjunctionVisitOne) {
   Conjunction conjunction({}, {dc});
 
   ASSERT_EQ(GetPath("[D->C]"),
-            conjunction.PathGenerator(graph_, d_, c_)->NextPath());
+            conjunction.PathGenerator(graph_, d_, c_, nullptr)->NextPath());
   ASSERT_EQ(GetPath("[B->D, D->C, C->A]"),
-            conjunction.PathGenerator(graph_, b_, a_)->NextPath());
+            conjunction.PathGenerator(graph_, b_, a_, nullptr)->NextPath());
   ASSERT_EQ(LinkSequence(),
-            conjunction.PathGenerator(graph_, a_, b_)->NextPath());
+            conjunction.PathGenerator(graph_, a_, b_, nullptr)->NextPath());
 }
 
 }  // namespace

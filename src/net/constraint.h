@@ -34,8 +34,8 @@ class Constraint {
   // Returns an object that can be used to get compliant paths in order of
   // increasing delay.
   virtual std::unique_ptr<ShortestPathGenerator> PathGenerator(
-      const SimpleDirectedGraph& graph, GraphNodeIndex src,
-      GraphNodeIndex dst) const = 0;
+      const SimpleDirectedGraph& graph, GraphNodeIndex src, GraphNodeIndex dst,
+      const GraphLinkSet* to_exclude) const = 0;
 
   virtual std::string ToString(const net::GraphStorage* storage) const = 0;
 
@@ -54,8 +54,8 @@ class Conjunction : public Constraint {
   bool PathComplies(const net::LinkSequence& link_sequence) const override;
 
   std::unique_ptr<ShortestPathGenerator> PathGenerator(
-      const SimpleDirectedGraph& graph, GraphNodeIndex src,
-      GraphNodeIndex dst) const override;
+      const SimpleDirectedGraph& graph, GraphNodeIndex src, GraphNodeIndex dst,
+      const GraphLinkSet* to_exclude) const override;
 
   std::string ToString(const net::GraphStorage* storage) const override;
 
@@ -80,8 +80,8 @@ class Disjunction : public Constraint {
   bool PathComplies(const net::LinkSequence& link_sequence) const override;
 
   std::unique_ptr<ShortestPathGenerator> PathGenerator(
-      const SimpleDirectedGraph& graph, GraphNodeIndex src,
-      GraphNodeIndex dst) const override;
+      const SimpleDirectedGraph& graph, GraphNodeIndex src, GraphNodeIndex dst,
+      const GraphLinkSet* to_exclude) const override;
 
   std::string ToString(const net::GraphStorage* storage) const override;
 

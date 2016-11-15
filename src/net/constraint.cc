@@ -48,10 +48,14 @@ class KSPathGenerator : public ShortestPathGenerator {
 };
 
 std::unique_ptr<ShortestPathGenerator> Conjunction::PathGenerator(
-    const SimpleDirectedGraph& graph, GraphNodeIndex src,
-    GraphNodeIndex dst) const {
+    const SimpleDirectedGraph& graph, GraphNodeIndex src, GraphNodeIndex dst,
+    const GraphLinkSet* to_exclude) const {
   KSPathGenerator* generator = new KSPathGenerator();
   GraphSearchAlgorithmConfig config;
+  if (to_exclude && !to_exclude->Empty()) {
+    config.AddToExcludeLinks(to_exclude);
+  }
+
   if (!to_exclude_.Empty()) {
     generator->to_exclude_ = to_exclude_;
     config.AddToExcludeLinks(&generator->to_exclude_);
@@ -147,11 +151,12 @@ class DisjunctionPathGenerator : public ShortestPathGenerator {
 };
 
 std::unique_ptr<ShortestPathGenerator> Disjunction::PathGenerator(
-    const SimpleDirectedGraph& graph, GraphNodeIndex src,
-    GraphNodeIndex dst) const {
+    const SimpleDirectedGraph& graph, GraphNodeIndex src, GraphNodeIndex dst,
+    const GraphLinkSet* to_exclude) const {
   std::vector<std::unique_ptr<ShortestPathGenerator>> generators;
   for (const auto& conjunction : conjunctions_) {
-    generators.emplace_back(conjunction->PathGenerator(graph, src, dst));
+    generators.emplace_back(
+        conjunction->PathGenerator(graph, src, dst, to_exclude));
   }
 
   return std::unique_ptr<ShortestPathGenerator>(
