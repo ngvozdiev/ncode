@@ -136,8 +136,8 @@ TEST(Random, Random) {
                                 Bandwidth::FromBitsPerSecond(1000),
                                 Bandwidth::FromBitsPerSecond(3000), &random);
 
-  // There should be roughly 1000 * 999 * 0.1 links.
-  ASSERT_NEAR(1000 * 999 * 0.1, net_pb.links_size(), 1000);
+  // There should be roughly 101000 links.
+  ASSERT_NEAR(101000, net_pb.links_size(), 1000);
 
   double delay_sum = 0;
   uint64_t bw_sum = 0;

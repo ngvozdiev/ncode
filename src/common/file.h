@@ -106,6 +106,9 @@ class File {
     return ReadFileToString(name, output);
   }
 
+  static bool ReadLines(const std::string& name,
+                        std::function<void(const std::string& line)> callback);
+
   static bool SetContents(const std::string& name, const std::string& contents,
                           bool /*is_default*/) {
     return WriteStringToFile(contents, name);

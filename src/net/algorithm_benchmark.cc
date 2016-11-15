@@ -41,9 +41,24 @@ int main(int argc, char** argv) {
   now = high_resolution_clock::now();
   std::vector<net::LinkSequence> paths;
   dfs.Paths(
-      london_node, osaka_node, duration_cast<net::Delay>(seconds(1)), 10,
+      london_node, osaka_node, duration_cast<net::Delay>(seconds(1)), 20,
       [&paths](const net::LinkSequence& path) { paths.emplace_back(path); });
   later = high_resolution_clock::now();
   duration = duration_cast<milliseconds>(later - now);
+  std::sort(paths.begin(), paths.end());
   LOG(ERROR) << paths.size() << " paths in " << duration.count() << "ms";
+
+  now = high_resolution_clock::now();
+  std::vector<net::LinkSequence> k_paths;
+  net::KShortestPaths ksp({}, {}, london_node, osaka_node, &graph);
+  for (size_t i = 0; i < 1000; ++i) {
+    k_paths.emplace_back(ksp.NextPath());
+  }
+  later = high_resolution_clock::now();
+  duration = duration_cast<milliseconds>(later - now);
+  LOG(ERROR) << "1000 shortest paths in " << duration.count() << "ms";
+
+  for (size_t i = 0; i < 1000; ++i) {
+    CHECK(k_paths[i] == paths[i]) << i << "th shortest path differs";
+  }
 }

@@ -27,17 +27,31 @@ struct PathCacheConfig {
 class IngressEgressPathCache {
  public:
   // Will return the lowest delay path.
-  const GraphPath* GetLowestDelayPath(const GraphLinkSet& to_avoid,
-                                      bool* avoids);
+  const GraphPath* GetLowestDelayPath() {
+    auto gen = PathGenerator();
+    return path_storage_->PathFromLinksOrDie(gen->NextPath(),
+                                             std::get<2>(ie_key_));
+  }
 
   // Will return the K lowest delay paths.
-  std::vector<const GraphPath*> GetKLowestDelayPaths(
-      size_t k, const GraphLinkSet& to_avoid, bool* avoids);
+  std::vector<const GraphPath*> GetKLowestDelayPaths(size_t k) {
+    auto gen = PathGenerator();
+    std::vector<const GraphPath*> paths;
+    for (size_t i = 0; i < k; ++i) {
+      LinkSequence next_link_seq = gen->NextPath();
+      const GraphPath* next_path = path_storage_->PathFromLinksOrDie(
+          next_link_seq, std::get<2>(ie_key_));
+      if (!next_path->empty()) {
+        paths.emplace_back(next_path);
+      }
+    }
+
+    return paths;
+  }
 
   // Will return the lowest delay path (P) and any paths that are up to
   // hop_count(P) + k hops long.
-  std::vector<const GraphPath*> GetPathsKHopsFromLowestDelay(
-      size_t k, const GraphLinkSet& to_avoid, bool* avoids);
+  std::vector<const GraphPath*> GetPathsKHopsFromLowestDelay(size_t k);
 
   // Caches all paths between the source and the destination.
   const std::vector<net::LinkSequence>& CacheAll();
@@ -58,16 +72,17 @@ class IngressEgressPathCache {
                          const IngressEgressKey& ie_key,
                          const SimpleDirectedGraph* graph,
                          PathStorage* path_storage)
-      : IngressEgressPathCache(path_cache_config, ie_key,
-                               make_unique<DummyConstraint>(), graph,
-                               path_storage) {}
+      : IngressEgressPathCache(path_cache_config, ie_key, DummyConstraint(),
+                               graph, path_storage) {}
+
+  std::unique_ptr<ShortestPathGenerator> PathGenerator();
 
   const PathCacheConfig path_cache_config_;
   const IngressEgressKey ie_key_;
   const SimpleDirectedGraph* graph_;
   PathStorage* path_storage_;
 
-  // Optional constraint.
+  // Constraint.
   std::unique_ptr<Constraint> constraint_;
 
   // Paths, ordered in increasing delay.

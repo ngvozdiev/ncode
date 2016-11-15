@@ -36,7 +36,7 @@ TEST(AllPairShortestPath, SingleLink) {
   SimpleDirectedGraph graph(&graph_storage);
   AllPairShortestPath all_pair_sp({}, &graph);
   ShortestPath sp({}, node_a, &graph);
-  KShortestPaths ksp({}, node_a, node_b, &graph);
+  KShortestPaths ksp({}, {}, node_a, node_b, &graph);
 
   Links model;
   ASSERT_EQ(model, all_pair_sp.GetPath(node_b, node_a).links());
@@ -69,7 +69,7 @@ TEST(AllPairShortestPath, ShortPath) {
   SimpleDirectedGraph graph(&graph_storage);
   AllPairShortestPath all_pair_sp({}, &graph);
   ShortestPath sp({}, node_a, &graph);
-  KShortestPaths ksp({}, node_a, node_c, &graph);
+  KShortestPaths ksp({}, {}, node_a, node_c, &graph);
 
   Links model;
   ASSERT_EQ(model, all_pair_sp.GetPath(node_b, node_a).links());
@@ -99,7 +99,7 @@ TEST(AllPairShortestPath, ShorterPath) {
   SimpleDirectedGraph graph(&graph_storage);
   AllPairShortestPath all_pair_sp({}, &graph);
   ShortestPath sp({}, node_a, &graph);
-  KShortestPaths ksp({}, node_a, node_d, &graph);
+  KShortestPaths ksp({}, {}, node_a, node_d, &graph);
 
   Links model = {link_ad};
   ASSERT_EQ(model, all_pair_sp.GetPath(node_a, node_d).links());
@@ -127,12 +127,13 @@ TEST(AllPairShortestPath, ShortPathMask) {
   GraphLinkIndex link_ab = graph_storage.LinkOrDie("A", "B");
   GraphLinkIndex link_bc = graph_storage.LinkOrDie("B", "C");
 
-  DeprefSearchAlgorithmArgs args;
-  args.links_to_exclude = {link_ab};
+  GraphLinkSet links_to_exclude = {link_ab};
+  GraphSearchAlgorithmConfig config;
+  config.links_to_exclude = &links_to_exclude;
 
   SimpleDirectedGraph graph(&graph_storage);
-  AllPairShortestPath all_pair_sp(args, &graph);
-  ShortestPath sp(args, node_a, &graph);
+  AllPairShortestPath all_pair_sp(config, &graph);
+  ShortestPath sp(config, node_a, &graph);
 
   Links model;
   ASSERT_EQ(model, all_pair_sp.GetPath(node_a, node_c).links());
@@ -235,7 +236,7 @@ TEST(KShortest, Braess) {
   GraphLinkIndex link_bd = graph_storage.LinkOrDie("B", "D");
 
   SimpleDirectedGraph graph(&graph_storage);
-  KShortestPaths ksp({}, node_a, node_d, &graph);
+  KShortestPaths ksp({}, {}, node_a, node_d, &graph);
 
   std::vector<Links> model_paths = {
       {link_ac, link_cd}, {link_ab, link_bd}, {link_ab, link_bc, link_cd}};

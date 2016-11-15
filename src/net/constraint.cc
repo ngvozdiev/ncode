@@ -33,77 +33,31 @@ bool Conjunction::PathComplies(const net::LinkSequence& link_sequence) const {
   return visited_index == to_visit_.size();
 }
 
-void Conjunction::AddFromPath(const SimpleDirectedGraph& graph,
-                              const LinkSequence& path, Links* out,
-                              GraphNodeSet* nodes) {
-  const GraphStorage* graph_storage = graph.graph_storage();
-  for (GraphLinkIndex link_in_path : path.links()) {
-    const GraphLink* link_ptr = graph_storage->GetLink(link_in_path);
+// Thin wrapper around a KShortestPaths instance
+class KSPathGenerator : public ShortestPathGenerator {
+ public:
+  net::LinkSequence NextPath() { return k_shortest_paths_->NextPath(); }
 
-    out->emplace_back(link_in_path);
-    nodes->Insert(link_ptr->src());
-    nodes->Insert(link_ptr->dst());
-  }
-}
+ private:
+  KSPathGenerator() {}
 
-net::LinkSequence Conjunction::ShortestCompliantPath(
-    const SimpleDirectedGraph& graph, const GraphLinkSet& to_avoid,
-    GraphNodeIndex src, GraphNodeIndex dst, bool* avoids) const {
-  CHECK(src != dst);
+  GraphLinkSet to_exclude_;
+  std::unique_ptr<KShortestPaths> k_shortest_paths_;
 
-  DeprefSearchAlgorithmArgs args;
-  args.links_to_exclude = to_exclude_;
+  friend class Conjunction;
+};
 
-  // As new paths are discovered nodes will be added to this set to make sure
-  // the next paths do not include any nodes from previous paths.
-  GraphNodeSet nodes_to_avoid;
+std::unique_ptr<ShortestPathGenerator> Conjunction::PathGenerator(
+    const SimpleDirectedGraph& graph, GraphNodeIndex src,
+    GraphNodeIndex dst) const {
+  KSPathGenerator* generator = new KSPathGenerator();
+  generator->to_exclude_ = to_exclude_;
 
-  // The shortest path is the combination of the shortest paths between the
-  // nodes that we have to visit.
-  GraphNodeIndex current_point = src;
-  Links path;
-  Delay total_delay = Delay::zero();
-  for (GraphLinkIndex link : to_visit_) {
-    // The next SP is that between the current point and the source of the
-    // edge, the path is then concatenated with the edge and the current point
-    // is set to the end of the edge.
-    const GraphLink* link_ptr = graph.graph_storage()->GetLink(link);
-
-    if (src != link_ptr->src()) {
-      args.links_to_depref = to_avoid;
-      args.nodes_to_exclude = nodes_to_avoid;
-
-      ShortestPath sp(args, current_point, &graph);
-      LinkSequence pathlet = sp.GetPath(link_ptr->src(), avoids);
-      if (pathlet.empty()) {
-        return {};
-      }
-
-      AddFromPath(graph, pathlet, &path, &nodes_to_avoid);
-      total_delay += pathlet.delay();
-    }
-
-    path.emplace_back(link);
-    total_delay += link_ptr->delay();
-    current_point = link_ptr->dst();
-  }
-
-  if (current_point != dst) {
-    // Have to connect the last hop with the destination.
-    args.links_to_depref = to_avoid;
-    args.nodes_to_exclude = nodes_to_avoid;
-
-    ShortestPath sp(args, current_point, &graph);
-    LinkSequence pathlet = sp.GetPath(dst, avoids);
-    if (pathlet.empty()) {
-      return {};
-    }
-
-    AddFromPath(graph, pathlet, &path, &nodes_to_avoid);
-    total_delay += pathlet.delay();
-  }
-
-  return LinkSequence(path, total_delay);
+  GraphSearchAlgorithmConfig config;
+  config.links_to_exclude = &generator->to_exclude_;
+  generator->k_shortest_paths_ =
+      make_unique<KShortestPaths>(config, to_visit_, src, dst, &graph);
+  return std::unique_ptr<ShortestPathGenerator>(generator);
 }
 
 std::string Conjunction::ToString(const net::GraphStorage* storage) const {
@@ -133,30 +87,73 @@ bool Disjunction::PathComplies(const net::LinkSequence& link_sequence) const {
   return false;
 }
 
-net::LinkSequence Disjunction::ShortestCompliantPath(
-    const SimpleDirectedGraph& graph, const GraphLinkSet& to_avoid,
-    GraphNodeIndex src, GraphNodeIndex dst, bool* avoids) const {
-  // To produce the shortest compliant path we have to consider the shortest
-  // paths of all conjunctions.
-  net::LinkSequence candidate;
-  bool candidate_avoids = false;
-  for (const auto& conjunction : conjunctions_) {
-    bool tmp_avoids = true;
-    net::LinkSequence conjunction_sp = conjunction->ShortestCompliantPath(
-        graph, to_avoid, src, dst, &tmp_avoids);
-    if (tmp_avoids == candidate_avoids) {
-      if (!conjunction_sp.empty() &&
-          conjunction_sp.delay() < candidate.delay()) {
-        candidate = conjunction_sp;
+// A collection of generators, that are all polled and the least path is
+// returned.
+class DisjunctionPathGenerator : public ShortestPathGenerator {
+ public:
+  LinkSequence NextPath() {
+    if (queue_.empty()) {
+      return {};
+    }
+
+    PathGenAndPath top = queue_.top();
+    queue_.pop();
+
+    CHECK(!top.candidate.empty());
+    LinkSequence to_return = std::move(top.candidate);
+
+    top.candidate = top.generator->NextPath();
+    if (!top.candidate.empty()) {
+      queue_.push(top);
+    }
+    return to_return;
+  }
+
+ private:
+  struct PathGenAndPath {
+    PathGenAndPath(ShortestPathGenerator* generator, LinkSequence candidate)
+        : generator(generator), candidate(candidate) {}
+
+    ShortestPathGenerator* generator;
+    LinkSequence candidate;
+  };
+
+  struct Comparator {
+    bool operator()(const PathGenAndPath& lhs, const PathGenAndPath& rhs) {
+      return lhs.candidate.delay() < rhs.candidate.delay();
+    }
+  };
+
+  DisjunctionPathGenerator(
+      std::vector<std::unique_ptr<ShortestPathGenerator>>* generators)
+      : generators_(std::move(*generators)) {
+    for (const auto& generator_ptr : generators_) {
+      LinkSequence next_path = generator_ptr->NextPath();
+      if (next_path.empty()) {
+        continue;
       }
-    } else if (tmp_avoids) {
-      candidate = conjunction_sp;
-      candidate_avoids = true;
+
+      queue_.emplace(generator_ptr.get(), next_path);
     }
   }
 
-  *avoids = candidate_avoids;
-  return candidate;
+  std::priority_queue<PathGenAndPath, std::vector<PathGenAndPath>, Comparator>
+      queue_;
+  std::vector<std::unique_ptr<ShortestPathGenerator>> generators_;
+
+  friend class Disjunction;
+};
+
+std::unique_ptr<ShortestPathGenerator> Disjunction::PathGenerator(
+    const SimpleDirectedGraph& graph, GraphNodeIndex src,
+    GraphNodeIndex dst) const {
+  std::vector<std::unique_ptr<ShortestPathGenerator>> generators;
+  for (const auto& conjunction : conjunctions_) {
+    generators.emplace_back(conjunction->PathGenerator(graph, src, dst));
+  }
+
+  return std::unique_ptr<ShortestPathGenerator>(
+      new DisjunctionPathGenerator(&generators));
 }
 
 std::string Disjunction::ToString(const net::GraphStorage* storage) const {
@@ -168,26 +165,10 @@ std::string Disjunction::ToString(const net::GraphStorage* storage) const {
   return out;
 }
 
-bool DummyConstraint::PathComplies(
-    const net::LinkSequence& link_sequence) const {
-  Unused(link_sequence);
-  return true;
-}
-
-net::LinkSequence DummyConstraint::ShortestCompliantPath(
-    const SimpleDirectedGraph& graph, const GraphLinkSet& to_avoid,
-    GraphNodeIndex src, GraphNodeIndex dst, bool* avoids) const {
-  DeprefSearchAlgorithmArgs args;
-  args.links_to_depref = to_avoid;
-
-  AllPairShortestPath sp(args, &graph);
-  LinkSequence links = sp.GetPath(src, dst, avoids);
-  return links;
-}
-
-std::string DummyConstraint::ToString(const net::GraphStorage* storage) const {
-  Unused(storage);
-  return "[DUMMY]";
+std::unique_ptr<Constraint> DummyConstraint() {
+  GraphLinkSet set;
+  Links to_visit;
+  return make_unique<Conjunction>(set, to_visit);
 }
 
 }  // namespace net

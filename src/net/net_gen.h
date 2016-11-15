@@ -25,7 +25,7 @@ PBNet GenerateNTT(Delay delay_add = Delay(0), double delay_multiply = 1.0,
 
 // Generates a full graph of a given size. Each node will be named Ni for i in
 // [0, size).
-net::PBNet GenerateFullGraph(uint32_t size, Bandwidth bw, Delay delay);
+PBNet GenerateFullGraph(uint32_t size, Bandwidth bw, Delay delay);
 
 // Generates a ladder-like topology. All links have the same rate and delay.
 // Nodes will be named Ni for i in [0, ...]. Odd nodes will be on one side
@@ -34,20 +34,26 @@ net::PBNet GenerateFullGraph(uint32_t size, Bandwidth bw, Delay delay);
 // element will be the delay of the middle connecting link for the respective
 // level. With 1 level this is a line, 2 levels a hexagon, 3 levels two hexagons
 // attached etc.
-net::PBNet GenerateLadder(size_t levels, Bandwidth rate_bps, Delay delay,
-                          const std::vector<Delay>& central_delays = {});
+PBNet GenerateLadder(size_t levels, Bandwidth rate_bps, Delay delay,
+                     const std::vector<Delay>& central_delays = {});
 
 // Generates a random graph with N nodes. Each of the n * (n - 1) edges has a
 // uniform probability of edge_prob of being part of the graph. If this is set
 // to 1.0 the graph will be a full graph. Each edge's delay and bandwidth will
 // be picked at uniform from the given ranges. Nodes will be named Ni for i in
 // [0, N).
-net::PBNet GenerateRandom(size_t n, double edge_prob, Delay delay_min,
-                          Delay delay_max, Bandwidth bw_bps_min,
-                          Bandwidth bw_bps_max, std::mt19937* generator);
+PBNet GenerateRandom(size_t n, double edge_prob, Delay delay_min,
+                     Delay delay_max, Bandwidth bw_bps_min,
+                     Bandwidth bw_bps_max, std::mt19937* generator);
 
 // A simple Braess paradox-like topology used for testing.
-net::PBNet GenerateBraess(Bandwidth bw);
+PBNet GenerateBraess(Bandwidth bw);
+
+// Generates one of the Rocketfuel topologies.
+enum RocketfuelTopology { AS1221, AS1239, AS1755, AS3257, AS3967, AS6461 };
+PBNet GenerateRocketfuel(RocketfuelTopology topology, Bandwidth bw,
+                         Delay delay_add = Delay(0),
+                         double delay_multiply = 1.0);
 
 }  // namespace net
 }  // namespace ncode

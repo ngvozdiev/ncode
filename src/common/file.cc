@@ -248,4 +248,19 @@ std::string File::PickFileName(const std::string& dir, size_t len) {
   }
 }
 
+bool File::ReadLines(const std::string& name,
+                     std::function<void(const std::string& line)> callback) {
+  std::ifstream infile(name);
+  if (infile.fail()) {
+    return false;
+  }
+
+  std::string line;
+  while (std::getline(infile, line)) {
+    callback(line);
+  }
+
+  return true;
+}
+
 }  // namespace ncode

@@ -9,62 +9,12 @@
 namespace ncode {
 namespace net {
 
-const GraphPath* IngressEgressPathCache::GetLowestDelayPath(
-    const GraphLinkSet& to_avoid, bool* avoids) {
-  net::LinkSequence shortest_path = constraint_->ShortestCompliantPath(
-      *graph_, to_avoid, std::get<0>(ie_key_), std::get<1>(ie_key_), avoids);
-  return path_storage_->PathFromLinksOrDie(shortest_path, std::get<2>(ie_key_));
-}
-
-static bool PathContainsAnyOfLinks(const GraphLinkSet& to_avoid,
-                                   const LinkSequence& path) {
-  for (GraphLinkIndex link : path.links()) {
-    if (to_avoid.Contains(link)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-std::vector<const GraphPath*> IngressEgressPathCache::GetKLowestDelayPaths(
-    size_t k, const GraphLinkSet& to_avoid, bool* avoids) {
-  CHECK(avoids == nullptr) << "Not supported yet";
-  std::vector<const GraphPath*> return_vector;
-  if (k == 0) {
-    return return_vector;
-  }
-
-  return_vector.reserve(k);
-  CacheAll();
-
-  for (const auto& path : paths_) {
-    if (!constraint_->PathComplies(path)) {
-      continue;
-    }
-
-    if (PathContainsAnyOfLinks(to_avoid, path)) {
-      continue;
-    }
-
-    return_vector.emplace_back(
-        path_storage_->PathFromLinksOrDie(path, std::get<2>(ie_key_)));
-    if (return_vector.size() == k) {
-      break;
-    }
-  }
-
-  return return_vector;
-}
-
 std::vector<const GraphPath*>
-IngressEgressPathCache::GetPathsKHopsFromLowestDelay(
-    size_t k, const GraphLinkSet& to_avoid, bool* avoids) {
-  CHECK(avoids == nullptr) << "Not supported yet";
+IngressEgressPathCache::GetPathsKHopsFromLowestDelay(size_t k) {
   std::vector<const GraphPath*> return_vector;
   CacheAll();
 
-  const GraphPath* shortest_path = GetLowestDelayPath(to_avoid, avoids);
+  const GraphPath* shortest_path = GetLowestDelayPath();
   size_t shortest_path_hop_count = shortest_path->size();
   size_t limit = shortest_path_hop_count + k;
 
@@ -74,10 +24,6 @@ IngressEgressPathCache::GetPathsKHopsFromLowestDelay(
     }
 
     if (!constraint_->PathComplies(path)) {
-      continue;
-    }
-
-    if (PathContainsAnyOfLinks(to_avoid, path)) {
       continue;
     }
 
@@ -100,6 +46,11 @@ const std::vector<net::LinkSequence>& IngressEgressPathCache::CacheAll() {
   std::sort(paths_.begin(), paths_.end());
 
   return paths_;
+}
+
+std::unique_ptr<ShortestPathGenerator> IngressEgressPathCache::PathGenerator() {
+  return constraint_->PathGenerator(*graph_, std::get<0>(ie_key_),
+                                    std::get<1>(ie_key_));
 }
 
 PathCache::PathCache(const PathCacheConfig& path_cache_config,

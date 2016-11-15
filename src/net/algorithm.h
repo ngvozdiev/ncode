@@ -32,61 +32,41 @@ class SimpleDirectedGraph {
   GraphNodeMap<std::vector<GraphLinkIndex>> adjacency_list_;
 };
 
-struct GraphSearchAlgorithmArgs {
-  GraphLinkSet links_to_exclude;
-  GraphNodeSet nodes_to_exclude;
+struct GraphSearchAlgorithmConfig {
+  // Links/nodes that will be excluded from the graph.
+  const GraphLinkSet* links_to_exclude = nullptr;
+  const GraphNodeSet* nodes_to_exclude = nullptr;
 };
 
 class GraphSearchAlgorithm {
  protected:
-  GraphSearchAlgorithm(const GraphSearchAlgorithmArgs& args,
+  GraphSearchAlgorithm(const GraphSearchAlgorithmConfig& config,
                        const SimpleDirectedGraph* graph);
 
   // The graph.
   const SimpleDirectedGraph* graph_;
 
-  // To exclude.
-  GraphLinkSet links_to_exclude_;
-  GraphNodeSet nodes_to_exclude_;
-};
-
-struct DeprefSearchAlgorithmArgs : GraphSearchAlgorithmArgs {
-  GraphLinkSet links_to_depref;
-  GraphNodeSet nodes_to_depref;
-};
-
-class DeprefSearchAlgorithm : public GraphSearchAlgorithm {
- protected:
-  DeprefSearchAlgorithm(const DeprefSearchAlgorithmArgs& args,
-                        const SimpleDirectedGraph* graph);
-
-  // To depref.
-  GraphLinkSet links_to_depref_;
-  GraphNodeSet nodes_to_depref_;
-
-  // Cost to assign to depreffed links.
-  Delay depref_cost_;
+  // Configuration for the algorithm.
+  GraphSearchAlgorithmConfig config_;
 };
 
 // Computes shortest paths between all pairs of nodes, can also be used to
 // figure out if the graph is partitioned.
-class AllPairShortestPath : public DeprefSearchAlgorithm {
+class AllPairShortestPath : public GraphSearchAlgorithm {
  public:
-  AllPairShortestPath(const DeprefSearchAlgorithmArgs& args,
+  AllPairShortestPath(const GraphSearchAlgorithmConfig& config,
                       const SimpleDirectedGraph* graph)
-      : DeprefSearchAlgorithm(args, graph) {
+      : GraphSearchAlgorithm(config, graph) {
     ComputePaths();
   }
 
   // Returns the shortest path between src and dst. The second return value will
   // be set to false if the path fails to avoid all depref links/nodes,
   // otherwise unchanged.
-  LinkSequence GetPath(GraphNodeIndex src, GraphNodeIndex dst,
-                       bool* avoid_depref = nullptr) const;
+  LinkSequence GetPath(GraphNodeIndex src, GraphNodeIndex dst) const;
 
   // Returns the length of the shortest path between src and dst.
-  Delay GetDistance(GraphNodeIndex src, GraphNodeIndex dst,
-                    bool* avoid_depref = nullptr) const;
+  Delay GetDistance(GraphNodeIndex src, GraphNodeIndex dst) const;
 
  private:
   static constexpr Delay kMaxDistance = Delay::max();
@@ -110,16 +90,16 @@ class AllPairShortestPath : public DeprefSearchAlgorithm {
 };
 
 // Single source shortest path.
-class ShortestPath : public DeprefSearchAlgorithm {
+class ShortestPath : public GraphSearchAlgorithm {
  public:
-  ShortestPath(const DeprefSearchAlgorithmArgs& args, GraphNodeIndex src,
+  ShortestPath(const GraphSearchAlgorithmConfig& config, GraphNodeIndex src,
                const SimpleDirectedGraph* graph)
-      : DeprefSearchAlgorithm(args, graph), src_(src) {
+      : GraphSearchAlgorithm(config, graph), src_(src) {
     ComputePaths();
   }
 
   // Returns the shortest path to the destination.
-  LinkSequence GetPath(GraphNodeIndex dst, bool* avoid_depref = nullptr) const;
+  LinkSequence GetPath(GraphNodeIndex dst) const;
 
  private:
   struct DistanceFromSource {
@@ -139,23 +119,35 @@ class ShortestPath : public DeprefSearchAlgorithm {
   GraphNodeMap<DistanceFromSource> min_delays_;
 };
 
-class KShortestPaths : public DeprefSearchAlgorithm {
+// Returns the single shortest path that goes through a series of links in the
+// given order or returns an empty path if no such path exists.
+LinkSequence WaypointShortestPath(const GraphSearchAlgorithmConfig& config,
+                                  const Links& waypoints, GraphNodeIndex src,
+                                  GraphNodeIndex dst,
+                                  const SimpleDirectedGraph* graph);
+
+// K shortest paths that optionally go through a set of waypoints.
+class KShortestPaths : public GraphSearchAlgorithm {
  public:
-  KShortestPaths(const DeprefSearchAlgorithmArgs& args, GraphNodeIndex src,
-                 GraphNodeIndex dst, const SimpleDirectedGraph* graph);
+  KShortestPaths(const GraphSearchAlgorithmConfig& config,
+                 const Links& waypoints, GraphNodeIndex src, GraphNodeIndex dst,
+                 const SimpleDirectedGraph* graph);
 
   // Returns the next path.
   LinkSequence NextPath();
 
  private:
+  using PathAndStartIndex = std::pair<LinkSequence, size_t>;
+
   // Returns true if prefix_path[0:index] == path[0:index]
   static bool HasPrefix(const Links& path, const Links& prefix);
-
-  DeprefSearchAlgorithmArgs GetArgs() const;
 
   // Returns a set of links that contains: for any path in k_paths_ that starts
   // with the same links as root_path pick the next link -- the one after.
   GraphLinkSet GetLinkExclusionSet(const Links& root_path);
+
+  // Waypoints.
+  const std::vector<GraphLinkIndex> waypoints_;
 
   // The source.
   GraphNodeIndex src_;
@@ -164,10 +156,11 @@ class KShortestPaths : public DeprefSearchAlgorithm {
   GraphNodeIndex dst_;
 
   // Stores the K shortest paths in order.
-  std::vector<LinkSequence> k_paths_;
+  std::vector<PathAndStartIndex> k_paths_;
 
   // Stores candidates for K shortest paths.
-  std::priority_queue<LinkSequence> candidates_;
+  std::priority_queue<PathAndStartIndex, std::vector<PathAndStartIndex>,
+                      std::greater<PathAndStartIndex>> candidates_;
 };
 
 // Simple depth-limited DFS.
@@ -175,7 +168,8 @@ class DFS : public GraphSearchAlgorithm {
  public:
   using PathCallback = std::function<void(const LinkSequence&)>;
 
-  DFS(const GraphSearchAlgorithmArgs& args, const SimpleDirectedGraph* graph);
+  DFS(const GraphSearchAlgorithmConfig& config,
+      const SimpleDirectedGraph* graph);
 
   // Calls a callback on all paths between a source and a destination.
   void Paths(GraphNodeIndex src, GraphNodeIndex dst, Delay max_distance,

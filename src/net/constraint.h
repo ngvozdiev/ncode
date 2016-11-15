@@ -14,6 +14,15 @@
 namespace ncode {
 namespace net {
 
+class ShortestPathGenerator {
+ public:
+  virtual ~ShortestPathGenerator() {}
+
+  // Returns the next shortest compliant path, or an empty path if there are no
+  // more policy compliant paths.
+  virtual net::LinkSequence NextPath() = 0;
+};
+
 // A constraint that can be used by algorithm instances to check for compliance.
 class Constraint {
  public:
@@ -22,14 +31,11 @@ class Constraint {
   // Whether or not a path complies.
   virtual bool PathComplies(const net::LinkSequence& link_sequence) const = 0;
 
-  // Returns the shortest compliant path that avoids a set of links if possible.
-  // The second return value indicates if the path avoids the links in
-  // 'to_avoid'. If there is no compliant path (even one that goes through links
-  // in 'to_avoid') the second value will always be true, and the returned path
-  // will be empty.
-  virtual net::LinkSequence ShortestCompliantPath(
-      const SimpleDirectedGraph& graph, const GraphLinkSet& to_avoid,
-      GraphNodeIndex src, GraphNodeIndex dst, bool* avoids) const = 0;
+  // Returns an object that can be used to get compliant paths in order of
+  // increasing delay.
+  virtual std::unique_ptr<ShortestPathGenerator> PathGenerator(
+      const SimpleDirectedGraph& graph, GraphNodeIndex src,
+      GraphNodeIndex dst) const = 0;
 
   virtual std::string ToString(const net::GraphStorage* storage) const = 0;
 
@@ -43,16 +49,13 @@ class Constraint {
 // of links that should not be visited.
 class Conjunction : public Constraint {
  public:
-  Conjunction(const GraphLinkSet& to_exclude,
-              const std::vector<GraphLinkIndex>& to_visit);
+  Conjunction(const GraphLinkSet& to_exclude, const Links& to_visit);
 
   bool PathComplies(const net::LinkSequence& link_sequence) const override;
 
-  net::LinkSequence ShortestCompliantPath(const SimpleDirectedGraph& graph,
-                                          const GraphLinkSet& to_avoid,
-                                          GraphNodeIndex src,
-                                          GraphNodeIndex dst,
-                                          bool* avoids) const override;
+  std::unique_ptr<ShortestPathGenerator> PathGenerator(
+      const SimpleDirectedGraph& graph, GraphNodeIndex src,
+      GraphNodeIndex dst) const override;
 
   std::string ToString(const net::GraphStorage* storage) const override;
 
@@ -62,7 +65,7 @@ class Conjunction : public Constraint {
                           GraphNodeSet* nodes);
 
   GraphLinkSet to_exclude_;
-  std::vector<GraphLinkIndex> to_visit_;
+  Links to_visit_;
 };
 
 // A disjunction is a series of conjunctions.
@@ -76,11 +79,9 @@ class Disjunction : public Constraint {
 
   bool PathComplies(const net::LinkSequence& link_sequence) const override;
 
-  net::LinkSequence ShortestCompliantPath(const SimpleDirectedGraph& graph,
-                                          const GraphLinkSet& to_avoid,
-                                          GraphNodeIndex src,
-                                          GraphNodeIndex dst,
-                                          bool* avoids) const override;
+  std::unique_ptr<ShortestPathGenerator> PathGenerator(
+      const SimpleDirectedGraph& graph, GraphNodeIndex src,
+      GraphNodeIndex dst) const override;
 
   std::string ToString(const net::GraphStorage* storage) const override;
 
@@ -88,22 +89,8 @@ class Disjunction : public Constraint {
   std::vector<std::unique_ptr<Conjunction>> conjunctions_;
 };
 
-// A dummy constraint that considers any path compliant, and returns the
-// shortest path between the source and the destination.
-class DummyConstraint : public Constraint {
- public:
-  DummyConstraint() {}
-
-  bool PathComplies(const net::LinkSequence& link_sequence) const override;
-
-  net::LinkSequence ShortestCompliantPath(const SimpleDirectedGraph& graph,
-                                          const GraphLinkSet& to_avoid,
-                                          GraphNodeIndex src,
-                                          GraphNodeIndex dst,
-                                          bool* avoids) const override;
-
-  std::string ToString(const net::GraphStorage* storage) const override;
-};
+// A dummy constraint that does no filtering.
+std::unique_ptr<Constraint> DummyConstraint();
 
 }  // namespace dfs
 }  // namespace ncode

@@ -7,6 +7,7 @@
 
 #include "net.pb.h"
 #include "../common/strutil.h"
+#include "../common/file.h"
 
 namespace ncode {
 namespace net {
@@ -536,6 +537,57 @@ net::PBNet GenerateBraess(Bandwidth bw) {
   AddEdgeToGraph("B", "C", milliseconds(1), bw, &net);
 
   return net;
+}
+
+static void ParseRocketfuelLine(const std::string& edge_line, Bandwidth bw,
+                                Delay delay_add, double delay_multiply,
+                                size_t* i, PBNet* out) {
+  std::vector<std::string> pieces = Split(edge_line, " ");
+  CHECK(pieces.size() == 3);
+
+  const std::string& src = pieces[0];
+  const std::string& dst = pieces[1];
+  const std::string& delay_string = pieces[2];
+
+  uint32_t delay_ms = 0;
+  CHECK(safe_strtou32(delay_string, &delay_ms));
+  CHECK(delay_ms > 0);
+  double delay_sec = delay_ms / 1000.0;
+  auto delay = duration_cast<Delay>(duration<double>(delay_sec));
+
+  AddLink(bw, src, delay, dst, delay_add, delay_multiply,
+          Bandwidth::FromBitsPerSecond(0), 1.0, i, out);
+}
+
+const std::pair<RocketfuelTopology, const char*> kRocketfuelTopologies[] = {
+    {AS1221, "data/rocketfuel/1221/latencies.intra"}};
+
+static PBNet ParseRocketfuelFile(const std::string& file, Bandwidth bw,
+                                 Delay delay_add, double delay_multiply) {
+  PBNet out;
+  size_t i = 1;
+
+  CHECK(File::ReadLines(file, [&out, &i, &bw, &delay_add,
+                               &delay_multiply](const std::string& line) {
+    ParseRocketfuelLine(line, bw, delay_add, delay_multiply, &i, &out);
+  }));
+
+  return out;
+}
+
+PBNet GenerateRocketfuel(RocketfuelTopology topology, Bandwidth bw,
+                         Delay delay_add, double delay_multiply) {
+  for (const auto& topology_and_file : kRocketfuelTopologies) {
+    RocketfuelTopology topology_in_list = topology_and_file.first;
+    const std::string& file = topology_and_file.second;
+
+    if (topology_in_list == topology) {
+      return ParseRocketfuelFile(file, bw, delay_add, delay_multiply);
+    }
+  }
+
+  LOG(FATAL) << "Unable to find topology";
+  return {};
 }
 
 }  // namespace net
