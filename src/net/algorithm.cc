@@ -205,7 +205,10 @@ void ShortestPath::ComputePaths() {
     return;
   }
 
-  min_delays_[src_].distance = Delay::zero();
+  min_delays_.Resize(graph_storage->NodeCount());
+  previous_.Resize(graph_storage->NodeCount());
+
+  min_delays_.UnsafeAccess(src_).distance = Delay::zero();
   vertex_queue.emplace(Delay::zero(), src_);
 
   while (!vertex_queue.empty()) {
@@ -219,12 +222,13 @@ void ShortestPath::ComputePaths() {
       continue;
     }
 
-    if (distance > min_delays_[current].distance) {
+    if (distance > min_delays_.UnsafeAccess(current).distance) {
       // Bogus leftover node, since we never delete nodes from the heap.
       continue;
     }
 
-    const std::vector<GraphLinkIndex>& neighbors = adjacency_list[current];
+    const std::vector<GraphLinkIndex>& neighbors =
+        adjacency_list.UnsafeAccess(current);
     for (GraphLinkIndex out_link : neighbors) {
       if (config_.CanExcludeLink(out_link)) {
         continue;
@@ -236,13 +240,14 @@ void ShortestPath::ComputePaths() {
         continue;
       }
 
-      Delay link_delay = out_link_ptr->delay();
-      Delay distance_via_neighbor = distance + link_delay;
-      Delay& curr_min_distance = min_delays_[neighbor_node].distance;
+      const Delay link_delay = out_link_ptr->delay();
+      const Delay distance_via_neighbor = distance + link_delay;
+      Delay& curr_min_distance =
+          min_delays_.UnsafeAccess(neighbor_node).distance;
 
       if (distance_via_neighbor < curr_min_distance) {
         curr_min_distance = distance_via_neighbor;
-        previous_[neighbor_node] = out_link;
+        previous_.UnsafeAccess(neighbor_node) = out_link;
         vertex_queue.emplace(curr_min_distance, neighbor_node);
       }
     }

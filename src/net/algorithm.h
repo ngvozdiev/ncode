@@ -77,7 +77,7 @@ class GraphSearchAlgorithm {
   const SimpleDirectedGraph* graph_;
 
   // Configuration for the algorithm.
-  GraphSearchAlgorithmConfig config_;
+  const GraphSearchAlgorithmConfig config_;
 };
 
 // Computes shortest paths between all pairs of nodes, can also be used to

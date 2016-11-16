@@ -259,6 +259,18 @@ class PerfectHashMap {
     return bool_and_value.second;
   }
 
+  Value& UnsafeAccess(Index<Tag, V> index) {
+    std::pair<bool, Value>& bool_and_value = values_[index];
+    bool_and_value.first = true;
+    return bool_and_value.second;
+  }
+
+  const Value& UnsafeAccess(Index<Tag, V> index) const {
+    return values_[index].second;
+  }
+
+  void Resize(size_t size) { values_.resize(size); }
+
   const Value& operator[](Index<Tag, V> index) const {
     return GetValueOrDie(index);
   }
