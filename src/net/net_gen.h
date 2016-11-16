@@ -50,7 +50,7 @@ PBNet GenerateRandom(size_t n, double edge_prob, Delay delay_min,
 PBNet GenerateBraess(Bandwidth bw);
 
 // Generates one of the Rocketfuel topologies.
-enum RocketfuelTopology { AS1221, AS1239, AS1755, AS3257, AS3967, AS6461 };
+enum RocketfuelTopology { AS1221, AS1239 };
 PBNet GenerateRocketfuel(RocketfuelTopology topology, Bandwidth bw,
                          Delay delay_add = Delay(0),
                          double delay_multiply = 1.0);

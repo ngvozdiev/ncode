@@ -125,11 +125,11 @@ class GraphNode {
   DISALLOW_COPY_AND_ASSIGN(GraphNode);
 };
 
-using GraphNodeIndex = Index<GraphNode, uint8_t>;
-using GraphNodeSet = PerfectHashSet<uint8_t, GraphNode>;
+using GraphNodeIndex = Index<GraphNode, uint16_t>;
+using GraphNodeSet = PerfectHashSet<uint16_t, GraphNode>;
 
 template <typename V>
-using GraphNodeMap = PerfectHashMap<uint8_t, GraphNode, V>;
+using GraphNodeMap = PerfectHashMap<uint16_t, GraphNode, V>;
 
 // A wrapper for PBGraphLink.
 class GraphLink {
@@ -181,11 +181,11 @@ class GraphLink {
 // can be shorter than the 8 bytes required to hold a pointer, which results in
 // significant memory savings if we store a lot of paths, and the indices can be
 // allocated sequentially allowing for O(1) set/map operations with links.
-using GraphLinkIndex = Index<GraphLink, uint8_t>;
-using GraphLinkSet = PerfectHashSet<uint8_t, GraphLink>;
+using GraphLinkIndex = Index<GraphLink, uint16_t>;
+using GraphLinkSet = PerfectHashSet<uint16_t, GraphLink>;
 
 template <typename V>
-using GraphLinkMap = PerfectHashMap<uint8_t, GraphLink, V>;
+using GraphLinkMap = PerfectHashMap<uint16_t, GraphLink, V>;
 
 // Just a bunch of links.
 using Links = std::vector<GraphLinkIndex>;
@@ -366,9 +366,9 @@ class GraphStorage {
   GraphNodeIndex NodeFromString(const std::string& id);
 
   using LinkStore =
-      PerfectHashStore<std::unique_ptr<GraphLink>, uint8_t, GraphLink>;
+      PerfectHashStore<std::unique_ptr<GraphLink>, uint16_t, GraphLink>;
   using NodeStore =
-      PerfectHashStore<std::unique_ptr<GraphNode>, uint8_t, GraphNode>;
+      PerfectHashStore<std::unique_ptr<GraphNode>, uint16_t, GraphNode>;
 
   // A map from src to dst to a list of links between that (src, dst) pair. The
   // list will only contain more than one element if double edges are used.

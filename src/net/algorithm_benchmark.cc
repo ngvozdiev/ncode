@@ -33,47 +33,52 @@ int main(int argc, char** argv) {
   Unused(argc);
   Unused(argv);
 
-  net::PBNet net = net::GenerateNTT();
+  net::PBNet net = net::GenerateRocketfuel(
+      net::AS1239, net::Bandwidth::FromBitsPerSecond(1000000),
+      net::Delay::zero(), 2.0);
   net::PathStorage path_storage(net);
-
   net::SimpleDirectedGraph graph(&path_storage);
+  LOG(ERROR) << "Graph with " << path_storage.NodeCount() << " nodes and "
+             << path_storage.LinkCount() << " links";
 
   TimeMs("All pair shortest path",
          [&graph] { net::AllPairShortestPath all_pair_sp({}, &graph); });
 
-  net::GraphNodeIndex london_node = path_storage.NodeFromStringOrDie("london");
-  net::GraphNodeIndex osaka_node = path_storage.NodeFromStringOrDie("osaka");
+  net::GraphNodeIndex london_node =
+      path_storage.NodeFromStringOrDie("London4045");
+  net::GraphNodeIndex tokyo_node =
+      path_storage.NodeFromStringOrDie("Tokyo4070");
 
-  TimeMs("1000 calls to shortest path", [&graph, &london_node, &osaka_node] {
+  TimeMs("1000 calls to shortest path", [&graph, &london_node, &tokyo_node] {
     for (size_t i = 0; i < 1000; ++i) {
       net::ShortestPath sp({}, london_node, &graph);
-      sp.GetPath(osaka_node);
+      sp.GetPath(tokyo_node);
     }
   });
 
-  std::vector<net::LinkSequence> paths;
-  paths.reserve(10000000);
-  TimeMs("DFS, all paths between a pair of endpoints", [&graph, &london_node,
-                                                        &osaka_node, &paths] {
-    net::DFS dfs({}, &graph);
-    dfs.Paths(
-        london_node, osaka_node, duration_cast<net::Delay>(seconds(1)), 20,
-        [&paths](const net::LinkSequence& path) { paths.emplace_back(path); });
-  });
-  std::sort(paths.begin(), paths.end());
+//  std::vector<net::LinkSequence> paths;
+//  paths.reserve(10000000);
+//  TimeMs("DFS, all paths between a pair of endpoints", [&graph, &london_node,
+//                                                        &tokyo_node, &paths] {
+//    net::DFS dfs({}, &graph);
+//    dfs.Paths(
+//        london_node, tokyo_node, duration_cast<net::Delay>(seconds(1)), 20,
+//        [&paths](const net::LinkSequence& path) { paths.emplace_back(path); });
+//  });
+//  std::sort(paths.begin(), paths.end());
 
   std::vector<net::LinkSequence> k_paths;
   k_paths.reserve(1000);
-  TimeMs("1000 shortest paths", [&graph, &london_node, &osaka_node, &k_paths] {
-    net::KShortestPaths ksp({}, {}, london_node, osaka_node, &graph);
+  TimeMs("1000 shortest paths", [&graph, &london_node, &tokyo_node, &k_paths] {
+    net::KShortestPaths ksp({}, {}, london_node, tokyo_node, &graph);
     for (size_t i = 0; i < 1000; ++i) {
       k_paths.emplace_back(ksp.NextPath());
     }
   });
 
-  for (size_t i = 0; i < 1000; ++i) {
-    CHECK(k_paths[i] == paths[i]) << i << "th shortest path differs";
-  }
+//  for (size_t i = 0; i < 1000; ++i) {
+//    CHECK(k_paths[i] == paths[i]) << i << "th shortest path differs";
+//  }
 
   std::string out;
   size_t id = 0;
@@ -83,8 +88,8 @@ int main(int argc, char** argv) {
         continue;
       }
 
-      for (size_t i = 0; i < 100; ++i) {
-        size_t count = 10 * i;
+      for (size_t i = 0; i < 10; ++i) {
+        size_t count = 100 * i;
         std::string message = Substitute("$0 shortest paths", count);
         TimeToString(&out, id, count, [&graph, &src, &dst, count] {
           net::KShortestPaths ksp({}, {}, src, dst, &graph);
@@ -97,6 +102,14 @@ int main(int argc, char** argv) {
       LOG(ERROR) << "I " << id;
 
       ++id;
+
+      if (id == 100) {
+        break;
+      }
+    }
+
+    if (id == 100) {
+      break;
     }
     LOG(ERROR) << "Done " << src;
   }

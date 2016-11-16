@@ -560,7 +560,8 @@ static void ParseRocketfuelLine(const std::string& edge_line, Bandwidth bw,
 }
 
 const std::pair<RocketfuelTopology, const char*> kRocketfuelTopologies[] = {
-    {AS1221, "data/rocketfuel/1221/latencies.intra"}};
+    {AS1221, "rocketfuel/1221/latencies.intra"},
+    {AS1239, "rocketfuel/1239/latencies.intra"}};
 
 static PBNet ParseRocketfuelFile(const std::string& file, Bandwidth bw,
                                  Delay delay_add, double delay_multiply) {
