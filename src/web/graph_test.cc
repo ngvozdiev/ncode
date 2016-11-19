@@ -3,6 +3,7 @@
 #include <google/protobuf/repeated_field.h>
 
 #include "../common/file.h"
+#include "../net/algorithm.h"
 #include "../net/net_common.h"
 #include "../net/net_gen.h"
 #include "gtest/gtest.h"
@@ -17,7 +18,7 @@ TEST(Graph, SimpleGraph) {
   net::PBNet net_pb =
       net::GenerateFullGraph(2, net::Bandwidth::FromBitsPerSecond(10000),
                              std::chrono::milliseconds(100));
-  net::PathStorage path_storage(net_pb);
+  net::GraphStorage path_storage(net_pb);
 
   std::vector<EdgeData> edge_data;
   std::vector<PathData> path_data;

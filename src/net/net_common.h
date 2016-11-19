@@ -160,6 +160,10 @@ class GraphLink {
             GraphNodeIndex dst, const GraphNode* src_node,
             const GraphNode* dst_node);
 
+  GraphLink(GraphNodeIndex src, GraphNodeIndex dst, DevicePortNumber src_port,
+            DevicePortNumber dst_port, Bandwidth bw, Delay delay,
+            const GraphNode* src_node, const GraphNode* dst_node);
+
   GraphNodeIndex src_;
   GraphNodeIndex dst_;
   DevicePortNumber src_port_;
@@ -244,8 +248,6 @@ class LinkSequence {
   Delay delay_;
 };
 
-class PathStorage;
-
 // GraphPaths are heavier versions of LinkSequence that are assigned ids and are
 // managed by a PathStorage instance.
 class GraphPath {
@@ -269,7 +271,7 @@ class GraphPath {
   uint32_t size() const { return link_sequence_.links().size(); }
 
   // The storage object that keeps track of all paths.
-  PathStorage* storage() const { return storage_; }
+  GraphStorage* storage() const { return storage_; }
 
   // A tag that identifies the path. Two paths with the same tag will have the
   // same memory location.
@@ -282,7 +284,7 @@ class GraphPath {
   GraphNodeIndex LastHop() const;
 
   // Constructs an initially empty path.
-  GraphPath(PathStorage* storage) : tag_(0), storage_(storage) {}
+  GraphPath(GraphStorage* storage) : tag_(0), storage_(storage) {}
 
   // Populates this object.
   void Populate(LinkSequence link_sequence, uint32_t tag);
@@ -295,7 +297,7 @@ class GraphPath {
   uint32_t tag_;
 
   // The parent storage.
-  PathStorage* storage_;
+  GraphStorage* storage_;
 
   DISALLOW_COPY_AND_ASSIGN(GraphPath);
 };
@@ -306,10 +308,28 @@ struct PathComparator {
   }
 };
 
-// Stores and maintains links.
+// General statistics about a graph.
+struct GraphStats {
+  size_t unidirectional_links;
+  size_t multiple_links;
+};
+
+// Stores and maintains a graph. Also Stores paths and assigns tags to them.
+// Will return the same path object for the same sequence of links within the
+// same aggregate. Additionally tags paths with a simple integer tag if the same
+// paths should be made to map to different path objects.
 class GraphStorage {
  public:
-  GraphStorage(const PBNet& graph);
+  explicit GraphStorage(const PBNet& graph);
+
+  // Returns a new GraphStorage, with some nodes from this GraphStorage
+  // clustered. Creating clusters may lead to multiple links between two nodes,
+  // even if the original graph is simple. This function will also assign names
+  // to cluster nodes. For example if a cluster combines nodes N1 and N2 the
+  // name of the cluster node will be C_N1_N2. Each node from this graph should
+  // be contained in exactly one cluster.
+  std::unique_ptr<GraphStorage> ClusterNodes(
+      const std::vector<GraphNodeSet>& clusters) const;
 
   // At least the src and the dst need to be populated in the link_pb.
   // If there is no link between src and dst the ports need to also be populated
@@ -350,44 +370,14 @@ class GraphStorage {
     return GraphLinkSet::FullSetFromStore(link_store_);
   }
 
+  GraphStats Stats() const;
+
   // Combines LinkFromProtobuf with GetLink for convenience.
   const GraphLink* LinkPtrFromProtobufOrDie(const PBGraphLink& link_pb) const;
 
   // Node ID to node index.
-  const std::map<std::string, GraphNodeIndex>& nodes() const { return nodes_; }
-
- private:
-  bool LinkFromProtobuf(const PBGraphLink& link_pb,
-                        GraphLinkIndex* index) const;
-
-  GraphLinkIndex LinkFromProtobuf(const PBGraphLink& link_pb);
-
-  // Returns the index of a node identified by a string.
-  GraphNodeIndex NodeFromString(const std::string& id);
-
-  using LinkStore =
-      PerfectHashStore<std::unique_ptr<GraphLink>, uint16_t, GraphLink>;
-  using NodeStore =
-      PerfectHashStore<std::unique_ptr<GraphNode>, uint16_t, GraphNode>;
-
-  // A map from src to dst to a list of links between that (src, dst) pair. The
-  // list will only contain more than one element if double edges are used.
-  std::map<std::string, std::map<std::string, Links>> links_;
-  std::map<std::string, NodeStore::IndexType> nodes_;
-  LinkStore link_store_;
-  NodeStore node_store_;
-
-  DISALLOW_COPY_AND_ASSIGN(GraphStorage);
-};
-
-// Stores paths and assigns tags to them. Will return the same path object for
-// the same sequence of links within the same aggregate. The same paths within
-// different aggregates will get assigned different tags and map to different
-// path objects.
-class PathStorage : public GraphStorage {
- public:
-  PathStorage(const PBNet& graph) : GraphStorage(graph), tag_generator_(0) {
-    empty_path_ = std::unique_ptr<GraphPath>(new GraphPath(this));
+  const std::map<std::string, GraphNodeIndex>& NodeIdToIndex() const {
+    return nodes_;
   }
 
   // Returns a graph path from a string of the form [A->B, B->C]. Port
@@ -410,7 +400,7 @@ class PathStorage : public GraphStorage {
 
   // Returns the empty path. There is only one empty path instance per
   // PathStorage.
-  const GraphPath* EmptyPath() { return empty_path_.get(); }
+  const GraphPath* EmptyPath() const { return empty_path_.get(); }
 
   // Dumps all paths in this path storage to a string.
   std::string DumpPaths() const;
@@ -419,29 +409,56 @@ class PathStorage : public GraphStorage {
   const GraphPath* FindPathByTagOrNull(uint32_t tag) const;
 
  private:
+  GraphStorage() : tag_generator_(0) {
+    empty_path_ = make_unique<GraphPath>(this);
+  }
+
+  std::string GetClusterName(const GraphNodeSet& nodes) const;
+
+  bool LinkFromProtobuf(const PBGraphLink& link_pb,
+                        GraphLinkIndex* index) const;
+
+  GraphLinkIndex LinkFromProtobuf(const PBGraphLink& link_pb);
+
+  // Returns the index of a node identified by a string.
+  GraphNodeIndex NodeFromString(const std::string& id);
+
+  using LinkStore =
+      PerfectHashStore<std::unique_ptr<GraphLink>, uint16_t, GraphLink>;
+  using NodeStore =
+      PerfectHashStore<std::unique_ptr<GraphNode>, uint16_t, GraphNode>;
+
+  // A map from src to dst to a list of links between that (src, dst) pair. The
+  // list will only contain more than one element if double edges are used.
+  std::map<std::string, std::map<std::string, Links>> links_;
+  std::map<std::string, NodeStore::IndexType> nodes_;
+  LinkStore link_store_;
+  NodeStore node_store_;
+
   // Non-empty paths. Grouped by aggregate cookie and then by links in the path.
   std::map<uint64_t, std::map<Links, GraphPath>> cookie_to_paths_;
 
   // There is only one empty path instance.
   std::unique_ptr<GraphPath> empty_path_;
 
-  // Tags come from here.
+  // Path tags come from here.
   uint32_t tag_generator_;
 
   template <typename T>
   friend class std::allocator;
 
-  DISALLOW_COPY_AND_ASSIGN(PathStorage);
+  DISALLOW_COPY_AND_ASSIGN(GraphStorage);
 };
 
 // A convenience function equivalent to calling StringToPath followed by
 // std::find to check if haystack contains the path needle.
 bool IsInPaths(const std::string& needle,
-               const std::vector<LinkSequence>& haystack, PathStorage* storage);
+               const std::vector<LinkSequence>& haystack,
+               GraphStorage* storage);
 
 bool IsInPaths(const std::string& needle,
                const std::vector<const GraphPath*>& haystack, uint64_t cookie,
-               PathStorage* storage);
+               GraphStorage* storage);
 
 // A five-tuple is a combination of ip src/dst, access layer src/dst ports and
 // protocol type. It uniquely identifies an IP connection and can be used for

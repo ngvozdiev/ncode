@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
   net::PBNet net = net::GenerateRocketfuel(
       net::AS1239, net::Bandwidth::FromBitsPerSecond(1000000),
       net::Delay::zero(), 2.0);
-  net::PathStorage path_storage(net);
+  net::GraphStorage path_storage(net);
   net::SimpleDirectedGraph graph(&path_storage);
   LOG(ERROR) << "Graph with " << path_storage.NodeCount() << " nodes and "
              << path_storage.LinkCount() << " links";
@@ -56,16 +56,19 @@ int main(int argc, char** argv) {
     }
   });
 
-//  std::vector<net::LinkSequence> paths;
-//  paths.reserve(10000000);
-//  TimeMs("DFS, all paths between a pair of endpoints", [&graph, &london_node,
-//                                                        &tokyo_node, &paths] {
-//    net::DFS dfs({}, &graph);
-//    dfs.Paths(
-//        london_node, tokyo_node, duration_cast<net::Delay>(seconds(1)), 20,
-//        [&paths](const net::LinkSequence& path) { paths.emplace_back(path); });
-//  });
-//  std::sort(paths.begin(), paths.end());
+  //  std::vector<net::LinkSequence> paths;
+  //  paths.reserve(10000000);
+  //  TimeMs("DFS, all paths between a pair of endpoints", [&graph,
+  //  &london_node,
+  //                                                        &tokyo_node, &paths]
+  //                                                        {
+  //    net::DFS dfs({}, &graph);
+  //    dfs.Paths(
+  //        london_node, tokyo_node, duration_cast<net::Delay>(seconds(1)), 20,
+  //        [&paths](const net::LinkSequence& path) { paths.emplace_back(path);
+  //        });
+  //  });
+  //  std::sort(paths.begin(), paths.end());
 
   std::vector<net::LinkSequence> k_paths;
   k_paths.reserve(1000);
@@ -76,9 +79,9 @@ int main(int argc, char** argv) {
     }
   });
 
-//  for (size_t i = 0; i < 1000; ++i) {
-//    CHECK(k_paths[i] == paths[i]) << i << "th shortest path differs";
-//  }
+  //  for (size_t i = 0; i < 1000; ++i) {
+  //    CHECK(k_paths[i] == paths[i]) << i << "th shortest path differs";
+  //  }
 
   std::string out;
   size_t id = 0;

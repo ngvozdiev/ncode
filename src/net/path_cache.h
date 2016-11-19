@@ -63,7 +63,7 @@ class IngressEgressPathCache {
                          const IngressEgressKey& ie_key,
                          std::unique_ptr<Constraint> constraint,
                          const SimpleDirectedGraph* graph,
-                         PathStorage* path_storage)
+                         GraphStorage* path_storage)
       : path_cache_config_(path_cache_config),
         ie_key_(ie_key),
         graph_(graph),
@@ -73,7 +73,7 @@ class IngressEgressPathCache {
   IngressEgressPathCache(const PathCacheConfig& path_cache_config,
                          const IngressEgressKey& ie_key,
                          const SimpleDirectedGraph* graph,
-                         PathStorage* path_storage)
+                         GraphStorage* path_storage)
       : IngressEgressPathCache(path_cache_config, ie_key, DummyConstraint(),
                                graph, path_storage) {}
 
@@ -83,7 +83,7 @@ class IngressEgressPathCache {
   const PathCacheConfig path_cache_config_;
   const IngressEgressKey ie_key_;
   const SimpleDirectedGraph* graph_;
-  PathStorage* path_storage_;
+  GraphStorage* path_storage_;
 
   // Constraint.
   std::unique_ptr<Constraint> constraint_;
@@ -102,14 +102,15 @@ class PathCache {
   using ConstraintMap = std::map<IngressEgressKey, std::unique_ptr<Constraint>>;
 
   // Creates a new cache.
-  PathCache(const PathCacheConfig& path_cache_config, PathStorage* path_storage,
+  PathCache(const PathCacheConfig& path_cache_config,
+            GraphStorage* path_storage,
             ConstraintMap* constraint_map = nullptr);
 
   // The graph.
   const SimpleDirectedGraph* graph() const { return &graph_; }
 
   // Path storage.
-  PathStorage* path_storage() { return path_storage_; }
+  GraphStorage* path_storage() { return graph_storage_; }
 
   // Returns the cache between two nodes.
   IngressEgressPathCache* IECache(const IngressEgressKey& key);
@@ -117,7 +118,7 @@ class PathCache {
  private:
   const PathCacheConfig path_cache_config_;
   const SimpleDirectedGraph graph_;
-  PathStorage* path_storage_;
+  GraphStorage* graph_storage_;
 
   // Stores cached between a source and a destination.
   std::map<IngressEgressKey, std::unique_ptr<IngressEgressPathCache>>

@@ -24,6 +24,56 @@ TEST(SimpleGraph, DoubleEdge) {
   ASSERT_DEATH(SimpleDirectedGraph graph(&graph_storage), "Double edge");
 }
 
+TEST(Cluster, SingleLink) {
+  PBNet net;
+  AddEdgeToGraph("A", "B", Delay(100), kBw, &net);
+
+  GraphStorage graph_storage(net);
+  SimpleDirectedGraph graph(&graph_storage);
+  DistanceClusteredGraph clustered_graph({}, Delay(0), &graph);
+
+  // There should be 2 clusters.
+  const GraphNodeMap<DistanceClusterIndex>& node_to_cluster =
+      clustered_graph.node_to_cluster();
+  ASSERT_EQ(2ul, node_to_cluster.Count());
+  ASSERT_EQ(2ul, clustered_graph.AllClusters().Count());
+
+  DistanceClusterIndex a_cluster =
+      clustered_graph.GetClusterForNode(graph_storage.NodeFromStringOrDie("A"));
+  DistanceClusterIndex b_cluster =
+      clustered_graph.GetClusterForNode(graph_storage.NodeFromStringOrDie("B"));
+  ASSERT_NE(a_cluster, b_cluster);
+}
+
+TEST(Cluster, SingleLinkSingleCluster) {
+  PBNet net;
+  AddEdgeToGraph("A", "B", Delay(100), kBw, &net);
+
+  GraphStorage graph_storage(net);
+  SimpleDirectedGraph graph(&graph_storage);
+  DistanceClusteredGraph clustered_graph({}, Delay(100), &graph);
+
+  // There should be 1 cluster.
+  ASSERT_EQ(1ul, clustered_graph.AllClusters().Count());
+
+  DistanceClusterIndex a_cluster =
+      clustered_graph.GetClusterForNode(graph_storage.NodeFromStringOrDie("A"));
+  DistanceClusterIndex b_cluster =
+      clustered_graph.GetClusterForNode(graph_storage.NodeFromStringOrDie("B"));
+  ASSERT_EQ(a_cluster, b_cluster);
+}
+
+TEST(Cluster, Braess) {
+  PBNet net = GenerateBraess(kBw);
+  GraphStorage graph_storage(net);
+  SimpleDirectedGraph graph(&graph_storage);
+  DistanceClusteredGraph c_zero({}, Delay(0), &graph);
+  ASSERT_EQ(4ul, c_zero.AllClusters().Count());
+
+  DistanceClusteredGraph c_one({}, Delay(1), &graph);
+  ASSERT_EQ(4ul, c_one.AllClusters().Count());
+}
+
 TEST(AllPairShortestPath, SingleLink) {
   PBNet net;
   AddEdgeToGraph("A", "B", Delay(100), kBw, &net);
@@ -203,7 +253,7 @@ TEST(DFS, Braess) {
   using namespace std::chrono;
   PBNet net = GenerateBraess(kBw);
 
-  PathStorage graph_storage(net);
+  GraphStorage graph_storage(net);
   GraphNodeIndex node_a = graph_storage.NodeFromStringOrDie("A");
   GraphNodeIndex node_d = graph_storage.NodeFromStringOrDie("D");
 
@@ -226,7 +276,7 @@ TEST(DFS, Braess) {
 TEST(KShortest, Braess) {
   PBNet net = GenerateBraess(kBw);
 
-  PathStorage graph_storage(net);
+  GraphStorage graph_storage(net);
   GraphNodeIndex node_a = graph_storage.NodeFromStringOrDie("A");
   GraphNodeIndex node_d = graph_storage.NodeFromStringOrDie("D");
   GraphLinkIndex link_ab = graph_storage.LinkOrDie("A", "B");

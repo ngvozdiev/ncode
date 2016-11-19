@@ -7,6 +7,7 @@
 
 #include "../common/substitute.h"
 #include "gtest/gtest.h"
+#include "net_gen.h"
 
 namespace ncode {
 namespace net {
@@ -199,6 +200,17 @@ TEST_F(GraphStorageTest, Init) {
   ASSERT_EQ(kDelay, link->delay());
   ASSERT_EQ(kDstNetPort, link->dst_port());
   ASSERT_EQ(kSrcNetPort, link->src_port());
+
+  ASSERT_EQ(0ul, storage.Stats().multiple_links);
+  ASSERT_EQ(1ul, storage.Stats().unidirectional_links);
+}
+
+TEST_F(GraphStorageTest, Stats) {
+  PBNet net = GenerateBraess(kBw);
+  GraphStorage storage(net);
+
+  ASSERT_EQ(0ul, storage.Stats().multiple_links);
+  ASSERT_EQ(1ul, storage.Stats().unidirectional_links);
 }
 
 TEST_F(GraphStorageTest, SameLink) {
@@ -288,7 +300,7 @@ TEST_F(GraphStorageTest, FindInverse) {
 }
 
 TEST_F(GraphStorageTest, Empty) {
-  GraphStorage storage({});
+  GraphStorage storage((PBNet()));
 
   LinkSequence link_sequence;
   ASSERT_EQ(0ul, link_sequence.size());
@@ -356,7 +368,7 @@ static PBNet SetUpGraph() {
 class PathStorageTest : public ::testing::Test {
  protected:
   PathStorageTest() : storage_(SetUpGraph()) {}
-  PathStorage storage_;
+  GraphStorage storage_;
 };
 
 TEST_F(PathStorageTest, Empty) {

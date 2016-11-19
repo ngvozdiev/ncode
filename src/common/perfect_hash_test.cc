@@ -41,11 +41,13 @@ TEST(PerfectHash, Set) {
   auto other_index = store.AddItem(other_item);
 
   Set set;
+  ASSERT_EQ(0ul, set.Count());
   ASSERT_FALSE(set.Contains(index));
   ASSERT_FALSE(set.Contains(other_index));
   set.Insert(index);
   ASSERT_TRUE(set.Contains(index));
   ASSERT_FALSE(set.Contains(other_index));
+  ASSERT_EQ(1ul, set.Count());
 }
 
 TEST(PerfectHash, Map) {
@@ -72,6 +74,7 @@ TEST(PerfectHash, MapIter) {
     ++i;
   }
   ASSERT_EQ(0ul, i);
+  ASSERT_EQ(0ul, map.Count());
 
   Store store;
   auto index_one = store.AddItem("SomeItem1");
@@ -86,6 +89,7 @@ TEST(PerfectHash, MapIter) {
     ++i;
   }
   ASSERT_EQ(1ul, i);
+  ASSERT_EQ(1ul, map.Count());
 
   i = 0;
   map[index_one] = "B";
@@ -100,6 +104,7 @@ TEST(PerfectHash, MapIter) {
     ++i;
   }
   ASSERT_EQ(2ul, i);
+  ASSERT_EQ(2ul, map.Count());
 }
 
 TEST(PerfectHash, SetIter) {
@@ -125,6 +130,7 @@ TEST(PerfectHash, SetIter) {
     ++i;
   }
   ASSERT_EQ(1ul, i);
+  ASSERT_EQ(1ul, set.Count());
 
   i = 0;
   set.Insert(index_one);
@@ -137,6 +143,7 @@ TEST(PerfectHash, SetIter) {
     ++i;
   }
   ASSERT_EQ(2ul, i);
+  ASSERT_EQ(2ul, set.Count());
 
   set.Remove(index_one);
   set.Remove(index_two);
@@ -148,6 +155,7 @@ TEST(PerfectHash, SetIter) {
     ++i;
   }
   ASSERT_EQ(0ul, i);
+  ASSERT_EQ(0ul, set.Count());
 }
 
 TEST(PerfectHash, FullSet) {
@@ -169,6 +177,7 @@ TEST(PerfectHash, FullSet) {
     ++i;
   }
   ASSERT_EQ(3ul, i);
+  ASSERT_EQ(3ul, set.Count());
 }
 
 struct OtherItemTag {};

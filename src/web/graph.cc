@@ -55,7 +55,7 @@ using LinkDataMap = std::map<size_t, std::map<size_t, LinkDataHelper>>;
 void GraphToHTML(const std::vector<EdgeData>& edges,
                  const std::vector<PathData>& paths,
                  const std::vector<DisplayMode>& display_modes,
-                 net::GraphStorage* storage, HtmlPage* out,
+                 const net::GraphStorage* storage, HtmlPage* out,
                  LocalizerCallback localizer) {
   CHECK(!display_modes.empty()) << "At least one display mode required";
 
@@ -68,12 +68,21 @@ void GraphToHTML(const std::vector<EdgeData>& edges,
   // The paths are not required to be in any particular order.
   std::vector<PathDataHelper> all_paths;
 
+  // Need to invert the node_id_to_node_index map. This will also sort the
+  // NodeData instances by index.
+  std::map<net::GraphNodeIndex, std::string> node_index_to_node_id;
+  for (const auto& node_id_and_node_index : storage->NodeIdToIndex()) {
+    const std::string& node_id = node_id_and_node_index.first;
+    CHECK(!node_id.empty());
+    net::GraphNodeIndex node_index = node_id_and_node_index.second;
+    node_index_to_node_id.emplace(node_index, node_id);
+  }
+
   for (const EdgeData& edge_data : edges) {
     net::GraphNodeIndex src_index = storage->GetLink(edge_data.link)->src();
     net::GraphNodeIndex dst_index = storage->GetLink(edge_data.link)->dst();
-    //    const std::string& src = storage->GetNode(src_index)->id();
-    //    const std::string& dst = storage->GetNode(dst_index)->id();
-    //    CHECK(src != dst);
+    CHECK(ContainsKey(node_index_to_node_id, src_index)) << src_index;
+    CHECK(ContainsKey(node_index_to_node_id, dst_index)) << dst_index;
     CHECK(src_index != dst_index);
     bool forward = true;
     if (src_index > dst_index) {
@@ -129,15 +138,6 @@ void GraphToHTML(const std::vector<EdgeData>& edges,
     all_paths.emplace_back(path_data_helper);
   }
 
-  // Need to invert the node_id_to_node_index map. This will also sort the
-  // NodeData instances by index.
-  std::map<net::GraphNodeIndex, std::string> node_index_to_node_id;
-  for (const auto& node_id_and_node_index : storage->nodes()) {
-    const std::string& node_id = node_id_and_node_index.first;
-    net::GraphNodeIndex node_index = node_id_and_node_index.second;
-    node_index_to_node_id.emplace(node_index, node_id);
-  }
-
   using json = nlohmann::json;
   json graph_json;
   for (const auto& node_index_and_node_id : node_index_to_node_id) {
@@ -163,6 +163,12 @@ void GraphToHTML(const std::vector<EdgeData>& edges,
     link_object["forward_tooltip"] = link_data->forward_tooltip;
     link_object["reverse_tooltip"] = link_data->reverse_tooltip;
     link_object["distance_hint"] = link_data->distance_hint;
+
+    CHECK(!link_data->forward_load.empty()) << link_data->src_index << " "
+                                            << link_data->dst_index;
+    CHECK(!link_data->reverse_load.empty()) << link_data->src_index << " "
+                                            << link_data->dst_index;
+
     for (double load : link_data->forward_load) {
       link_object["forward_load"].push_back(load);
     }
@@ -172,7 +178,7 @@ void GraphToHTML(const std::vector<EdgeData>& edges,
     graph_json["links"].push_back(link_object);
   }
 
-  json paths_json;
+  json paths_json = json::array();
   for (const PathDataHelper& path : all_paths) {
     json path_object;
     path_object["label"] = path.label;

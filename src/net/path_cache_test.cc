@@ -30,7 +30,7 @@ class PathUtilsTest : public ::testing::Test {
   GraphNodeIndex c_;
   GraphNodeIndex d_;
 
-  PathStorage path_storage_;
+  GraphStorage path_storage_;
 };
 
 static PathCacheConfig GetCacheConfig() {

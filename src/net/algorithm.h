@@ -80,6 +80,61 @@ class GraphSearchAlgorithm {
   const GraphSearchAlgorithmConfig config_;
 };
 
+struct DistanceClusterTag {};
+using DistanceClusterIndex = Index<DistanceClusterTag, uint16_t>;
+using DistanceClusterSet = PerfectHashSet<uint16_t, DistanceClusterTag>;
+
+template <typename V>
+using DistanceClusterMap = PerfectHashMap<uint16_t, DistanceClusterTag, V>;
+
+// Clusters a graph based on some distance threshold.
+class DistanceClusteredGraph : public GraphSearchAlgorithm {
+ public:
+  DistanceClusteredGraph(const GraphSearchAlgorithmConfig& config,
+                         Delay threshold, SimpleDirectedGraph* parent)
+      : GraphSearchAlgorithm(config, parent) {
+    Cluster(threshold);
+  }
+
+  // Returns the set of nodes that belong to a cluster.
+  const GraphNodeSet& GetCluster(DistanceClusterIndex cluster_index) const {
+    return cluster_store_.GetItemOrDie(cluster_index);
+  }
+
+  // Returns the index of the cluster that a node belongs to. Each node can be
+  // part of at most one cluster.
+  DistanceClusterIndex GetClusterForNode(GraphNodeIndex node_index) const {
+    return node_to_cluster_.GetValueOrDie(node_index);
+  }
+
+  const GraphNodeMap<DistanceClusterIndex>& node_to_cluster() const {
+    return node_to_cluster_;
+  }
+
+  DistanceClusterSet AllClusters() const {
+    return DistanceClusterSet::FullSetFromStore(cluster_store_);
+  }
+
+  const GraphStorage* clustered_storage() const {
+    return clustered_storage_.get();
+  }
+
+ private:
+  static bool IsInClusters(const std::vector<GraphNodeSet>& clusters,
+                           GraphNodeIndex node);
+
+  void Cluster(Delay threshold);
+
+  // Clusters are stored here. Populated upon construction.
+  PerfectHashStore<GraphNodeSet, uint16_t, DistanceClusterTag> cluster_store_;
+
+  // Relates from node to the node's cluster index.
+  GraphNodeMap<DistanceClusterIndex> node_to_cluster_;
+
+  // The graph composed of only the clustered nodes.
+  std::unique_ptr<GraphStorage> clustered_storage_;
+};
+
 // Computes shortest paths between all pairs of nodes, can also be used to
 // figure out if the graph is partitioned.
 class AllPairShortestPath : public GraphSearchAlgorithm {
@@ -198,12 +253,19 @@ class DFS : public GraphSearchAlgorithm {
  public:
   using PathCallback = std::function<void(const LinkSequence&)>;
 
+  // If the last argument is true will compute an all-pairs shortest path and
+  // use the shortest distance from any node to the destination to prune paths
+  // that are too long early. The downside is that it may be slower and more
+  // memory hungry, especially if you are only interested in reachability.
   DFS(const GraphSearchAlgorithmConfig& config,
-      const SimpleDirectedGraph* graph);
+      const SimpleDirectedGraph* graph, bool prune_distance = true);
 
   // Calls a callback on all paths between a source and a destination.
   void Paths(GraphNodeIndex src, GraphNodeIndex dst, Delay max_distance,
              size_t max_hops, PathCallback path_callback) const;
+
+  // The set of nodes that are reachable from a given node.
+  GraphNodeSet ReachableNodes(GraphNodeIndex src);
 
  private:
   void PathsRecursive(Delay max_distance, size_t max_hops, GraphNodeIndex at,
@@ -211,11 +273,14 @@ class DFS : public GraphSearchAlgorithm {
                       GraphNodeSet* nodes_seen, Links* current,
                       Delay* total_distance) const;
 
+  void ReachableNodesRecursive(GraphNodeIndex at,
+                               GraphNodeSet* nodes_seen) const;
+
   // The graph storage.
   const GraphStorage* storage_;
 
   // The shortest paths are used to prune the DFS like in A*.
-  AllPairShortestPath all_pair_sp_;
+  std::unique_ptr<AllPairShortestPath> all_pair_sp_;
 };
 
 }  // namespace net

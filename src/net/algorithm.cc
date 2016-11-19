@@ -108,10 +108,12 @@ void AllPairShortestPath::ComputePaths() {
 }
 
 DFS::DFS(const GraphSearchAlgorithmConfig& config,
-         const SimpleDirectedGraph* graph)
-    : GraphSearchAlgorithm(config, graph),
-      storage_(graph->graph_storage()),
-      all_pair_sp_(config, graph_) {}
+         const SimpleDirectedGraph* graph, bool prune_distance)
+    : GraphSearchAlgorithm(config, graph), storage_(graph->graph_storage()) {
+  if (prune_distance) {
+    all_pair_sp_ = make_unique<AllPairShortestPath>(config, graph_);
+  }
+}
 
 void DFS::Paths(GraphNodeIndex src, GraphNodeIndex dst, Delay max_distance,
                 size_t max_hops, PathCallback path_callback) const {
@@ -135,8 +137,11 @@ void DFS::PathsRecursive(Delay max_distance, size_t max_hops, GraphNodeIndex at,
     return;
   }
 
-  Delay min_distance = all_pair_sp_.GetDistance(at, dst);
-  min_distance += *total_distance;
+  Delay min_distance = *total_distance;
+  if (all_pair_sp_) {
+    min_distance += all_pair_sp_->GetDistance(at, dst);
+  }
+
   if (min_distance > max_distance) {
     return;
   }
@@ -169,6 +174,31 @@ void DFS::PathsRecursive(Delay max_distance, size_t max_hops, GraphNodeIndex at,
   }
 
   nodes_seen->Remove(at);
+}
+
+void DFS::ReachableNodesRecursive(GraphNodeIndex at,
+                                  GraphNodeSet* nodes_seen) const {
+  if (nodes_seen->Contains(at)) {
+    return;
+  }
+  nodes_seen->Insert(at);
+
+  const auto& adjacency_list = graph_->AdjacencyList();
+  const std::vector<GraphLinkIndex>& outgoing_links = adjacency_list[at];
+
+  for (GraphLinkIndex out_link : outgoing_links) {
+    if (config_.CanExcludeLink(out_link)) {
+      continue;
+    }
+
+    const GraphLink* next_link = storage_->GetLink(out_link);
+    GraphNodeIndex next_hop = next_link->dst();
+    if (config_.CanExcludeNode(next_hop)) {
+      continue;
+    }
+
+    ReachableNodesRecursive(next_hop, nodes_seen);
+  }
 }
 
 LinkSequence ShortestPath::GetPath(GraphNodeIndex dst) const {
@@ -416,6 +446,58 @@ void KShortestPaths::GetLinkExclusionSet(const Links& root_path,
       out->Insert(k_path_links[root_path.size()]);
     }
   }
+}
+
+void DistanceClusteredGraph::Cluster(Delay threshold) {
+  const GraphStorage* graph_storage = graph_->graph_storage();
+  GraphNodeSet all_nodes = graph_storage->AllNodes();
+  AllPairShortestPath all_pair_sp(config_, graph_);
+
+  // Map from a node to all nodes that are within threshold distance of it.
+  std::map<GraphNodeIndex, std::vector<GraphNodeIndex>> node_to_close_nodes;
+
+  // Nodes that are within 'threshold' of eachother.
+  for (GraphNodeIndex src : all_nodes) {
+    for (GraphNodeIndex dst : all_nodes) {
+      Delay distance = all_pair_sp.GetDistance(src, dst);
+      if (distance <= threshold) {
+        node_to_close_nodes[src].emplace_back(dst);
+      }
+    }
+  }
+
+  // GetDisjointSets used standard maps/sets instead of GraphNodeMap/Set, will
+  // have to convert.
+  std::vector<std::set<GraphNodeIndex>> clusters =
+      GetDisjointSets(node_to_close_nodes);
+  std::vector<GraphNodeSet> clusters_graph_sets;
+
+  size_t total = 0;
+  for (const std::set<GraphNodeIndex>& cluster : clusters) {
+    GraphNodeSet cluster_set(cluster);
+    clusters_graph_sets.emplace_back(cluster_set);
+
+    DistanceClusterIndex cluster_index = cluster_store_.AddItem(cluster_set);
+    for (GraphNodeIndex node : cluster) {
+      ++total;
+      node_to_cluster_[node] = cluster_index;
+    }
+  }
+
+  // Each node should be in one cluster.
+  CHECK(total == graph_storage->NodeCount());
+  clustered_storage_ = graph_storage->ClusterNodes(clusters_graph_sets);
+}
+
+bool DistanceClusteredGraph::IsInClusters(
+    const std::vector<GraphNodeSet>& clusters, GraphNodeIndex node) {
+  for (const auto& cluster : clusters) {
+    if (cluster.Contains(node)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 }  // namespace net

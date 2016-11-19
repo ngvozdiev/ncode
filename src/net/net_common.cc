@@ -63,17 +63,18 @@ void AddBiEdgesToGraph(
 }
 
 std::chrono::microseconds TotalDelayOfLinks(const Links& links,
-                                            const GraphStorage* link_storage) {
+                                            const GraphStorage* graph_storage) {
   std::chrono::microseconds total(0);
   for (GraphLinkIndex link_index : links) {
-    const GraphLink* link = link_storage->GetLink(link_index);
+    const GraphLink* link = graph_storage->GetLink(link_index);
     total += link->delay();
   }
 
   return total;
 }
 
-GraphStorage::GraphStorage(const PBNet& graph) {
+GraphStorage::GraphStorage(const PBNet& graph) : tag_generator_(0) {
+  empty_path_ = make_unique<GraphPath>(this);
   for (const auto& link_pb : graph.links()) {
     LinkFromProtobuf(link_pb);
   }
@@ -112,6 +113,101 @@ GraphNodeIndex GraphStorage::NodeFromString(const std::string& id) {
 
 GraphNodeIndex GraphStorage::NodeFromStringOrDie(const std::string& id) const {
   return FindOrDie(nodes_, id);
+}
+
+std::string GraphStorage::GetClusterName(const GraphNodeSet& nodes) const {
+  if (nodes.Count() == 1) {
+    return GetNode(*nodes.begin())->id();
+  }
+
+  std::string out = "C";
+  Join(nodes.begin(), nodes.end(), "_",
+       [this](GraphNodeIndex node) { return GetNode(node)->id(); }, &out);
+  return out;
+}
+
+GraphStats GraphStorage::Stats() const {
+  std::map<std::pair<GraphNodeIndex, GraphNodeIndex>, size_t> adjacency;
+  for (GraphLinkIndex link : AllLinks()) {
+    const GraphLink* link_ptr = GetLink(link);
+    GraphNodeIndex src = link_ptr->src();
+    GraphNodeIndex dst = link_ptr->dst();
+    ++adjacency[{src, dst}];
+    adjacency[{dst, src}];
+  }
+
+  size_t multiple_links = 0;
+  size_t unidirectional_links = 0;
+  for (const auto& src_and_dst_and_count : adjacency) {
+    GraphNodeIndex src;
+    GraphNodeIndex dst;
+    std::tie(src, dst) = src_and_dst_and_count.first;
+
+    if (src > dst) {
+      size_t fw_count = src_and_dst_and_count.second;
+      size_t rev_count = adjacency[{dst, src}];
+      size_t diff =
+          std::max(fw_count, rev_count) - std::min(fw_count, rev_count);
+      unidirectional_links += diff;
+      if (fw_count > 1) {
+        ++multiple_links;
+      }
+      if (rev_count > 1) {
+        ++rev_count;
+      }
+    }
+  }
+
+  return {unidirectional_links, multiple_links};
+}
+
+std::unique_ptr<GraphStorage> GraphStorage::ClusterNodes(
+    const std::vector<GraphNodeSet>& clusters) const {
+  GraphNodeMap<size_t> node_to_cluster;
+  std::vector<std::string> cluster_names(clusters.size());
+  for (size_t i = 0; i < clusters.size(); ++i) {
+    const GraphNodeSet& cluster = clusters[i];
+    cluster_names[i] = GetClusterName(cluster);
+
+    for (GraphNodeIndex node_in_cluster : cluster) {
+      node_to_cluster[node_in_cluster] = i;
+    }
+  }
+
+  auto new_storage = std::unique_ptr<GraphStorage>(new GraphStorage());
+  size_t port_num = 0;
+  for (GraphLinkIndex link_index : AllLinks()) {
+    const GraphLink* link = GetLink(link_index);
+    GraphNodeIndex src_index = link->src();
+    GraphNodeIndex dst_index = link->dst();
+
+    size_t src_cluster = node_to_cluster[src_index];
+    size_t dst_cluster = node_to_cluster[dst_index];
+
+    // If both src and dst are in the same cluster we can skip adding the link.
+    if (src_cluster == dst_cluster) {
+      continue;
+    }
+
+    const std::string& src_cluster_name = cluster_names[src_cluster];
+    const std::string& dst_cluster_name = cluster_names[dst_cluster];
+
+    GraphNodeIndex src_cluster_index =
+        new_storage->NodeFromString(src_cluster_name);
+    GraphNodeIndex dst_cluster_index =
+        new_storage->NodeFromString(dst_cluster_name);
+
+    net::DevicePortNumber port(++port_num);
+    auto link_ptr = std::unique_ptr<GraphLink>(new GraphLink(
+        src_cluster_index, dst_cluster_index, port, port, link->bandwidth(),
+        link->delay(), new_storage->GetNode(src_cluster_index),
+        new_storage->GetNode(dst_cluster_index)));
+    GraphLinkIndex index =
+        new_storage->link_store_.MoveItem(std::move(link_ptr));
+    new_storage->links_[src_cluster_name][dst_cluster_name].emplace_back(index);
+  }
+
+  return new_storage;
 }
 
 bool GraphStorage::LinkFromProtobuf(const PBGraphLink& link_pb,
@@ -327,7 +423,7 @@ void GraphPath::Populate(LinkSequence link_sequence, uint32_t tag) {
   tag_ = tag;
 }
 
-const GraphPath* PathStorage::PathFromStringOrDie(
+const GraphPath* GraphStorage::PathFromStringOrDie(
     const std::string& path_string, uint64_t cookie) {
   CHECK(path_string.length() > 1) << "Path string malformed: " << path_string;
   CHECK(path_string.front() == '[' && path_string.back() == ']')
@@ -361,7 +457,7 @@ const GraphPath* PathStorage::PathFromStringOrDie(
   return PathFromLinksOrDie({links, TotalDelayOfLinks(links, this)}, cookie);
 }
 
-const GraphPath* PathStorage::PathFromLinksOrDie(
+const GraphPath* GraphStorage::PathFromLinksOrDie(
     const LinkSequence& link_sequence, uint64_t cookie) {
   if (link_sequence.empty()) {
     return empty_path_.get();
@@ -384,7 +480,7 @@ const GraphPath* PathStorage::PathFromLinksOrDie(
   return return_path;
 }
 
-const GraphPath* PathStorage::PathFromProtobufOrDie(
+const GraphPath* GraphStorage::PathFromProtobufOrDie(
     const google::protobuf::RepeatedPtrField<PBGraphLink>& links_pb,
     uint64_t cookie) {
   Links links;
@@ -402,7 +498,7 @@ const GraphPath* PathStorage::PathFromProtobufOrDie(
   return PathFromLinksOrDie({links, TotalDelayOfLinks(links, this)}, cookie);
 }
 
-const GraphPath* PathStorage::PathFromProtobufOrDie(
+const GraphPath* GraphStorage::PathFromProtobufOrDie(
     const std::vector<PBGraphLink>& links, uint64_t cookie) {
   google::protobuf::RepeatedPtrField<PBGraphLink> links_pb;
   for (const auto& link : links) {
@@ -412,7 +508,7 @@ const GraphPath* PathStorage::PathFromProtobufOrDie(
   return PathFromProtobufOrDie(links_pb, cookie);
 }
 
-std::string PathStorage::DumpPaths() const {
+std::string GraphStorage::DumpPaths() const {
   using namespace std::chrono;
 
   static std::stringstream out;
@@ -432,7 +528,7 @@ std::string PathStorage::DumpPaths() const {
   return out.str();
 }
 
-const GraphPath* PathStorage::FindPathByTagOrNull(uint32_t tag) const {
+const GraphPath* GraphStorage::FindPathByTagOrNull(uint32_t tag) const {
   for (const auto& cookie_and_path_map : cookie_to_paths_) {
     const std::map<Links, GraphPath>& links_to_path =
         cookie_and_path_map.second;
@@ -450,7 +546,7 @@ const GraphPath* PathStorage::FindPathByTagOrNull(uint32_t tag) const {
 
 bool IsInPaths(const std::string& needle,
                const std::vector<LinkSequence>& haystack,
-               PathStorage* storage) {
+               GraphStorage* storage) {
   const GraphPath* path = storage->PathFromStringOrDie(needle, 0);
 
   for (const LinkSequence& path_in_haystack : haystack) {
@@ -464,7 +560,7 @@ bool IsInPaths(const std::string& needle,
 
 bool IsInPaths(const std::string& needle,
                const std::vector<const GraphPath*>& haystack, uint64_t cookie,
-               PathStorage* storage) {
+               GraphStorage* storage) {
   const GraphPath* path = storage->PathFromStringOrDie(needle, cookie);
 
   for (const GraphPath* path_in_haystack : haystack) {
@@ -670,6 +766,19 @@ GraphLink::GraphLink(const net::PBGraphLink& link_pb, GraphNodeIndex src,
   duration<double> duration(link_pb.delay_sec());
   delay_ = duration_cast<Delay>(duration);
 }
+
+GraphLink::GraphLink(GraphNodeIndex src, GraphNodeIndex dst,
+                     DevicePortNumber src_port, DevicePortNumber dst_port,
+                     Bandwidth bw, Delay delay, const GraphNode* src_node,
+                     const GraphNode* dst_node)
+    : src_(src),
+      dst_(dst),
+      src_port_(src_port),
+      dst_port_(dst_port),
+      bandwidth_(bw),
+      delay_(delay),
+      src_node_(src_node),
+      dst_node_(dst_node) {}
 
 std::string GraphLink::ToString() const {
   return Substitute("$0:$1->$2:$3", src_node_->id(), src_port_.Raw(),

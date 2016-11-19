@@ -4,6 +4,7 @@
 #include <limits>
 #include <type_traits>
 #include <vector>
+#include <set>
 
 #include "common.h"
 
@@ -108,6 +109,12 @@ class PerfectHashSet {
     }
   }
 
+  explicit PerfectHashSet(const std::set<Index<Tag, V>>& init_set) {
+    for (Index<Tag, V> i : init_set) {
+      Insert(i);
+    }
+  }
+
   // Adds all elements from another set to this one.
   void InsertAll(const PerfectHashSet<V, Tag>& other) {
     size_t other_size = other.set_.size();
@@ -159,6 +166,8 @@ class PerfectHashSet {
 
     return false;
   }
+
+  size_t Count() const { return std::count(set_.begin(), set_.end(), true); }
 
   ConstIterator begin() const {
     size_t i;
@@ -274,6 +283,12 @@ class PerfectHashMap {
   const Value& operator[](Index<Tag, V> index) const {
     return GetValueOrDie(index);
   }
+
+  size_t Count() const {
+    return std::count_if(
+        values_.begin(), values_.end(),
+        [](const std::pair<bool, Value>& pair) { return pair.first; });
+  };
 
   Iterator begin() { return {this, Index<Tag, V>(GetFirst())}; }
   Iterator end() { return {this, Index<Tag, V>(values_.size())}; }

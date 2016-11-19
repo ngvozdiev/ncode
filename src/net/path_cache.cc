@@ -55,10 +55,10 @@ std::unique_ptr<ShortestPathGenerator> IngressEgressPathCache::PathGenerator(
 }
 
 PathCache::PathCache(const PathCacheConfig& path_cache_config,
-                     PathStorage* path_storage, ConstraintMap* constraint_map)
+                     GraphStorage* graph_storage, ConstraintMap* constraint_map)
     : path_cache_config_(path_cache_config),
-      graph_(path_storage),
-      path_storage_(path_storage) {
+      graph_(graph_storage),
+      graph_storage_(graph_storage) {
   if (constraint_map) {
     for (auto& key_and_constraint : *constraint_map) {
       const IngressEgressKey& ie_key = key_and_constraint.first;
@@ -71,7 +71,7 @@ PathCache::PathCache(const PathCacheConfig& path_cache_config,
       ie_cache_ptr =
           std::unique_ptr<IngressEgressPathCache>(new IngressEgressPathCache(
               path_cache_config_, ie_key, std::move(constraint), &graph_,
-              path_storage_));
+              graph_storage_));
     }
   }
 }
@@ -81,7 +81,7 @@ IngressEgressPathCache* PathCache::IECache(const IngressEgressKey& ie_key) {
   if (!ie_cache_ptr) {
     ie_cache_ptr =
         std::unique_ptr<IngressEgressPathCache>(new IngressEgressPathCache(
-            path_cache_config_, ie_key, &graph_, path_storage_));
+            path_cache_config_, ie_key, &graph_, graph_storage_));
   }
 
   return ie_cache_ptr.get();
