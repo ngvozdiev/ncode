@@ -16,113 +16,93 @@
 namespace ncode {
 namespace net {
 
-using IngressEgressKey = std::tuple<GraphNodeIndex, GraphNodeIndex, uint64_t>;
+using NodePair = std::pair<GraphNodeIndex, GraphNodeIndex>;
 
-struct PathCacheConfig {
-  Delay max_delay;
-  size_t max_hops;
-};
-
-// Caches paths between an ingress and an edgess.
-class IngressEgressPathCache {
+// Caches paths between two nodes in the graph.
+class NodePairPathCache {
  public:
-  // Will return the lowest delay path.
-  const GraphPath* GetLowestDelayPath(
-      const GraphLinkSet* to_exclude = nullptr) {
-    auto gen = PathGenerator(to_exclude);
-    return path_storage_->PathFromLinksOrDie(gen->NextPath(),
-                                             std::get<2>(ie_key_));
-  }
+  // Will return the Kth lowest delay path. If 'exclude' is specified will
+  // return the lowest delay path that does not cross any of the links to
+  // exclude. The pointer returned is owned by this object.
+  const LinkSequence* KthShortestPathOrNull(
+      size_t k, const GraphLinkSet* exclude = nullptr);
 
-  // Will return the K lowest delay paths.
-  std::vector<const GraphPath*> GetKLowestDelayPaths(
-      size_t k, const GraphLinkSet* to_exclude = nullptr) {
-    auto gen = PathGenerator(to_exclude);
-    std::vector<const GraphPath*> paths;
-    for (size_t i = 0; i < k; ++i) {
-      LinkSequence next_link_seq = gen->NextPath();
-      const GraphPath* next_path = path_storage_->PathFromLinksOrDie(
-          next_link_seq, std::get<2>(ie_key_));
-      if (!next_path->empty()) {
-        paths.emplace_back(next_path);
-      }
-    }
-
-    return paths;
-  }
+  // Returns the paths between start_k (including) and the first  path that
+  // complies with 'exclude' (including). This function will also populate
+  // 'next_index' with the index after that of the path that complies.  Start_k
+  // and next_index are indices into the sorted list of all paths not only the
+  // ones that comply.
+  std::vector<const LinkSequence*> Paths(size_t start_k, size_t* next_index,
+                                         const GraphLinkSet* exclude = nullptr);
 
   // Will return the lowest delay path (P) and any paths that are up to
   // hop_count(P) + k hops long.
-  std::vector<const GraphPath*> GetPathsKHopsFromLowestDelay(size_t k);
+  std::vector<LinkSequence> PathsKHopsFromShortest(size_t k) const;
 
-  // Caches all paths between the source and the destination.
-  const std::vector<net::LinkSequence>& CacheAll();
+  // Caches all paths between the source and the destination. All paths up to
+  // 'max_hops' will be enumerated. This will be slow.
+  std::vector<LinkSequence> AllPaths(size_t max_hops) const;
 
  private:
-  IngressEgressPathCache(const PathCacheConfig& path_cache_config,
-                         const IngressEgressKey& ie_key,
-                         std::unique_ptr<Constraint> constraint,
-                         const SimpleDirectedGraph* graph,
-                         GraphStorage* path_storage)
-      : path_cache_config_(path_cache_config),
-        ie_key_(ie_key),
-        graph_(graph),
-        path_storage_(path_storage),
-        constraint_(std::move(constraint)) {}
+  NodePairPathCache(const NodePair& key, std::unique_ptr<Constraint> constraint,
+                    const SimpleDirectedGraph* graph,
+                    GraphStorage* path_storage);
 
-  IngressEgressPathCache(const PathCacheConfig& path_cache_config,
-                         const IngressEgressKey& ie_key,
-                         const SimpleDirectedGraph* graph,
-                         GraphStorage* path_storage)
-      : IngressEgressPathCache(path_cache_config, ie_key, DummyConstraint(),
-                               graph, path_storage) {}
+  NodePairPathCache(const NodePair& ie_key, const SimpleDirectedGraph* graph,
+                    GraphStorage* path_storage)
+      : NodePairPathCache(ie_key, DummyConstraint(), graph, path_storage) {}
 
-  std::unique_ptr<ShortestPathGenerator> PathGenerator(
-      const GraphLinkSet* to_exclude);
+  std::unique_ptr<ShortestPathGenerator> PathGenerator() const;
 
-  const PathCacheConfig path_cache_config_;
-  const IngressEgressKey ie_key_;
+  // Returns the path at index i from the cache, or if the cache does not extend
+  // up to index i, caches all paths up to, and including i. Will return empty
+  // path if no path at index i exists.
+  const LinkSequence* GetPathAtIndexOrNull(size_t i);
+
+  const NodePair key_;
   const SimpleDirectedGraph* graph_;
-  GraphStorage* path_storage_;
+  GraphStorage* graph_storage_;
 
   // Constraint.
   std::unique_ptr<Constraint> constraint_;
 
-  // Paths, ordered in increasing delay.
-  std::vector<LinkSequence> paths_;
+  // Generates paths in order.
+  std::unique_ptr<ShortestPathGenerator> path_generator_;
+
+  // Paths, ordered in increasing delay. All of these satisfy constraint_, but
+  // do not exclude any links (i.e. they are generated as if calling
+  // GetKLowestDelayPaths with a very large K and no to_exclude).
+  std::vector<std::unique_ptr<LinkSequence>> paths_;
 
   friend class PathCache;
-  DISALLOW_COPY_AND_ASSIGN(IngressEgressPathCache);
+  DISALLOW_COPY_AND_ASSIGN(NodePairPathCache);
 };
 
-// An entity that will cache all possible paths between a source and
-// a destination (if needed).
+// An entity that can be queried for paths and will cache paths between a source
+// and a destination.
 class PathCache {
  public:
-  using ConstraintMap = std::map<IngressEgressKey, std::unique_ptr<Constraint>>;
+  using ConstraintMap = std::map<NodePair, std::unique_ptr<Constraint>>;
 
   // Creates a new cache.
-  PathCache(const PathCacheConfig& path_cache_config,
-            GraphStorage* path_storage,
+  PathCache(GraphStorage* path_storage,
             ConstraintMap* constraint_map = nullptr);
 
   // The graph.
   const SimpleDirectedGraph* graph() const { return &graph_; }
 
   // Path storage.
-  GraphStorage* path_storage() { return graph_storage_; }
+  GraphStorage* graph_storage() { return graph_storage_; }
 
   // Returns the cache between two nodes.
-  IngressEgressPathCache* IECache(const IngressEgressKey& key);
+  NodePairPathCache* NodePairCache(const NodePair& key);
 
  private:
-  const PathCacheConfig path_cache_config_;
   const SimpleDirectedGraph graph_;
   GraphStorage* graph_storage_;
 
   // Stores cached between a source and a destination.
-  std::map<IngressEgressKey, std::unique_ptr<IngressEgressPathCache>>
-      ie_caches_;
+  std::map<NodePair, std::unique_ptr<NodePairPathCache>> ie_caches_;
 
   DISALLOW_COPY_AND_ASSIGN(PathCache);
 };

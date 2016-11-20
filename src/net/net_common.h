@@ -205,7 +205,11 @@ class LinkSequence {
 
   LinkSequence(const Links& links, Delay delay);
 
+  // Returns true if any of the links in this sequence is equal to link.
   bool Contains(GraphLinkIndex link) const;
+
+  // Returns true if any of the links in this sequence are in the set.
+  bool ContainsAny(GraphLinkSet links) const;
 
   // The delay of all links in this sequence.
   Delay delay() const;

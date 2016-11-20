@@ -324,6 +324,16 @@ bool LinkSequence::Contains(GraphLinkIndex link) const {
   return std::find(links_.begin(), links_.end(), link) != links_.end();
 }
 
+bool LinkSequence::ContainsAny(GraphLinkSet links) const {
+  for (GraphLinkIndex link_index : links_) {
+    if (links.Contains(link_index)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 void LinkSequence::ToProtobuf(const GraphStorage* storage,
                               net::PBPath* out) const {
   for (GraphLinkIndex link_index : links_) {

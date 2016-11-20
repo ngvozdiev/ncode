@@ -14,15 +14,15 @@ static constexpr net::Bandwidth kDefaultBw =
 
 class PathUtilsTest : public ::testing::Test {
  protected:
-  PathUtilsTest() : path_storage_(GenerateBraess(kDefaultBw)) {
-    a_ = path_storage_.NodeFromStringOrDie("A");
-    b_ = path_storage_.NodeFromStringOrDie("B");
-    c_ = path_storage_.NodeFromStringOrDie("C");
-    d_ = path_storage_.NodeFromStringOrDie("D");
+  PathUtilsTest() : graph_storage_(GenerateBraess(kDefaultBw)) {
+    a_ = graph_storage_.NodeFromStringOrDie("A");
+    b_ = graph_storage_.NodeFromStringOrDie("B");
+    c_ = graph_storage_.NodeFromStringOrDie("C");
+    d_ = graph_storage_.NodeFromStringOrDie("D");
   }
 
-  const GraphPath* GetPath(const std::string& path_string) {
-    return path_storage_.PathFromStringOrDie(path_string, 0);
+  LinkSequence GetPath(const std::string& path_string) {
+    return graph_storage_.PathFromStringOrDie(path_string, 0)->link_sequence();
   }
 
   GraphNodeIndex a_;
@@ -30,42 +30,88 @@ class PathUtilsTest : public ::testing::Test {
   GraphNodeIndex c_;
   GraphNodeIndex d_;
 
-  GraphStorage path_storage_;
+  GraphStorage graph_storage_;
 };
 
-static PathCacheConfig GetCacheConfig() {
-  PathCacheConfig path_cache_config;
-  path_cache_config.max_delay = seconds(1);
-  path_cache_config.max_hops = 10;
-  return path_cache_config;
-}
-
 TEST_F(PathUtilsTest, ShortestPath) {
-  PathCache cache(GetCacheConfig(), &path_storage_);
+  PathCache cache(&graph_storage_);
 
   ASSERT_EQ(GetPath("[A->C, C->D]"),
-            cache.IECache(std::make_tuple(a_, d_, 0))->GetLowestDelayPath());
+            *cache.NodePairCache({a_, d_})->KthShortestPathOrNull(0));
   ASSERT_EQ(GetPath("[B->C]"),
-            cache.IECache(std::make_tuple(b_, c_, 0))->GetLowestDelayPath());
+            *cache.NodePairCache({b_, c_})->KthShortestPathOrNull(0));
 }
 
 TEST_F(PathUtilsTest, KShortestPaths) {
-  PathCache cache(GetCacheConfig(), &path_storage_);
+  PathCache cache(&graph_storage_);
 
-  IngressEgressPathCache* ie_cache = cache.IECache(std::make_tuple(a_, d_, 0));
-  ASSERT_TRUE(ie_cache->GetKLowestDelayPaths(0).empty());
+  std::vector<LinkSequence> model;
+  std::vector<LinkSequence> output;
 
-  std::vector<const GraphPath*> model;
-  model = {GetPath("[A->C, C->D]")};
-  ASSERT_EQ(model, ie_cache->GetKLowestDelayPaths(1));
+  NodePairPathCache* pair_cache = cache.NodePairCache({a_, d_});
 
-  model = {GetPath("[A->C, C->D]"), GetPath("[A->B, B->D]")};
-  ASSERT_EQ(model, ie_cache->GetKLowestDelayPaths(2));
+  model.emplace_back(GetPath("[A->C, C->D]"));
+  output.emplace_back(*pair_cache->KthShortestPathOrNull(0));
+  ASSERT_EQ(model, output);
 
-  model = {GetPath("[A->C, C->D]"), GetPath("[A->B, B->D]"),
-           GetPath("[A->B, B->C, C->D]")};
-  ASSERT_EQ(model, ie_cache->GetKLowestDelayPaths(3));
-  ASSERT_EQ(model, ie_cache->GetKLowestDelayPaths(4));
+  model.emplace_back(GetPath("[A->B, B->D]"));
+  output.emplace_back(*pair_cache->KthShortestPathOrNull(1));
+  ASSERT_EQ(model, output);
+
+  model.emplace_back(GetPath("[A->B, B->C, C->D]"));
+  output.emplace_back(*pair_cache->KthShortestPathOrNull(2));
+  ASSERT_EQ(model, output);
+
+  ASSERT_EQ(nullptr, pair_cache->KthShortestPathOrNull(3));
+}
+
+TEST_F(PathUtilsTest, Paths) {
+  PathCache cache(&graph_storage_);
+  NodePairPathCache* pair_cache = cache.NodePairCache({a_, d_});
+
+  size_t i = 0;
+  std::vector<LinkSequence> model;
+  std::vector<LinkSequence> output;
+
+  model.emplace_back(GetPath("[A->C, C->D]"));
+  for (const LinkSequence* link_sequence : pair_cache->Paths(i, &i, nullptr)) {
+    output.emplace_back(*link_sequence);
+  }
+
+  ASSERT_EQ(model, output);
+  ASSERT_EQ(1ul, i);
+
+  model.emplace_back(GetPath("[A->B, B->D]"));
+  for (const LinkSequence* link_sequence : pair_cache->Paths(i, &i, nullptr)) {
+    output.emplace_back(*link_sequence);
+  }
+
+  ASSERT_EQ(model, output);
+  ASSERT_EQ(2ul, i);
+}
+
+TEST_F(PathUtilsTest, PathsSkip) {
+  PathCache cache(&graph_storage_);
+  NodePairPathCache* pair_cache = cache.NodePairCache({a_, d_});
+
+  size_t i = 1;
+  std::vector<LinkSequence> model;
+  std::vector<LinkSequence> output;
+
+  model.emplace_back(GetPath("[A->B, B->D]"));
+  model.emplace_back(GetPath("[A->B, B->C, C->D]"));
+  GraphLinkSet to_avoid = {graph_storage_.LinkOrDie("A", "C"),
+                           graph_storage_.LinkOrDie("B", "D")};
+
+  for (const LinkSequence* link_sequence :
+       pair_cache->Paths(i, &i, &to_avoid)) {
+    output.emplace_back(*link_sequence);
+  }
+
+  ASSERT_EQ(model, output);
+  ASSERT_EQ(3ul, i);
+  ASSERT_TRUE(pair_cache->Paths(i, &i, &to_avoid).empty());
+  ASSERT_EQ(3ul, i);
 }
 
 }  // namespace net
