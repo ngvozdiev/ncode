@@ -67,6 +67,21 @@ std::vector<const LinkSequence*> NodePairPathCache::Paths(
   return out;
 }
 
+std::vector<const LinkSequence*> NodePairPathCache::PathsRange(size_t start_k,
+                                                               size_t count) {
+  std::vector<const LinkSequence*> out;
+  for (size_t i = start_k; i < start_k + count; ++i) {
+    const LinkSequence* next_path = GetPathAtIndexOrNull(i);
+    if (next_path == nullptr) {
+      break;
+    }
+
+    out.emplace_back(next_path);
+  }
+
+  return out;
+}
+
 const LinkSequence* NodePairPathCache::GetPathAtIndexOrNull(size_t i) {
   while (i >= paths_.size()) {
     auto next_path = make_unique<LinkSequence>(path_generator_->NextPath());

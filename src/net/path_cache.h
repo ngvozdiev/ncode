@@ -35,6 +35,10 @@ class NodePairPathCache {
   std::vector<const LinkSequence*> Paths(size_t start_k, size_t* next_index,
                                          const GraphLinkSet* exclude = nullptr);
 
+  // Returns a range of the k shortest paths sequence that contains count paths
+  // starting at start_k.
+  std::vector<const LinkSequence*> PathsRange(size_t start_k, size_t count);
+
   // Will return the lowest delay path (P) and any paths that are up to
   // hop_count(P) + k hops long.
   std::vector<LinkSequence> PathsKHopsFromShortest(size_t k) const;
