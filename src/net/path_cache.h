@@ -22,10 +22,12 @@ using NodePair = std::pair<GraphNodeIndex, GraphNodeIndex>;
 class NodePairPathCache {
  public:
   // Returns the paths between start_k (including) and the first  path that
-  // complies with 'exclude' (including). This function will also populate
-  // 'next_index' with the index after that of the path that complies.  Start_k
-  // and next_index are indices into the sorted list of all paths not only the
-  // ones that comply.
+  // complies with 'exclude'. This function will also populate 'next_index' with
+  // the index after that of the path that complies.  Start_k  and next_index
+  // are indices into the sorted list of all paths not only the  ones that
+  // comply. This function will enumerate all paths until it finds a compliant
+  // one and may be very slow if there is no compliant path and the graph is
+  // large. In this case and empty vector will be returned.
   std::vector<const LinkSequence*> Paths(size_t start_k, size_t* next_index,
                                          const GraphLinkSet* exclude = nullptr);
 
@@ -50,13 +52,16 @@ class NodePairPathCache {
   std::vector<LinkSequence> AllPaths(size_t max_hops) const;
 
  private:
-  NodePairPathCache(const NodePair& key, std::unique_ptr<Constraint> constraint,
+  NodePairPathCache(const NodePair& key, size_t max_num_paths,
+                    std::unique_ptr<Constraint> constraint,
                     const SimpleDirectedGraph* graph,
                     GraphStorage* path_storage);
 
-  NodePairPathCache(const NodePair& ie_key, const SimpleDirectedGraph* graph,
+  NodePairPathCache(const NodePair& key, size_t max_num_paths,
+                    const SimpleDirectedGraph* graph,
                     GraphStorage* path_storage)
-      : NodePairPathCache(ie_key, DummyConstraint(), graph, path_storage) {}
+      : NodePairPathCache(key, max_num_paths, DummyConstraint(), graph,
+                          path_storage) {}
 
   std::unique_ptr<ShortestPathGenerator> PathGenerator(
       const GraphLinkSet* exclude) const;
@@ -81,6 +86,9 @@ class NodePairPathCache {
   // GetKLowestDelayPaths with a very large K and no to_exclude).
   std::vector<std::unique_ptr<LinkSequence>> paths_;
 
+  // The cache will not grow above this number of paths.
+  size_t max_num_paths_;
+
   friend class PathCache;
   DISALLOW_COPY_AND_ASSIGN(NodePairPathCache);
 };
@@ -89,10 +97,13 @@ class NodePairPathCache {
 // and a destination.
 class PathCache {
  public:
+  static constexpr size_t kDefaultMaxNumPathsPerPair = 1000;
+
   using ConstraintMap = std::map<NodePair, std::unique_ptr<Constraint>>;
 
   // Creates a new cache.
   PathCache(GraphStorage* path_storage,
+            size_t max_num_paths_per_pair = kDefaultMaxNumPathsPerPair,
             ConstraintMap* constraint_map = nullptr);
 
   // The graph.
@@ -107,6 +118,9 @@ class PathCache {
  private:
   const SimpleDirectedGraph graph_;
   GraphStorage* graph_storage_;
+
+  // Each NodePair cache will have at most this many paths.
+  size_t max_num_paths_per_pair_;
 
   // Stores cached between a source and a destination.
   std::map<NodePair, std::unique_ptr<NodePairPathCache>> ie_caches_;

@@ -63,6 +63,10 @@ std::vector<const LinkSequence*> NodePairPathCache::PathsRange(size_t start_k,
 }
 
 const LinkSequence* NodePairPathCache::GetPathAtIndexOrNull(size_t i) {
+  if (i > max_num_paths_) {
+    return nullptr;
+  }
+
   while (i >= paths_.size()) {
     auto next_path = make_unique<LinkSequence>(path_generator_->NextPath());
     if (next_path->empty()) {
@@ -102,19 +106,23 @@ std::unique_ptr<ShortestPathGenerator> NodePairPathCache::PathGenerator(
   return constraint_->PathGenerator(*graph_, key_.first, key_.second, exclude);
 }
 
-NodePairPathCache::NodePairPathCache(const NodePair& key,
+NodePairPathCache::NodePairPathCache(const NodePair& key, size_t max_num_paths,
                                      std::unique_ptr<Constraint> constraint,
                                      const SimpleDirectedGraph* graph,
                                      GraphStorage* path_storage)
     : key_(key),
       graph_(graph),
       graph_storage_(path_storage),
-      constraint_(std::move(constraint)) {
+      constraint_(std::move(constraint)),
+      max_num_paths_(max_num_paths) {
   path_generator_ = PathGenerator(nullptr);
 }
 
-PathCache::PathCache(GraphStorage* graph_storage, ConstraintMap* constraint_map)
-    : graph_(graph_storage), graph_storage_(graph_storage) {
+PathCache::PathCache(GraphStorage* graph_storage, size_t max_num_paths_per_pair,
+                     ConstraintMap* constraint_map)
+    : graph_(graph_storage),
+      graph_storage_(graph_storage),
+      max_num_paths_per_pair_(max_num_paths_per_pair) {
   if (constraint_map) {
     for (auto& key_and_constraint : *constraint_map) {
       const NodePair& ie_key = key_and_constraint.first;
@@ -124,7 +132,8 @@ PathCache::PathCache(GraphStorage* graph_storage, ConstraintMap* constraint_map)
 
       std::unique_ptr<NodePairPathCache>& ie_cache_ptr = ie_caches_[ie_key];
       ie_cache_ptr = std::unique_ptr<NodePairPathCache>(new NodePairPathCache(
-          ie_key, std::move(constraint), &graph_, graph_storage_));
+          ie_key, max_num_paths_per_pair_, std::move(constraint), &graph_,
+          graph_storage_));
     }
   }
 }
@@ -132,8 +141,8 @@ PathCache::PathCache(GraphStorage* graph_storage, ConstraintMap* constraint_map)
 NodePairPathCache* PathCache::NodePairCache(const NodePair& ie_key) {
   std::unique_ptr<NodePairPathCache>& ie_cache_ptr = ie_caches_[ie_key];
   if (!ie_cache_ptr) {
-    ie_cache_ptr = std::unique_ptr<NodePairPathCache>(
-        new NodePairPathCache(ie_key, &graph_, graph_storage_));
+    ie_cache_ptr = std::unique_ptr<NodePairPathCache>(new NodePairPathCache(
+        ie_key, max_num_paths_per_pair_, &graph_, graph_storage_));
   }
 
   return ie_cache_ptr.get();
