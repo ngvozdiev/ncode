@@ -21,12 +21,6 @@ using NodePair = std::pair<GraphNodeIndex, GraphNodeIndex>;
 // Caches paths between two nodes in the graph.
 class NodePairPathCache {
  public:
-  // Will return the Kth lowest delay path. If 'exclude' is specified will
-  // return the lowest delay path that does not cross any of the links to
-  // exclude. The pointer returned is owned by this object.
-  const LinkSequence* KthShortestPathOrNull(
-      size_t k, const GraphLinkSet* exclude = nullptr);
-
   // Returns the paths between start_k (including) and the first  path that
   // complies with 'exclude' (including). This function will also populate
   // 'next_index' with the index after that of the path that complies.  Start_k
@@ -38,6 +32,14 @@ class NodePairPathCache {
   // Returns a range of the k shortest paths sequence that contains count paths
   // starting at start_k.
   std::vector<const LinkSequence*> PathsRange(size_t start_k, size_t count);
+
+  // Will return the Kth lowest delay path. If 'exclude' is specified will
+  // return the lowest delay compliant path -- the one that does not cross any
+  // of the links to exclude. This (and the following) methods are different
+  // from Paths which will enumerate all paths up to the compliant one and put
+  // them in the cache.
+  LinkSequence KthShortestPath(size_t k,
+                               const GraphLinkSet* exclude = nullptr) const;
 
   // Will return the lowest delay path (P) and any paths that are up to
   // hop_count(P) + k hops long.
@@ -56,7 +58,8 @@ class NodePairPathCache {
                     GraphStorage* path_storage)
       : NodePairPathCache(ie_key, DummyConstraint(), graph, path_storage) {}
 
-  std::unique_ptr<ShortestPathGenerator> PathGenerator() const;
+  std::unique_ptr<ShortestPathGenerator> PathGenerator(
+      const GraphLinkSet* exclude) const;
 
   // Returns the path at index i from the cache, or if the cache does not extend
   // up to index i, caches all paths up to, and including i. Will return empty

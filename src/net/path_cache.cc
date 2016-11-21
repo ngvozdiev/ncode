@@ -9,39 +9,19 @@
 namespace ncode {
 namespace net {
 
-const LinkSequence* NodePairPathCache::KthShortestPathOrNull(
-    size_t k, const GraphLinkSet* to_exclude) {
-  // First we will try to figure out if the path is already in the cache.
-  size_t i = 0;
-  for (const auto& path_in_cache : paths_) {
-    if (to_exclude && path_in_cache->ContainsAny(*to_exclude)) {
-      continue;
-    }
+LinkSequence NodePairPathCache::KthShortestPath(
+    size_t k, const GraphLinkSet* to_exclude) const {
+  std::unique_ptr<ShortestPathGenerator> generator = PathGenerator(to_exclude);
 
-    if (i++ == k) {
-      return path_in_cache.get();
+  LinkSequence next_path;
+  for (size_t i = 0; i < k + 1; ++i) {
+    next_path = generator->NextPath();
+    if (next_path.empty()) {
+      return next_path;
     }
   }
 
-  // Will have to extend the cache to include all paths up to the kth one that
-  // complies with 'to_exclude'.
-  while (true) {
-    auto next_path = make_unique<LinkSequence>(path_generator_->NextPath());
-    if (next_path->empty()) {
-      // No more paths.
-      return nullptr;
-    }
-
-    bool not_compliant = to_exclude && next_path->ContainsAny(*to_exclude);
-    paths_.emplace_back(std::move(next_path));
-    if (not_compliant) {
-      continue;
-    }
-
-    if (i++ == k) {
-      return paths_.back().get();
-    }
-  }
+  return next_path;
 }
 
 std::vector<const LinkSequence*> NodePairPathCache::Paths(
@@ -98,7 +78,7 @@ const LinkSequence* NodePairPathCache::GetPathAtIndexOrNull(size_t i) {
 
 std::vector<LinkSequence> NodePairPathCache::PathsKHopsFromShortest(
     size_t k) const {
-  size_t shortest_path_hop_count = PathGenerator()->NextPath().size();
+  size_t shortest_path_hop_count = PathGenerator(nullptr)->NextPath().size();
   size_t limit = shortest_path_hop_count + k;
   return AllPaths(limit);
 }
@@ -117,9 +97,9 @@ std::vector<LinkSequence> NodePairPathCache::AllPaths(size_t max_hops) const {
   return out;
 }
 
-std::unique_ptr<ShortestPathGenerator> NodePairPathCache::PathGenerator()
-    const {
-  return constraint_->PathGenerator(*graph_, key_.first, key_.second, nullptr);
+std::unique_ptr<ShortestPathGenerator> NodePairPathCache::PathGenerator(
+    const GraphLinkSet* exclude) const {
+  return constraint_->PathGenerator(*graph_, key_.first, key_.second, exclude);
 }
 
 NodePairPathCache::NodePairPathCache(const NodePair& key,
@@ -130,7 +110,7 @@ NodePairPathCache::NodePairPathCache(const NodePair& key,
       graph_(graph),
       graph_storage_(path_storage),
       constraint_(std::move(constraint)) {
-  path_generator_ = PathGenerator();
+  path_generator_ = PathGenerator(nullptr);
 }
 
 PathCache::PathCache(GraphStorage* graph_storage, ConstraintMap* constraint_map)

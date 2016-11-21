@@ -37,9 +37,9 @@ TEST_F(PathUtilsTest, ShortestPath) {
   PathCache cache(&graph_storage_);
 
   ASSERT_EQ(GetPath("[A->C, C->D]"),
-            *cache.NodePairCache({a_, d_})->KthShortestPathOrNull(0));
+            cache.NodePairCache({a_, d_})->KthShortestPath(0));
   ASSERT_EQ(GetPath("[B->C]"),
-            *cache.NodePairCache({b_, c_})->KthShortestPathOrNull(0));
+            cache.NodePairCache({b_, c_})->KthShortestPath(0));
 }
 
 TEST_F(PathUtilsTest, KShortestPaths) {
@@ -51,18 +51,18 @@ TEST_F(PathUtilsTest, KShortestPaths) {
   NodePairPathCache* pair_cache = cache.NodePairCache({a_, d_});
 
   model.emplace_back(GetPath("[A->C, C->D]"));
-  output.emplace_back(*pair_cache->KthShortestPathOrNull(0));
+  output.emplace_back(pair_cache->KthShortestPath(0));
   ASSERT_EQ(model, output);
 
   model.emplace_back(GetPath("[A->B, B->D]"));
-  output.emplace_back(*pair_cache->KthShortestPathOrNull(1));
+  output.emplace_back(pair_cache->KthShortestPath(1));
   ASSERT_EQ(model, output);
 
   model.emplace_back(GetPath("[A->B, B->C, C->D]"));
-  output.emplace_back(*pair_cache->KthShortestPathOrNull(2));
+  output.emplace_back(pair_cache->KthShortestPath(2));
   ASSERT_EQ(model, output);
 
-  ASSERT_EQ(nullptr, pair_cache->KthShortestPathOrNull(3));
+  ASSERT_TRUE(pair_cache->KthShortestPath(3).empty());
 }
 
 TEST_F(PathUtilsTest, Paths) {
