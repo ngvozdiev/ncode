@@ -72,6 +72,15 @@ TEST(Cluster, Braess) {
 
   DistanceClusteredGraph c_one({}, Delay(1), &graph);
   ASSERT_EQ(4ul, c_one.AllClusters().Count());
+
+  DistanceClusterIndex a_cluster =
+      c_one.GetClusterForNode(graph_storage.NodeFromStringOrDie("A"));
+  GraphLinkSet cluster_link_set = c_one.GetClusterLinkSet(a_cluster);
+  ASSERT_TRUE(cluster_link_set.Contains(graph_storage.LinkOrDie("A", "B")));
+  ASSERT_TRUE(cluster_link_set.Contains(graph_storage.LinkOrDie("B", "A")));
+  ASSERT_TRUE(cluster_link_set.Contains(graph_storage.LinkOrDie("A", "C")));
+  ASSERT_TRUE(cluster_link_set.Contains(graph_storage.LinkOrDie("C", "A")));
+  ASSERT_EQ(4ul, cluster_link_set.Count());
 }
 
 TEST(AllPairShortestPath, SingleLink) {

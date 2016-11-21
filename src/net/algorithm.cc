@@ -500,5 +500,23 @@ bool DistanceClusteredGraph::IsInClusters(
   return false;
 }
 
+GraphLinkSet DistanceClusteredGraph::GetClusterLinkSet(
+    DistanceClusterIndex cluster_index) const {
+  GraphLinkSet out;
+
+  const GraphStorage* graph_storage = graph_->graph_storage();
+  GraphNodeSet nodes_in_cluster = GetCluster(cluster_index);
+  GraphLinkSet all_links = graph_storage->AllLinks();
+  for (GraphLinkIndex link : all_links) {
+    const GraphLink* link_ptr = graph_storage->GetLink(link);
+    if (nodes_in_cluster.Contains(link_ptr->src()) ||
+        nodes_in_cluster.Contains(link_ptr->dst())) {
+      out.Insert(link);
+    }
+  }
+
+  return out;
+}
+
 }  // namespace net
 }  // namespace ncode

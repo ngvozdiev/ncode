@@ -107,6 +107,9 @@ class DistanceClusteredGraph : public GraphSearchAlgorithm {
     return node_to_cluster_.GetValueOrDie(node_index);
   }
 
+  // Returns a set that includes only links that start/end at the given cluster.
+  GraphLinkSet GetClusterLinkSet(DistanceClusterIndex cluster_index) const;
+
   const GraphNodeMap<DistanceClusterIndex>& node_to_cluster() const {
     return node_to_cluster_;
   }
