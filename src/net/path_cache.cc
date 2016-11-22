@@ -91,7 +91,7 @@ std::vector<LinkSequence> NodePairPathCache::AllPaths(size_t max_hops) const {
   std::vector<LinkSequence> out;
 
   DFS dfs({}, graph_);
-  dfs.Paths(key_.first, key_.second, Delay::max(), max_hops,
+  dfs.Paths(std::get<0>(key_), std::get<1>(key_), Delay::max(), max_hops,
             [this, &out](const LinkSequence& path) {
               if (constraint_->PathComplies(path)) {
                 out.emplace_back(path);
@@ -103,7 +103,8 @@ std::vector<LinkSequence> NodePairPathCache::AllPaths(size_t max_hops) const {
 
 std::unique_ptr<ShortestPathGenerator> NodePairPathCache::PathGenerator(
     const GraphLinkSet* exclude) const {
-  return constraint_->PathGenerator(*graph_, key_.first, key_.second, exclude);
+  return constraint_->PathGenerator(*graph_, std::get<0>(key_),
+                                    std::get<1>(key_), exclude);
 }
 
 NodePairPathCache::NodePairPathCache(const NodePair& key, size_t max_num_paths,

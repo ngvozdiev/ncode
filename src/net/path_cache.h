@@ -16,7 +16,7 @@
 namespace ncode {
 namespace net {
 
-using NodePair = std::pair<GraphNodeIndex, GraphNodeIndex>;
+using NodePair = std::tuple<GraphNodeIndex, GraphNodeIndex, uint64_t>;
 
 // Caches paths between two nodes in the graph.
 class NodePairPathCache {
