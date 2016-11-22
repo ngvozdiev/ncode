@@ -122,6 +122,14 @@ class DistanceClusteredGraph : public GraphSearchAlgorithm {
     return clustered_storage_.get();
   }
 
+  const GraphLinkMap<GraphLinkIndex>& real_to_clustered_links() const {
+    return real_to_clustered_links_;
+  }
+
+  const GraphLinkMap<GraphLinkIndex>& clustered_to_real_links() const {
+    return clustered_to_real_links_;
+  }
+
  private:
   static bool IsInClusters(const std::vector<GraphNodeSet>& clusters,
                            GraphNodeIndex node);
@@ -136,6 +144,9 @@ class DistanceClusteredGraph : public GraphSearchAlgorithm {
 
   // The graph composed of only the clustered nodes.
   std::unique_ptr<GraphStorage> clustered_storage_;
+
+  GraphLinkMap<GraphLinkIndex> real_to_clustered_links_;
+  GraphLinkMap<GraphLinkIndex> clustered_to_real_links_;
 };
 
 // Computes shortest paths between all pairs of nodes, can also be used to

@@ -162,7 +162,8 @@ GraphStats GraphStorage::Stats() const {
 }
 
 std::unique_ptr<GraphStorage> GraphStorage::ClusterNodes(
-    const std::vector<GraphNodeSet>& clusters) const {
+    const std::vector<GraphNodeSet>& clusters,
+    GraphLinkMap<GraphLinkIndex>* real_to_clustered_links) const {
   GraphNodeMap<size_t> node_to_cluster;
   std::vector<std::string> cluster_names(clusters.size());
   for (size_t i = 0; i < clusters.size(); ++i) {
@@ -202,9 +203,11 @@ std::unique_ptr<GraphStorage> GraphStorage::ClusterNodes(
         src_cluster_index, dst_cluster_index, port, port, link->bandwidth(),
         link->delay(), new_storage->GetNode(src_cluster_index),
         new_storage->GetNode(dst_cluster_index)));
-    GraphLinkIndex index =
+    GraphLinkIndex clustered_link_index =
         new_storage->link_store_.MoveItem(std::move(link_ptr));
-    new_storage->links_[src_cluster_name][dst_cluster_name].emplace_back(index);
+    real_to_clustered_links->Add(link_index, clustered_link_index);
+    new_storage->links_[src_cluster_name][dst_cluster_name].emplace_back(
+        clustered_link_index);
   }
 
   return new_storage;
