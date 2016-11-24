@@ -335,7 +335,8 @@ class GraphStorage {
   // real links and clustered links, which is stored in the last argument.
   std::unique_ptr<GraphStorage> ClusterNodes(
       const std::vector<GraphNodeSet>& clusters,
-      GraphLinkMap<GraphLinkIndex>* real_to_clustered_links) const;
+      GraphLinkMap<GraphLinkIndex>* real_to_clustered_links,
+      GraphNodeMap<GraphNodeIndex>* real_to_clustered_nodes) const;
 
   // At least the src and the dst need to be populated in the link_pb.
   // If there is no link between src and dst the ports need to also be populated

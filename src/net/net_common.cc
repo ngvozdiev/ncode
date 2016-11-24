@@ -163,19 +163,24 @@ GraphStats GraphStorage::Stats() const {
 
 std::unique_ptr<GraphStorage> GraphStorage::ClusterNodes(
     const std::vector<GraphNodeSet>& clusters,
-    GraphLinkMap<GraphLinkIndex>* real_to_clustered_links) const {
+    GraphLinkMap<GraphLinkIndex>* real_to_clustered_links,
+    GraphNodeMap<GraphNodeIndex>* real_to_clustered_nodes) const {
   GraphNodeMap<size_t> node_to_cluster;
   std::vector<std::string> cluster_names(clusters.size());
+
+  auto new_storage = std::unique_ptr<GraphStorage>(new GraphStorage());
   for (size_t i = 0; i < clusters.size(); ++i) {
     const GraphNodeSet& cluster = clusters[i];
-    cluster_names[i] = GetClusterName(cluster);
+    std::string cluster_name = GetClusterName(cluster);
+    cluster_names[i] = cluster_name;
 
     for (GraphNodeIndex node_in_cluster : cluster) {
       node_to_cluster[node_in_cluster] = i;
+      real_to_clustered_nodes->Add(node_in_cluster,
+                                   new_storage->NodeFromString(cluster_name));
     }
   }
 
-  auto new_storage = std::unique_ptr<GraphStorage>(new GraphStorage());
   size_t port_num = 0;
   for (GraphLinkIndex link_index : AllLinks()) {
     const GraphLink* link = GetLink(link_index);

@@ -118,6 +118,8 @@ class DistanceClusteredGraph : public GraphSearchAlgorithm {
     return DistanceClusterSet::FullSetFromStore(cluster_store_);
   }
 
+  GraphStorage* clustered_storage() { return clustered_storage_.get(); }
+
   const GraphStorage* clustered_storage() const {
     return clustered_storage_.get();
   }
@@ -128,6 +130,10 @@ class DistanceClusteredGraph : public GraphSearchAlgorithm {
 
   const GraphLinkMap<GraphLinkIndex>& clustered_to_real_links() const {
     return clustered_to_real_links_;
+  }
+
+  const GraphNodeMap<GraphNodeIndex>& real_to_clustered_nodes() const {
+    return real_to_clustered_nodes_;
   }
 
  private:
@@ -147,6 +153,7 @@ class DistanceClusteredGraph : public GraphSearchAlgorithm {
 
   GraphLinkMap<GraphLinkIndex> real_to_clustered_links_;
   GraphLinkMap<GraphLinkIndex> clustered_to_real_links_;
+  GraphNodeMap<GraphNodeIndex> real_to_clustered_nodes_;
 };
 
 // Computes shortest paths between all pairs of nodes, can also be used to
