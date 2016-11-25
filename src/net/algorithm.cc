@@ -509,7 +509,8 @@ void DistanceClusteredGraph::Cluster(Delay threshold) {
   // Each node should be in one cluster.
   CHECK(total == graph_storage->NodeCount());
   clustered_storage_ = graph_storage->ClusterNodes(clusters_graph_sets,
-                                                   &real_to_clustered_links_);
+                                                   &real_to_clustered_links_,
+                                                   &real_to_clustered_nodes_);
   for (const auto& real_and_clustered_link : real_to_clustered_links_) {
     GraphLinkIndex real_link = real_and_clustered_link.first;
     GraphLinkIndex clustered_link = *real_and_clustered_link.second;
