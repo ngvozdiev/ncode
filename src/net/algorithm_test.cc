@@ -306,6 +306,97 @@ TEST(KShortest, Braess) {
   ASSERT_TRUE(ksp.NextPath().empty());
 }
 
+net::PBNet GenerateWaypointGraph(Bandwidth bw) {
+  using namespace std::chrono;
+  PBNet net;
+  AddBiEdgeToGraph("A", "B", milliseconds(1), bw, &net);
+  AddBiEdgeToGraph("A", "E", milliseconds(2), bw, &net);
+  AddBiEdgeToGraph("E", "B", milliseconds(1), bw, &net);
+  AddBiEdgeToGraph("B", "C", milliseconds(100), bw, &net);
+  AddBiEdgeToGraph("E", "F", milliseconds(10), bw, &net);
+  AddBiEdgeToGraph("C", "D", milliseconds(1), bw, &net);
+  AddBiEdgeToGraph("C", "F", milliseconds(1), bw, &net);
+  AddBiEdgeToGraph("F", "D", milliseconds(1), bw, &net);
+
+  return net;
+}
+
+TEST(KShortest, Waypoints) {
+  PBNet net = GenerateWaypointGraph(kBw);
+  GraphStorage graph_storage(net);
+  GraphNodeIndex node_a = graph_storage.NodeFromStringOrDie("A");
+  GraphNodeIndex node_d = graph_storage.NodeFromStringOrDie("D");
+  GraphLinkIndex link_bc = graph_storage.LinkOrDie("B", "C");
+
+  SimpleDirectedGraph graph(&graph_storage);
+  KShortestPaths ksp({}, {link_bc}, node_a, node_d, &graph);
+
+  std::vector<const GraphPath*> paths;
+  paths.emplace_back(graph_storage.PathFromLinksOrDie(ksp.NextPath(), 0));
+  ASSERT_TRUE(IsInPaths("[A->B, B->C, C->D]", paths, 0, &graph_storage));
+
+  paths.emplace_back(graph_storage.PathFromLinksOrDie(ksp.NextPath(), 0));
+  ASSERT_TRUE(IsInPaths("[A->B, B->C, C->F, F->D]", paths, 0, &graph_storage));
+
+  paths.emplace_back(graph_storage.PathFromLinksOrDie(ksp.NextPath(), 0));
+  ASSERT_TRUE(IsInPaths("[A->E, E->B, B->C, C->D]", paths, 0, &graph_storage));
+
+  paths.emplace_back(graph_storage.PathFromLinksOrDie(ksp.NextPath(), 0));
+  ASSERT_TRUE(
+      IsInPaths("[A->E, E->B, B->C, C->F, F->D]", paths, 0, &graph_storage));
+
+  paths.emplace_back(graph_storage.PathFromLinksOrDie(ksp.NextPath(), 0));
+  ASSERT_TRUE(IsInPaths("[]", paths, 0, &graph_storage));
+}
+
+TEST(Shortest, BadWaypoints) {
+  PBNet net = GenerateWaypointGraph(kBw);
+  GraphStorage graph_storage(net);
+  GraphNodeIndex node_a = graph_storage.NodeFromStringOrDie("A");
+  GraphNodeIndex node_d = graph_storage.NodeFromStringOrDie("D");
+  GraphLinkIndex link_bc = graph_storage.LinkOrDie("B", "C");
+  GraphLinkIndex link_be = graph_storage.LinkOrDie("B", "E");
+
+  Links waypoints = {link_bc, link_be};
+  SimpleDirectedGraph graph(&graph_storage);
+
+  auto sp = WaypointShortestPath({}, waypoints.begin(), waypoints.end(), node_a,
+                                 node_d, &graph);
+  ASSERT_TRUE(sp.empty());
+}
+
+TEST(Shortest, BadWaypointsSrc) {
+  PBNet net = GenerateWaypointGraph(kBw);
+  GraphStorage graph_storage(net);
+  GraphNodeIndex node_b = graph_storage.NodeFromStringOrDie("B");
+  GraphNodeIndex node_d = graph_storage.NodeFromStringOrDie("D");
+  GraphLinkIndex link_bc = graph_storage.LinkOrDie("B", "C");
+  GraphLinkIndex link_be = graph_storage.LinkOrDie("B", "E");
+
+  Links waypoints = {link_bc, link_be};
+  SimpleDirectedGraph graph(&graph_storage);
+
+  auto sp = WaypointShortestPath({}, waypoints.begin(), waypoints.end(), node_b,
+                                 node_d, &graph);
+  ASSERT_TRUE(sp.empty());
+}
+
+TEST(Shortest, BadWaypointsDst) {
+  PBNet net = GenerateWaypointGraph(kBw);
+  GraphStorage graph_storage(net);
+  GraphNodeIndex node_b = graph_storage.NodeFromStringOrDie("A");
+  GraphNodeIndex node_d = graph_storage.NodeFromStringOrDie("D");
+  GraphLinkIndex link_cf = graph_storage.LinkOrDie("C", "F");
+  GraphLinkIndex link_cd = graph_storage.LinkOrDie("C", "D");
+
+  Links waypoints = {link_cd, link_cf};
+  SimpleDirectedGraph graph(&graph_storage);
+
+  auto sp = WaypointShortestPath({}, waypoints.begin(), waypoints.end(), node_b,
+                                 node_d, &graph);
+  ASSERT_TRUE(sp.empty());
+}
+
 }  // namespace
 }  // namespace net
 }  // namespace ncode

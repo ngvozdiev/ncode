@@ -298,8 +298,9 @@ static void AddFromPath(const SimpleDirectedGraph& graph,
 }
 
 LinkSequence WaypointShortestPath(const GraphSearchAlgorithmConfig& config,
-                                  const Links& waypoints, GraphNodeIndex src,
-                                  GraphNodeIndex dst,
+                                  Links::const_iterator waypoints_from,
+                                  Links::const_iterator waypoints_to,
+                                  GraphNodeIndex src, GraphNodeIndex dst,
                                   const SimpleDirectedGraph* graph) {
   CHECK(src != dst);
   const GraphStorage* graph_storage = graph->graph_storage();
@@ -315,11 +316,24 @@ LinkSequence WaypointShortestPath(const GraphSearchAlgorithmConfig& config,
   GraphNodeIndex current_point = src;
   Links path;
   Delay total_delay = Delay::zero();
-  for (GraphLinkIndex link : waypoints) {
+  for (auto it = waypoints_from; it < waypoints_to; ++it) {
     // The next SP is that between the current point and the source of the
     // edge, the path is then concatenated with the edge and the current point
     // is set to the end of the edge.
-    const GraphLink* link_ptr = graph_storage->GetLink(link);
+    GraphLinkIndex link_index = *it;
+    const GraphLink* link_ptr = graph_storage->GetLink(link_index);
+
+    // If the waypoint link is in the excluded set we cannot find a path through
+    // the waypoints and we return an empty path.
+    if (config_copy.CanExcludeLink(link_index)) {
+      return {};
+    }
+
+    // If the source of the waypoint is the same as the src, but this is not
+    // the first waypoint, obviously there is nothing we can do.
+    if (src == link_ptr->src() && it != waypoints_from) {
+      return {};
+    }
 
     if (src != link_ptr->src()) {
       ShortestPath sp(config_copy, current_point, graph);
@@ -332,7 +346,7 @@ LinkSequence WaypointShortestPath(const GraphSearchAlgorithmConfig& config,
       total_delay += pathlet.delay();
     }
 
-    path.emplace_back(link);
+    path.emplace_back(link_index);
     total_delay += link_ptr->delay();
     current_point = link_ptr->dst();
   }
@@ -364,8 +378,8 @@ KShortestPaths::KShortestPaths(const GraphSearchAlgorithmConfig& config,
 LinkSequence KShortestPaths::NextPath() {
   const GraphStorage* graph_storage = graph_->graph_storage();
   if (k_paths_.empty()) {
-    LinkSequence path =
-        WaypointShortestPath(config_, waypoints_, src_, dst_, graph_);
+    LinkSequence path = WaypointShortestPath(
+        config_, waypoints_.begin(), waypoints_.end(), src_, dst_, graph_);
     k_paths_.emplace_back(path, 0);
     return path;
   }
@@ -382,6 +396,7 @@ LinkSequence KShortestPaths::NextPath() {
   config_copy.AddToExcludeNodes(&nodes_to_exclude);
 
   Links root_path;
+  Links::const_iterator waypoints_from = waypoints_.begin();
   for (size_t i = 0; i < last_path_links.size(); ++i) {
     GraphLinkIndex link_index = last_path_links[i];
     const GraphLink* link = graph_storage->GetLink(link_index);
@@ -389,12 +404,16 @@ LinkSequence KShortestPaths::NextPath() {
     if (i < start_index) {
       nodes_to_exclude.Insert(spur_node);
       root_path.emplace_back(link_index);
+
+      if (waypoints_from != waypoints_.end() && link_index == *waypoints_from) {
+        std::advance(waypoints_from, 1);
+      }
       continue;
     }
 
     GetLinkExclusionSet(root_path, &links_to_exclude);
-    LinkSequence spur_path =
-        WaypointShortestPath(config_copy, waypoints_, spur_node, dst_, graph_);
+    LinkSequence spur_path = WaypointShortestPath(
+        config_copy, waypoints_from, waypoints_.end(), spur_node, dst_, graph_);
     if (!spur_path.empty()) {
       const Links& spur_path_links = spur_path.links();
 
@@ -409,6 +428,9 @@ LinkSequence KShortestPaths::NextPath() {
     links_to_exclude.Clear();
     nodes_to_exclude.Insert(spur_node);
     root_path.emplace_back(link_index);
+    if (waypoints_from != waypoints_.end() && link_index == *waypoints_from) {
+      std::advance(waypoints_from, 1);
+    }
   }
 
   if (candidates_.empty()) {

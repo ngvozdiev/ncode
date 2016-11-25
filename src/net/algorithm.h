@@ -62,6 +62,14 @@ class GraphSearchAlgorithmConfig {
     return false;
   }
 
+  std::vector<const GraphLinkSet*>& link_sets_to_exclude() {
+    return link_sets_to_exclude_;
+  };
+
+  std::vector<const GraphNodeSet*>& node_sets_to_exclude() {
+    return node_sets_to_exclude_;
+  };
+
  private:
   // Links/nodes that will be excluded from the graph.
   std::vector<const GraphLinkSet*> link_sets_to_exclude_;
@@ -221,8 +229,9 @@ class ShortestPath : public GraphSearchAlgorithm {
 // Returns the single shortest path that goes through a series of links in the
 // given order or returns an empty path if no such path exists.
 LinkSequence WaypointShortestPath(const GraphSearchAlgorithmConfig& config,
-                                  const Links& waypoints, GraphNodeIndex src,
-                                  GraphNodeIndex dst,
+                                  Links::const_iterator waypoints_from,
+                                  Links::const_iterator waypoints_to,
+                                  GraphNodeIndex src, GraphNodeIndex dst,
                                   const SimpleDirectedGraph* graph);
 
 // K shortest paths that optionally go through a set of waypoints.
