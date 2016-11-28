@@ -54,12 +54,10 @@ class NodePairPathCache {
  private:
   NodePairPathCache(const NodePair& key, size_t max_num_paths,
                     std::unique_ptr<Constraint> constraint,
-                    const SimpleDirectedGraph* graph,
-                    GraphStorage* path_storage);
+                    const DirectedGraph* graph, GraphStorage* path_storage);
 
   NodePairPathCache(const NodePair& key, size_t max_num_paths,
-                    const SimpleDirectedGraph* graph,
-                    GraphStorage* path_storage)
+                    const DirectedGraph* graph, GraphStorage* path_storage)
       : NodePairPathCache(key, max_num_paths, DummyConstraint(), graph,
                           path_storage) {}
 
@@ -72,7 +70,7 @@ class NodePairPathCache {
   const LinkSequence* GetPathAtIndexOrNull(size_t i);
 
   const NodePair key_;
-  const SimpleDirectedGraph* graph_;
+  const DirectedGraph* graph_;
   GraphStorage* graph_storage_;
 
   // Constraint.
@@ -107,7 +105,7 @@ class PathCache {
             ConstraintMap* constraint_map = nullptr);
 
   // The graph.
-  const SimpleDirectedGraph* graph() const { return &graph_; }
+  const DirectedGraph* graph() const { return &graph_; }
 
   // Path storage.
   GraphStorage* graph_storage() { return graph_storage_; }
@@ -116,7 +114,7 @@ class PathCache {
   NodePairPathCache* NodePairCache(const NodePair& key);
 
  private:
-  const SimpleDirectedGraph graph_;
+  const DirectedGraph graph_;
   GraphStorage* graph_storage_;
 
   // Each NodePair cache will have at most this many paths.

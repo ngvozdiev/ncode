@@ -109,7 +109,7 @@ std::unique_ptr<ShortestPathGenerator> NodePairPathCache::PathGenerator(
 
 NodePairPathCache::NodePairPathCache(const NodePair& key, size_t max_num_paths,
                                      std::unique_ptr<Constraint> constraint,
-                                     const SimpleDirectedGraph* graph,
+                                     const DirectedGraph* graph,
                                      GraphStorage* path_storage)
     : key_(key),
       graph_(graph),

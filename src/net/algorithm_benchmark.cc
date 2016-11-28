@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
   net::PBNet net = net::GenerateSprint(
       net::Bandwidth::FromBitsPerSecond(1000000), net::Delay::zero(), 2.0);
   net::GraphStorage path_storage(net);
-  net::SimpleDirectedGraph graph(&path_storage);
+  net::DirectedGraph graph(&path_storage);
   LOG(ERROR) << "Graph with " << path_storage.NodeCount() << " nodes and "
              << path_storage.LinkCount() << " links";
 

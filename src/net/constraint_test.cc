@@ -30,7 +30,7 @@ class ConstraintTest : public ::testing::Test {
   GraphNodeIndex d_;
 
   GraphStorage path_storage_;
-  SimpleDirectedGraph graph_;
+  DirectedGraph graph_;
 };
 
 TEST_F(ConstraintTest, Dummy) {

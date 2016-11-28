@@ -21,7 +21,8 @@ TEST(SimpleGraph, DoubleEdge) {
   AddEdgeToGraph("A", "B", Delay(10), kBw, &net);
 
   GraphStorage graph_storage(net);
-  ASSERT_DEATH(SimpleDirectedGraph graph(&graph_storage), "Double edge");
+  DirectedGraph graph(&graph_storage);
+  ASSERT_FALSE(graph.IsSimple());
 }
 
 TEST(Cluster, SingleLink) {
@@ -29,7 +30,7 @@ TEST(Cluster, SingleLink) {
   AddEdgeToGraph("A", "B", Delay(100), kBw, &net);
 
   GraphStorage graph_storage(net);
-  SimpleDirectedGraph graph(&graph_storage);
+  DirectedGraph graph(&graph_storage);
   DistanceClusteredGraph clustered_graph({}, Delay(0), &graph);
 
   // There should be 2 clusters.
@@ -50,7 +51,7 @@ TEST(Cluster, SingleLinkSingleCluster) {
   AddEdgeToGraph("A", "B", Delay(100), kBw, &net);
 
   GraphStorage graph_storage(net);
-  SimpleDirectedGraph graph(&graph_storage);
+  DirectedGraph graph(&graph_storage);
   DistanceClusteredGraph clustered_graph({}, Delay(100), &graph);
 
   // There should be 1 cluster.
@@ -66,7 +67,7 @@ TEST(Cluster, SingleLinkSingleCluster) {
 TEST(Cluster, Braess) {
   PBNet net = GenerateBraess(kBw);
   GraphStorage graph_storage(net);
-  SimpleDirectedGraph graph(&graph_storage);
+  DirectedGraph graph(&graph_storage);
   DistanceClusteredGraph c_zero({}, Delay(0), &graph);
   ASSERT_EQ(4ul, c_zero.AllClusters().Count());
 
@@ -92,7 +93,7 @@ TEST(AllPairShortestPath, SingleLink) {
   GraphNodeIndex node_b = graph_storage.NodeFromStringOrDie("B");
   GraphLinkIndex link = graph_storage.LinkOrDie("A", "B");
 
-  SimpleDirectedGraph graph(&graph_storage);
+  DirectedGraph graph(&graph_storage);
   AllPairShortestPath all_pair_sp({}, &graph);
   ShortestPath sp({}, node_a, &graph);
   KShortestPaths ksp({}, {}, node_a, node_b, &graph);
@@ -125,7 +126,7 @@ TEST(AllPairShortestPath, ShortPath) {
   GraphLinkIndex link_bc = graph_storage.LinkOrDie("B", "C");
   GraphLinkIndex link_cb = graph_storage.LinkOrDie("C", "B");
 
-  SimpleDirectedGraph graph(&graph_storage);
+  DirectedGraph graph(&graph_storage);
   AllPairShortestPath all_pair_sp({}, &graph);
   ShortestPath sp({}, node_a, &graph);
   KShortestPaths ksp({}, {}, node_a, node_c, &graph);
@@ -155,7 +156,7 @@ TEST(AllPairShortestPath, ShorterPath) {
   GraphNodeIndex node_d = graph_storage.NodeFromStringOrDie("D");
   GraphLinkIndex link_ad = graph_storage.LinkOrDie("A", "D");
 
-  SimpleDirectedGraph graph(&graph_storage);
+  DirectedGraph graph(&graph_storage);
   AllPairShortestPath all_pair_sp({}, &graph);
   ShortestPath sp({}, node_a, &graph);
   KShortestPaths ksp({}, {}, node_a, node_d, &graph);
@@ -190,7 +191,7 @@ TEST(AllPairShortestPath, ShortPathMask) {
   GraphSearchAlgorithmConfig config;
   config.AddToExcludeLinks(&links_to_exclude);
 
-  SimpleDirectedGraph graph(&graph_storage);
+  DirectedGraph graph(&graph_storage);
   AllPairShortestPath all_pair_sp(config, &graph);
   ShortestPath sp(config, node_a, &graph);
 
@@ -213,7 +214,7 @@ TEST(DFS, SingleLink) {
   GraphNodeIndex node_b = graph_storage.NodeFromStringOrDie("B");
   GraphLinkIndex link_ab = graph_storage.LinkOrDie("A", "B");
 
-  SimpleDirectedGraph graph(&graph_storage);
+  DirectedGraph graph(&graph_storage);
   DFS dfs({}, &graph);
 
   std::vector<Links> paths;
@@ -246,7 +247,7 @@ TEST(DFS, MultiPath) {
   GraphLinkIndex link_cd = graph_storage.LinkOrDie("C", "D");
   GraphLinkIndex link_ad = graph_storage.LinkOrDie("A", "D");
 
-  SimpleDirectedGraph graph(&graph_storage);
+  DirectedGraph graph(&graph_storage);
   DFS dfs({}, &graph);
 
   std::vector<Links> paths;
@@ -266,7 +267,7 @@ TEST(DFS, Braess) {
   GraphNodeIndex node_a = graph_storage.NodeFromStringOrDie("A");
   GraphNodeIndex node_d = graph_storage.NodeFromStringOrDie("D");
 
-  SimpleDirectedGraph graph(&graph_storage);
+  DirectedGraph graph(&graph_storage);
   DFS dfs({}, &graph);
 
   std::vector<const GraphPath*> paths;
@@ -294,7 +295,7 @@ TEST(KShortest, Braess) {
   GraphLinkIndex link_cd = graph_storage.LinkOrDie("C", "D");
   GraphLinkIndex link_bd = graph_storage.LinkOrDie("B", "D");
 
-  SimpleDirectedGraph graph(&graph_storage);
+  DirectedGraph graph(&graph_storage);
   KShortestPaths ksp({}, {}, node_a, node_d, &graph);
 
   std::vector<Links> model_paths = {
@@ -328,7 +329,7 @@ TEST(KShortest, Waypoints) {
   GraphNodeIndex node_d = graph_storage.NodeFromStringOrDie("D");
   GraphLinkIndex link_bc = graph_storage.LinkOrDie("B", "C");
 
-  SimpleDirectedGraph graph(&graph_storage);
+  DirectedGraph graph(&graph_storage);
   KShortestPaths ksp({}, {link_bc}, node_a, node_d, &graph);
 
   std::vector<const GraphPath*> paths;
@@ -358,7 +359,7 @@ TEST(KShortest, WaypointsJoined) {
   GraphLinkIndex link_bc = graph_storage.LinkOrDie("B", "C");
   GraphLinkIndex link_cd = graph_storage.LinkOrDie("C", "D");
 
-  SimpleDirectedGraph graph(&graph_storage);
+  DirectedGraph graph(&graph_storage);
   KShortestPaths ksp({}, {link_ab, link_bc, link_cd}, node_a, node_d, &graph);
 
   std::vector<const GraphPath*> paths;
@@ -378,7 +379,7 @@ TEST(Shortest, BadWaypoints) {
   GraphLinkIndex link_be = graph_storage.LinkOrDie("B", "E");
 
   Links waypoints = {link_bc, link_be};
-  SimpleDirectedGraph graph(&graph_storage);
+  DirectedGraph graph(&graph_storage);
 
   auto sp = WaypointShortestPath({}, waypoints.begin(), waypoints.end(), node_a,
                                  node_d, &graph);
@@ -394,7 +395,7 @@ TEST(Shortest, BadWaypointsSrc) {
   GraphLinkIndex link_be = graph_storage.LinkOrDie("B", "E");
 
   Links waypoints = {link_bc, link_be};
-  SimpleDirectedGraph graph(&graph_storage);
+  DirectedGraph graph(&graph_storage);
 
   auto sp = WaypointShortestPath({}, waypoints.begin(), waypoints.end(), node_b,
                                  node_d, &graph);
@@ -410,7 +411,7 @@ TEST(Shortest, BadWaypointsDst) {
   GraphLinkIndex link_cd = graph_storage.LinkOrDie("C", "D");
 
   Links waypoints = {link_cd, link_cf};
-  SimpleDirectedGraph graph(&graph_storage);
+  DirectedGraph graph(&graph_storage);
 
   auto sp = WaypointShortestPath({}, waypoints.begin(), waypoints.end(), node_b,
                                  node_d, &graph);

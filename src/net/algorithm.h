@@ -10,10 +10,10 @@
 namespace ncode {
 namespace net {
 
-// A directed graph with no loops or multiple edges.
-class SimpleDirectedGraph {
+// A directed graph.
+class DirectedGraph {
  public:
-  SimpleDirectedGraph(const GraphStorage* parent);
+  DirectedGraph(const GraphStorage* parent);
 
   // Returns the adjacency list.
   const GraphNodeMap<std::vector<GraphLinkIndex>>& AdjacencyList() const {
@@ -23,13 +23,20 @@ class SimpleDirectedGraph {
   // The parent graph. Not owned by this object.
   const GraphStorage* graph_storage() const { return graph_storage_; }
 
+  // Returns true if there is at most one link between any two nodes.
+  bool IsSimple() const { return simple_; }
+
  private:
   void ConstructAdjacencyList();
 
   const GraphStorage* graph_storage_;
 
-  // For each node the edges that leave the node.
+  // For each node the edges that leave the node. Some edges may lead to the
+  // same neighbor if simple_ is false.
   GraphNodeMap<std::vector<GraphLinkIndex>> adjacency_list_;
+
+  // True if there are no multiple edges between any two nodes.
+  bool simple_;
 };
 
 class GraphSearchAlgorithmConfig {
@@ -79,10 +86,10 @@ class GraphSearchAlgorithmConfig {
 class GraphSearchAlgorithm {
  protected:
   GraphSearchAlgorithm(const GraphSearchAlgorithmConfig& config,
-                       const SimpleDirectedGraph* graph);
+                       const DirectedGraph* graph);
 
   // The graph.
-  const SimpleDirectedGraph* graph_;
+  const DirectedGraph* graph_;
 
   // Configuration for the algorithm.
   const GraphSearchAlgorithmConfig config_;
@@ -99,7 +106,7 @@ using DistanceClusterMap = PerfectHashMap<uint16_t, DistanceClusterTag, V>;
 class DistanceClusteredGraph : public GraphSearchAlgorithm {
  public:
   DistanceClusteredGraph(const GraphSearchAlgorithmConfig& config,
-                         Delay threshold, SimpleDirectedGraph* parent)
+                         Delay threshold, DirectedGraph* parent)
       : GraphSearchAlgorithm(config, parent) {
     Cluster(threshold);
   }
@@ -169,8 +176,9 @@ class DistanceClusteredGraph : public GraphSearchAlgorithm {
 class AllPairShortestPath : public GraphSearchAlgorithm {
  public:
   AllPairShortestPath(const GraphSearchAlgorithmConfig& config,
-                      const SimpleDirectedGraph* graph)
+                      const DirectedGraph* graph)
       : GraphSearchAlgorithm(config, graph) {
+    CHECK(graph->IsSimple()) << "All pairs SP will only work on simple graphs";
     ComputePaths();
   }
 
@@ -207,7 +215,7 @@ class AllPairShortestPath : public GraphSearchAlgorithm {
 class ShortestPath : public GraphSearchAlgorithm {
  public:
   ShortestPath(const GraphSearchAlgorithmConfig& config, GraphNodeIndex src,
-               const SimpleDirectedGraph* graph)
+               const DirectedGraph* graph)
       : GraphSearchAlgorithm(config, graph), src_(src) {
     ComputePaths();
   }
@@ -239,14 +247,14 @@ LinkSequence WaypointShortestPath(const GraphSearchAlgorithmConfig& config,
                                   Links::const_iterator waypoints_from,
                                   Links::const_iterator waypoints_to,
                                   GraphNodeIndex src, GraphNodeIndex dst,
-                                  const SimpleDirectedGraph* graph);
+                                  const DirectedGraph* graph);
 
 // K shortest paths that optionally go through a set of waypoints.
 class KShortestPaths : public GraphSearchAlgorithm {
  public:
   KShortestPaths(const GraphSearchAlgorithmConfig& config,
                  const Links& waypoints, GraphNodeIndex src, GraphNodeIndex dst,
-                 const SimpleDirectedGraph* graph);
+                 const DirectedGraph* graph);
 
   // Returns the next path.
   LinkSequence NextPath();
@@ -287,8 +295,8 @@ class DFS : public GraphSearchAlgorithm {
   // use the shortest distance from any node to the destination to prune paths
   // that are too long early. The downside is that it may be slower and more
   // memory hungry, especially if you are only interested in reachability.
-  DFS(const GraphSearchAlgorithmConfig& config,
-      const SimpleDirectedGraph* graph, bool prune_distance = true);
+  DFS(const GraphSearchAlgorithmConfig& config, const DirectedGraph* graph,
+      bool prune_distance = true);
 
   // Calls a callback on all paths between a source and a destination.
   void Paths(GraphNodeIndex src, GraphNodeIndex dst, Delay max_distance,

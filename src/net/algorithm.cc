@@ -10,29 +10,32 @@ namespace net {
 
 constexpr Delay AllPairShortestPath::kMaxDistance;
 
-SimpleDirectedGraph::SimpleDirectedGraph(const GraphStorage* parent)
+DirectedGraph::DirectedGraph(const GraphStorage* parent)
     : graph_storage_(parent) {
   ConstructAdjacencyList();
 }
 
-void SimpleDirectedGraph::ConstructAdjacencyList() {
+void DirectedGraph::ConstructAdjacencyList() {
+  simple_ = true;
   for (GraphLinkIndex link : graph_storage_->AllLinks()) {
     const GraphLink* link_ptr = graph_storage_->GetLink(link);
     GraphNodeIndex src = link_ptr->src();
     GraphNodeIndex dst = link_ptr->dst();
 
-    std::vector<net::GraphLinkIndex>& neighbors = adjacency_list_[src];
-    for (net::GraphLinkIndex neighbor : neighbors) {
-      const GraphLink* neighbor_ptr = graph_storage_->GetLink(neighbor);
-      CHECK(neighbor_ptr->dst() != dst) << "Double edge in view";
+    std::vector<net::GraphLinkIndex>& out_links = adjacency_list_[src];
+    for (net::GraphLinkIndex link : out_links) {
+      const GraphLink* link_ptr = graph_storage_->GetLink(link);
+      if (link_ptr->dst() == dst) {
+        simple_ = false;
+      }
     }
 
-    neighbors.emplace_back(link);
+    out_links.emplace_back(link);
   }
 }
 
 GraphSearchAlgorithm::GraphSearchAlgorithm(
-    const GraphSearchAlgorithmConfig& config, const SimpleDirectedGraph* graph)
+    const GraphSearchAlgorithmConfig& config, const DirectedGraph* graph)
     : graph_(graph), config_(config) {}
 
 net::LinkSequence AllPairShortestPath::GetPath(GraphNodeIndex src,
@@ -107,8 +110,8 @@ void AllPairShortestPath::ComputePaths() {
   }
 }
 
-DFS::DFS(const GraphSearchAlgorithmConfig& config,
-         const SimpleDirectedGraph* graph, bool prune_distance)
+DFS::DFS(const GraphSearchAlgorithmConfig& config, const DirectedGraph* graph,
+         bool prune_distance)
     : GraphSearchAlgorithm(config, graph), storage_(graph->graph_storage()) {
   if (prune_distance) {
     all_pair_sp_ = make_unique<AllPairShortestPath>(config, graph_);
@@ -284,9 +287,8 @@ void ShortestPath::ComputePaths() {
   }
 }
 
-static void AddFromPath(const SimpleDirectedGraph& graph,
-                        const LinkSequence& path, Links* out,
-                        GraphNodeSet* nodes) {
+static void AddFromPath(const DirectedGraph& graph, const LinkSequence& path,
+                        Links* out, GraphNodeSet* nodes) {
   const GraphStorage* graph_storage = graph.graph_storage();
   for (GraphLinkIndex link_in_path : path.links()) {
     const GraphLink* link_ptr = graph_storage->GetLink(link_in_path);
@@ -301,7 +303,7 @@ LinkSequence WaypointShortestPath(const GraphSearchAlgorithmConfig& config,
                                   Links::const_iterator waypoints_from,
                                   Links::const_iterator waypoints_to,
                                   GraphNodeIndex src, GraphNodeIndex dst,
-                                  const SimpleDirectedGraph* graph) {
+                                  const DirectedGraph* graph) {
   CHECK(src != dst);
   const GraphStorage* graph_storage = graph->graph_storage();
 
@@ -369,7 +371,7 @@ LinkSequence WaypointShortestPath(const GraphSearchAlgorithmConfig& config,
 KShortestPaths::KShortestPaths(const GraphSearchAlgorithmConfig& config,
                                const std::vector<GraphLinkIndex>& waypoints,
                                GraphNodeIndex src, GraphNodeIndex dst,
-                               const SimpleDirectedGraph* graph)
+                               const DirectedGraph* graph)
     : GraphSearchAlgorithm(config, graph),
       waypoints_(waypoints),
       src_(src),
