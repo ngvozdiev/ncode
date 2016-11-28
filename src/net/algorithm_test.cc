@@ -349,6 +349,26 @@ TEST(KShortest, Waypoints) {
   ASSERT_TRUE(IsInPaths("[]", paths, 0, &graph_storage));
 }
 
+TEST(KShortest, WaypointsJoined) {
+  PBNet net = GenerateWaypointGraph(kBw);
+  GraphStorage graph_storage(net);
+  GraphNodeIndex node_a = graph_storage.NodeFromStringOrDie("A");
+  GraphNodeIndex node_d = graph_storage.NodeFromStringOrDie("D");
+  GraphLinkIndex link_ab = graph_storage.LinkOrDie("A", "B");
+  GraphLinkIndex link_bc = graph_storage.LinkOrDie("B", "C");
+  GraphLinkIndex link_cd = graph_storage.LinkOrDie("C", "D");
+
+  SimpleDirectedGraph graph(&graph_storage);
+  KShortestPaths ksp({}, {link_ab, link_bc, link_cd}, node_a, node_d, &graph);
+
+  std::vector<const GraphPath*> paths;
+  paths.emplace_back(graph_storage.PathFromLinksOrDie(ksp.NextPath(), 0));
+  ASSERT_TRUE(IsInPaths("[A->B, B->C, C->D]", paths, 0, &graph_storage));
+
+  paths.emplace_back(graph_storage.PathFromLinksOrDie(ksp.NextPath(), 0));
+  ASSERT_TRUE(IsInPaths("[]", paths, 0, &graph_storage));
+}
+
 TEST(Shortest, BadWaypoints) {
   PBNet net = GenerateWaypointGraph(kBw);
   GraphStorage graph_storage(net);

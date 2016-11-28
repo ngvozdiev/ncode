@@ -335,7 +335,7 @@ LinkSequence WaypointShortestPath(const GraphSearchAlgorithmConfig& config,
       return {};
     }
 
-    if (src != link_ptr->src()) {
+    if (src != link_ptr->src() && current_point != link_ptr->src()) {
       ShortestPath sp(config_copy, current_point, graph);
       LinkSequence pathlet = sp.GetPath(link_ptr->src());
       if (pathlet.empty()) {
