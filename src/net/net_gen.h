@@ -23,6 +23,10 @@ PBNet GenerateNTT(Delay delay_add = Delay(0), double delay_multiply = 1.0,
                   Bandwidth bw = Bandwidth::FromBitsPerSecond(0),
                   double bw_multiply = 1.0);
 
+// Generates Sprint's topology from Rocketfuel.
+PBNet GenerateSprint(Bandwidth bw, Delay delay_add = Delay(0),
+                     double delay_multiply = 1.0);
+
 // Generates a full graph of a given size. Each node will be named Ni for i in
 // [0, size).
 PBNet GenerateFullGraph(uint32_t size, Bandwidth bw, Delay delay);
@@ -48,12 +52,6 @@ PBNet GenerateRandom(size_t n, double edge_prob, Delay delay_min,
 
 // A simple Braess paradox-like topology used for testing.
 PBNet GenerateBraess(Bandwidth bw);
-
-// Generates one of the Rocketfuel topologies.
-enum RocketfuelTopology { AS1221, AS1239 };
-PBNet GenerateRocketfuel(RocketfuelTopology topology, Bandwidth bw,
-                         Delay delay_add = Delay(0),
-                         double delay_multiply = 1.0);
 
 }  // namespace net
 }  // namespace ncode
