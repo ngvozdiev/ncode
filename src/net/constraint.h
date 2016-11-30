@@ -39,6 +39,11 @@ class Constraint {
 
   virtual std::string ToString(const net::GraphStorage* storage) const = 0;
 
+  // Creates a new constraint that is equivalent to this one, but excludes the
+  // given link in addition.
+  virtual std::unique_ptr<Constraint> ExcludeLinks(
+      const GraphLinkSet& links) const = 0;
+
  protected:
   Constraint() {}
 
@@ -59,7 +64,12 @@ class Conjunction : public Constraint {
 
   std::string ToString(const net::GraphStorage* storage) const override;
 
+  std::unique_ptr<Constraint> ExcludeLinks(
+      const GraphLinkSet& links) const override;
+
  private:
+  Conjunction() {}
+
   static void AddFromPath(const DirectedGraph& graph, const LinkSequence& path,
                           Links* out, GraphNodeSet* nodes);
 
@@ -83,6 +93,9 @@ class Disjunction : public Constraint {
       const GraphLinkSet* to_exclude) const override;
 
   std::string ToString(const net::GraphStorage* storage) const override;
+
+  std::unique_ptr<Constraint> ExcludeLinks(
+      const GraphLinkSet& links) const override;
 
  private:
   std::vector<std::unique_ptr<Conjunction>> conjunctions_;

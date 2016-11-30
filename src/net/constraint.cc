@@ -66,6 +66,15 @@ std::unique_ptr<ShortestPathGenerator> Conjunction::PathGenerator(
   return std::unique_ptr<ShortestPathGenerator>(generator);
 }
 
+std::unique_ptr<Constraint> Conjunction::ExcludeLinks(
+    const GraphLinkSet& links) const {
+  Conjunction* to_return = new Conjunction();
+  to_return->to_exclude_ = to_exclude_;
+  to_return->to_exclude_.InsertAll(links);
+  to_return->to_visit_ = to_visit_;
+  return std::unique_ptr<Constraint>(to_return);
+}
+
 std::string Conjunction::ToString(const net::GraphStorage* storage) const {
   std::string to_avoid_str;
   std::string to_visit_str;
@@ -91,6 +100,20 @@ bool Disjunction::PathComplies(const net::LinkSequence& link_sequence) const {
   }
 
   return false;
+}
+
+std::unique_ptr<Constraint> Disjunction::ExcludeLinks(
+    const GraphLinkSet& links) const {
+  std::vector<std::unique_ptr<Conjunction>> new_conjunctions;
+  for (const auto& conjunction : conjunctions_) {
+    auto new_conjunction = conjunction->ExcludeLinks(links);
+    new_conjunctions.emplace_back(std::unique_ptr<Conjunction>(
+        static_cast<Conjunction*>(new_conjunction.release())));
+  }
+
+  Disjunction* to_return = new Disjunction();
+  to_return->conjunctions_ = std::move(new_conjunctions);
+  return std::unique_ptr<Constraint>(to_return);
 }
 
 // A collection of generators, that are all polled and the least path is

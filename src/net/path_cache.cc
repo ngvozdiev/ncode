@@ -62,6 +62,13 @@ std::vector<const LinkSequence*> NodePairPathCache::PathsRange(size_t start_k,
   return out;
 }
 
+std::unique_ptr<NodePairPathCache> NodePairPathCache::ExcludeLinks(
+    const GraphLinkSet& links) const {
+  return std::unique_ptr<NodePairPathCache>(new NodePairPathCache(
+      key_, max_num_paths_, constraint_->ExcludeLinks(links), graph_,
+      graph_storage_));
+}
+
 const LinkSequence* NodePairPathCache::GetPathAtIndexOrNull(size_t i) {
   if (i > max_num_paths_) {
     return nullptr;
@@ -119,11 +126,16 @@ NodePairPathCache::NodePairPathCache(const NodePair& key, size_t max_num_paths,
   path_generator_ = PathGenerator(nullptr);
 }
 
-PathCache::PathCache(GraphStorage* graph_storage, size_t max_num_paths_per_pair,
-                     ConstraintMap* constraint_map)
+PathCache::PathCache(const GraphLinkSet& links_to_exclude,
+                     GraphStorage* graph_storage, size_t max_num_paths_per_pair)
     : graph_(graph_storage),
       graph_storage_(graph_storage),
-      max_num_paths_per_pair_(max_num_paths_per_pair) {
+      links_to_exclude_(links_to_exclude),
+      max_num_paths_per_pair_(max_num_paths_per_pair) {}
+
+PathCache::PathCache(GraphStorage* graph_storage, size_t max_num_paths_per_pair,
+                     ConstraintMap* constraint_map)
+    : PathCache({}, graph_storage, max_num_paths_per_pair) {
   if (constraint_map) {
     for (auto& key_and_constraint : *constraint_map) {
       const NodePair& ie_key = key_and_constraint.first;
@@ -144,9 +156,27 @@ NodePairPathCache* PathCache::NodePairCache(const NodePair& ie_key) {
   if (!ie_cache_ptr) {
     ie_cache_ptr = std::unique_ptr<NodePairPathCache>(new NodePairPathCache(
         ie_key, max_num_paths_per_pair_, &graph_, graph_storage_));
+    if (!links_to_exclude_.Empty()) {
+      ie_cache_ptr = ie_cache_ptr->ExcludeLinks(links_to_exclude_);
+    }
   }
 
   return ie_cache_ptr.get();
+}
+
+std::unique_ptr<PathCache> PathCache::ExcludeLinks(
+    const GraphLinkSet& links) const {
+  GraphLinkSet all_links = links_to_exclude_;
+  all_links.InsertAll(links);
+  auto out = std::unique_ptr<PathCache>(
+      new PathCache(all_links, graph_storage_, max_num_paths_per_pair_));
+  for (const auto& node_pair_and_cache : ie_caches_) {
+    const NodePair node_pair = node_pair_and_cache.first;
+    out->ie_caches_[node_pair] =
+        node_pair_and_cache.second->ExcludeLinks(links);
+  }
+
+  return out;
 }
 
 }  // namespace net
