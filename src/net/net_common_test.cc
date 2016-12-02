@@ -101,39 +101,37 @@ TEST(AddEdgeTest, AddBiEdgesBulk) {
   ASSERT_EQ(4, graph.links_size());
 }
 
-TEST(ClusterTest, GetNodesInSameCluster) {
+TEST(RegionTest, GetNodesInSameRegion) {
   net::PBNet graph;
-  ASSERT_DEATH(NodesInSameClusterOrDie(graph, "N0"), ".*");
+  ASSERT_DEATH(NodesInSameRegionOrDie(graph, "N0"), ".*");
 
-  PBNetCluster* cluster = graph.add_clusters();
+  PBNetRegion* cluster = graph.add_regions();
   cluster->add_nodes("N1");
-  ASSERT_DEATH(NodesInSameClusterOrDie(graph, "N0"), ".*");
-  ASSERT_TRUE(NodesInSameClusterOrDie(graph, "N1").empty());
+  ASSERT_DEATH(NodesInSameRegionOrDie(graph, "N0"), ".*");
+  ASSERT_TRUE(NodesInSameRegionOrDie(graph, "N1").empty());
 
   cluster->add_nodes("N2");
-  ASSERT_EQ(NodesInSameClusterOrDie(graph, "N1"),
-            std::set<std::string>({"N2"}));
+  ASSERT_EQ(NodesInSameRegionOrDie(graph, "N1"), std::set<std::string>({"N2"}));
 
-  PBNetCluster* other_cluster = graph.add_clusters();
+  PBNetRegion* other_cluster = graph.add_regions();
   other_cluster->add_nodes("N3");
-  ASSERT_EQ(NodesInSameClusterOrDie(graph, "N1"),
-            std::set<std::string>({"N2"}));
+  ASSERT_EQ(NodesInSameRegionOrDie(graph, "N1"), std::set<std::string>({"N2"}));
 }
 
-TEST(ClusterTest, GetNodesInOtherClusters) {
+TEST(RegionTest, GetNodesInOtherRegions) {
   net::PBNet graph;
-  ASSERT_DEATH(NodesInOtherClustersOrDie(graph, "N0"), ".*");
+  ASSERT_DEATH(NodesInOtherRegionsOrDie(graph, "N0"), ".*");
 
-  PBNetCluster* cluster = graph.add_clusters();
+  PBNetRegion* cluster = graph.add_regions();
   cluster->add_nodes("N1");
-  ASSERT_TRUE(NodesInOtherClustersOrDie(graph, "N1").empty());
+  ASSERT_TRUE(NodesInOtherRegionsOrDie(graph, "N1").empty());
 
   cluster->add_nodes("N2");
-  ASSERT_TRUE(NodesInOtherClustersOrDie(graph, "N1").empty());
+  ASSERT_TRUE(NodesInOtherRegionsOrDie(graph, "N1").empty());
 
-  PBNetCluster* other_cluster = graph.add_clusters();
+  PBNetRegion* other_cluster = graph.add_regions();
   other_cluster->add_nodes("N3");
-  ASSERT_EQ(NodesInOtherClustersOrDie(graph, "N1"),
+  ASSERT_EQ(NodesInOtherRegionsOrDie(graph, "N1"),
             std::set<std::string>({"N3"}));
 }
 
@@ -355,6 +353,41 @@ TEST_F(GraphStorageTest, LinkSequenceToProtobuf) {
 
   ASSERT_EQ(1, path.links_size());
   ASSERT_EQ(link_pb_.SerializeAsString(), path.links(0).SerializeAsString());
+}
+
+TEST_F(GraphStorageTest, BadNodeInRegion) {
+  PBNet net = GenerateBraess(kBw);
+  PBNetRegion* region = net.add_regions();
+  region->add_nodes("F");
+
+  ASSERT_DEATH(GraphStorage storage(net), ".*");
+}
+
+TEST_F(GraphStorageTest, NodesInSameRegion) {
+  PBNet net = GenerateBraess(kBw);
+  GraphStorage storage(net);
+  GraphNodeIndex node_a = storage.NodeFromStringOrDie("A");
+  GraphNodeIndex node_b = storage.NodeFromStringOrDie("B");
+
+  ASSERT_DEATH(storage.NodesInSameRegionOrDie(node_a), ".*");
+  PBNetRegion* region = net.add_regions();
+  region->add_nodes("A");
+  GraphStorage storage_two(net);
+  ASSERT_TRUE(storage_two.NodesInSameRegionOrDie(node_a).Empty());
+
+  region->add_nodes("B");
+  GraphStorage storage_three(net);
+  auto in_region = storage_three.NodesInSameRegionOrDie(node_a);
+  ASSERT_EQ(1ul, in_region.Count());
+  ASSERT_TRUE(in_region.Contains(node_b));
+
+  PBNetRegion* other_region = net.add_regions();
+  other_region->add_nodes("C");
+
+  GraphStorage storage_four(net);
+  in_region = storage_four.NodesInSameRegionOrDie(node_a);
+  ASSERT_EQ(1ul, in_region.Count());
+  ASSERT_TRUE(in_region.Contains(node_b));
 }
 
 static PBNet SetUpGraph() {

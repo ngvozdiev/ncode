@@ -85,16 +85,16 @@ void AddBiEdgesToGraph(
 PBGraphLink* FindEdgeOrDie(const std::string& src, const std::string& dst,
                            PBNet* graph);
 
-// Returns a set with the nodes that are in the same cluster as 'node'. If
+// Returns a set with the nodes that are in the same region as 'node'. If
 // 'node' is not in any cluster will die. If it is alone in a cluster will
 // return an empty set.
-std::set<std::string> NodesInSameClusterOrDie(const PBNet& graph,
-                                              const std::string& node);
+std::set<std::string> NodesInSameRegionOrDie(const PBNet& graph,
+                                             const std::string& node);
 
-// Returns a set with all nodes that are not in the same cluster as 'node'. If
+// Returns a set with all nodes that are not in the same region as 'node'. If
 // 'node' is not in any cluster will die.
-std::set<std::string> NodesInOtherClustersOrDie(const PBNet& graph,
-                                                const std::string& node);
+std::set<std::string> NodesInOtherRegionsOrDie(const PBNet& graph,
+                                               const std::string& node);
 
 // Returns true if a link is between two nodes of the same cluster.
 bool IsIntraClusterLink(const PBNet& graph, const PBGraphLink& link);
@@ -338,6 +338,14 @@ class GraphStorage {
       GraphLinkMap<GraphLinkIndex>* real_to_clustered_links,
       GraphNodeMap<GraphNodeIndex>* real_to_clustered_nodes) const;
 
+  // Returns the nodes that are in the same region as 'node'. If 'node' is not
+  // in a region will die.
+  GraphNodeSet NodesInSameRegionOrDie(GraphNodeIndex node) const;
+
+  // Returns the nodes that are in other regions as 'node'. If 'node' is not in
+  // a region will die.
+  GraphNodeSet NodesInOtherRegionsOrDie(GraphNodeIndex node) const;
+
   // At least the src and the dst need to be populated in the link_pb.
   // If there is no link between src and dst the ports need to also be populated
   // in order to create a new one.
@@ -416,6 +424,11 @@ class GraphStorage {
   const GraphPath* FindPathByTagOrNull(uint32_t tag) const;
 
  private:
+  using LinkStore =
+      PerfectHashStore<std::unique_ptr<GraphLink>, uint16_t, GraphLink>;
+  using NodeStore =
+      PerfectHashStore<std::unique_ptr<GraphNode>, uint16_t, GraphNode>;
+
   GraphStorage() : tag_generator_(0) {
     empty_path_ = make_unique<GraphPath>(this);
   }
@@ -430,10 +443,8 @@ class GraphStorage {
   // Returns the index of a node identified by a string.
   GraphNodeIndex NodeFromString(const std::string& id);
 
-  using LinkStore =
-      PerfectHashStore<std::unique_ptr<GraphLink>, uint16_t, GraphLink>;
-  using NodeStore =
-      PerfectHashStore<std::unique_ptr<GraphNode>, uint16_t, GraphNode>;
+  // The index of a node's region.
+  size_t IndexOfRegionOrDie(GraphNodeIndex node) const;
 
   // A map from src to dst to a list of links between that (src, dst) pair. The
   // list will only contain more than one element if double edges are used.
@@ -451,8 +462,8 @@ class GraphStorage {
   // Path tags come from here.
   uint32_t tag_generator_;
 
-  template <typename T>
-  friend class std::allocator;
+  // Regions, each node should be contained in at most one.
+  std::vector<GraphNodeSet> regions_;
 
   DISALLOW_COPY_AND_ASSIGN(GraphStorage);
 };

@@ -12,8 +12,8 @@ message PBGraphLink {
   optional double delay_sec = 7;
 }
 
-// A cluster is a grouping of nodes.
-message PBNetCluster {
+// A region is a grouping of nodes.
+message PBNetRegion {
   optional string id = 1;
   repeated string nodes = 2;
 }
@@ -21,7 +21,7 @@ message PBNetCluster {
 // The network.
 message PBNet {
   repeated PBGraphLink links = 1; // at least one needed
-  repeated PBNetCluster clusters = 2;
+  repeated PBNetRegion regions = 2;
 }
 
 // A 5-tuple that devices can match on.

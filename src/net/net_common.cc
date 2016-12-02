@@ -78,6 +78,15 @@ GraphStorage::GraphStorage(const PBNet& graph) : tag_generator_(0) {
   for (const auto& link_pb : graph.links()) {
     LinkFromProtobuf(link_pb);
   }
+
+  for (const PBNetRegion& region : graph.regions()) {
+    GraphNodeSet nodes_in_region;
+    for (const std::string& node_id : region.nodes()) {
+      nodes_in_region.Insert(NodeFromStringOrDie(node_id));
+    }
+
+    regions_.emplace_back(nodes_in_region);
+  }
 }
 
 GraphLinkIndex GraphStorage::FindUniqueInverseOrDie(
@@ -707,28 +716,40 @@ void IPRange::Init(IPAddress address, uint8_t mask_len) {
 }
 
 // Returns the index of the cluster a node belongs to.
-static size_t IndexOfClusterOrDie(const PBNet& graph, const std::string& node) {
-  size_t cluster_index = std::numeric_limits<size_t>::max();
-  for (int i = 0; i < graph.clusters_size(); ++i) {
-    for (const std::string& cluster_node : graph.clusters(i).nodes()) {
+static size_t IndexOfRegionOrDie(const PBNet& graph, const std::string& node) {
+  size_t region_index = std::numeric_limits<size_t>::max();
+  for (int i = 0; i < graph.regions_size(); ++i) {
+    for (const std::string& cluster_node : graph.regions(i).nodes()) {
       if (cluster_node == node) {
-        cluster_index = i;
+        region_index = i;
       }
     }
   }
 
-  CHECK(cluster_index != std::numeric_limits<size_t>::max())
-      << "Node not in any cluster: " << node;
-  return cluster_index;
+  CHECK(region_index != std::numeric_limits<size_t>::max())
+      << "Node not in any region: " << node;
+  return region_index;
 }
 
-std::set<std::string> NodesInSameClusterOrDie(const PBNet& graph,
-                                              const std::string& node) {
-  size_t cluster_index = IndexOfClusterOrDie(graph, node);
+size_t GraphStorage::IndexOfRegionOrDie(GraphNodeIndex node) const {
+  for (size_t i = 0; i < regions_.size(); ++i) {
+    const GraphNodeSet& nodes_in_region = regions_[i];
+
+    if (nodes_in_region.Contains(node)) {
+      return i;
+    }
+  }
+
+  LOG(FATAL) << "Node not in any region: " << node;
+  return 0;
+}
+
+std::set<std::string> NodesInSameRegionOrDie(const PBNet& graph,
+                                             const std::string& node) {
+  size_t region_index = IndexOfRegionOrDie(graph, node);
 
   std::set<std::string> return_set;
-  for (const std::string& cluster_node :
-       graph.clusters(cluster_index).nodes()) {
+  for (const std::string& cluster_node : graph.regions(region_index).nodes()) {
     if (cluster_node != node) {
       return_set.emplace(cluster_node);
     }
@@ -737,19 +758,38 @@ std::set<std::string> NodesInSameClusterOrDie(const PBNet& graph,
   return return_set;
 }
 
-std::set<std::string> NodesInOtherClustersOrDie(const PBNet& graph,
-                                                const std::string& node) {
-  int cluster_index = IndexOfClusterOrDie(graph, node);
+GraphNodeSet GraphStorage::NodesInSameRegionOrDie(GraphNodeIndex node) const {
+  size_t region_index = IndexOfRegionOrDie(node);
+  GraphNodeSet to_return = regions_[region_index];
+  to_return.Remove(node);
+  return to_return;
+}
+
+std::set<std::string> NodesInOtherRegionsOrDie(const PBNet& graph,
+                                               const std::string& node) {
+  int region_index = IndexOfRegionOrDie(graph, node);
 
   std::set<std::string> return_set;
-  for (int i = 0; i < graph.clusters_size(); ++i) {
-    if (i != cluster_index) {
-      const auto& nodes_in_cluster = graph.clusters(i).nodes();
+  for (int i = 0; i < graph.regions_size(); ++i) {
+    if (i != region_index) {
+      const auto& nodes_in_cluster = graph.regions(i).nodes();
       return_set.insert(nodes_in_cluster.begin(), nodes_in_cluster.end());
     }
   }
 
   return return_set;
+}
+
+GraphNodeSet GraphStorage::NodesInOtherRegionsOrDie(GraphNodeIndex node) const {
+  size_t region_index = IndexOfRegionOrDie(node);
+  GraphNodeSet to_return;
+  for (size_t i = 0; i < regions_.size(); ++i) {
+    if (i != region_index) {
+      to_return.InsertAll(regions_[i]);
+    }
+  }
+
+  return to_return;
 }
 
 bool IsNodeInGraph(const PBNet& graph, const std::string& node) {
@@ -764,7 +804,7 @@ bool IsNodeInGraph(const PBNet& graph, const std::string& node) {
 
 bool IsIntraClusterLink(const PBNet& graph, const PBGraphLink& link) {
   const std::string& src = link.src();
-  std::set<std::string> in_same_cluster = NodesInSameClusterOrDie(graph, src);
+  std::set<std::string> in_same_cluster = NodesInSameRegionOrDie(graph, src);
   return ContainsKey(in_same_cluster, link.dst());
 }
 
