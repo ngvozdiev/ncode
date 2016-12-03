@@ -27,6 +27,8 @@ class MCProblem {
   // capacity multiplier used during construction.
   void AddCommodity(const std::string& source, const std::string& sink,
                     double demand = 0);
+  void AddCommodity(ncode::net::GraphNodeIndex source,
+                    ncode::net::GraphNodeIndex sink, double demand = 0);
 
   // Returns true if the MC problem is feasible -- if the commodities/demands
   // can fit in the network.
