@@ -40,6 +40,12 @@ int main(int argc, char** argv) {
   LOG(ERROR) << "Graph with " << path_storage.NodeCount() << " nodes and "
              << path_storage.LinkCount() << " links";
 
+  net::DistanceClusteredGraph clustered_graph({}, milliseconds(2), &graph);
+  net::GraphStats stats = clustered_graph.clustered_storage()->Stats();
+  LOG(ERROR) << stats.multiple_links << " " << stats.unidirectional_links
+             << clustered_graph.clustered_storage()->AllNodes().Count() << " "
+             << clustered_graph.clustered_storage()->AllLinks().Count();
+
   TimeMs("All pair shortest path",
          [&graph] { net::AllPairShortestPath all_pair_sp({}, &graph); });
 

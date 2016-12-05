@@ -126,7 +126,7 @@ endmacro(add_test_exec)
 ################################
 # Common stuff
 ################################
-set(COMMON_HEADER_FILES src/common/common.h src/common/substitute.h src/common/logging.h src/common/file.h src/common/stringpiece.h src/common/strutil.h src/common/map_util.h src/common/stl_util.h src/common/event_queue.h src/common/free_list.h src/common/packer.h src/common/ptr_queue.h src/common/lru_cache.h src/common/perfect_hash.h)
+set(COMMON_HEADER_FILES src/common/common.h src/common/substitute.h src/common/logging.h src/common/file.h src/common/stringpiece.h src/common/strutil.h src/common/map_util.h src/common/stl_util.h src/common/event_queue.h src/common/free_list.h src/common/packer.h src/common/ptr_queue.h src/common/lru_cache.h src/common/perfect_hash.h src/common/alphanum.h)
 add_library(ncode_common STATIC src/common/common.cc src/common/substitute.cc src/common/logging.cc src/common/file.cc src/common/stringpiece.cc src/common/strutil.cc src/common/event_queue.cc src/common/free_list.cc src/common/packer.cc ${COMMON_HEADER_FILES})
 
 set_property(SOURCE src/common/stringpiece_test.cc APPEND_STRING PROPERTY COMPILE_FLAGS "-Wno-conversion-null -Wno-sign-compare")
@@ -143,6 +143,7 @@ add_test_exec(common_circular_array_test src/common/circular_array_test.cc ncode
 add_test_exec(common_lru_cache_test src/common/lru_cache_test.cc ncode_common)
 add_test_exec(common_thread_runner_test src/common/thread_runner_test.cc ncode_common)
 add_test_exec(common_perfect_hash_test src/common/perfect_hash_test.cc ncode_common)
+add_test_exec(common_alphanum_test src/common/alphanum_test.cc ncode_common)
 
 add_executable(common_perfect_hash_benchmark src/common/perfect_hash_benchmark.cc)
 target_link_libraries(common_perfect_hash_benchmark ncode_common)
