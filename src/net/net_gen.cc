@@ -77,10 +77,10 @@ static void AddBiLink(Bandwidth bw, const std::string& src, Delay delay,
 
 static void AddCluster(const std::string& name,
                        const std::vector<std::string>& ids, PBNet* out) {
-  PBNetCluster* cluster = out->add_clusters();
-  cluster->set_id(name);
+  PBNetRegion* region = out->add_regions();
+  region->set_id(name);
   for (const std::string& id : ids) {
-    cluster->add_nodes(id);
+    region->add_nodes(id);
   }
 }
 

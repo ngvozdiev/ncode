@@ -139,6 +139,11 @@ void MCProblem::AddCommodity(const std::string& source, const std::string& sink,
                           graph_storage_->NodeFromStringOrDie(sink), demand});
 }
 
+void MCProblem::AddCommodity(ncode::net::GraphNodeIndex source,
+                             ncode::net::GraphNodeIndex sink, double demand) {
+  commodities_.push_back({source, sink, demand});
+}
+
 bool MCProblem::IsFeasible() {
   Problem problem(MAXIMIZE);
   std::vector<ProblemMatrixElement> problem_matrix;

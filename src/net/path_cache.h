@@ -51,15 +51,19 @@ class NodePairPathCache {
   // 'max_hops' will be enumerated. This will be slow.
   std::vector<LinkSequence> AllPaths(size_t max_hops) const;
 
+  // Return a NodePair cache that will exclude the given links.
+  std::unique_ptr<NodePairPathCache> ExcludeLinks(
+      const GraphLinkSet& links) const;
+
  private:
   NodePairPathCache(const NodePair& key, size_t max_num_paths,
                     std::unique_ptr<Constraint> constraint,
-                    const DirectedGraph* graph, GraphStorage* path_storage);
+                    const DirectedGraph* graph, GraphStorage* graph_storage);
 
   NodePairPathCache(const NodePair& key, size_t max_num_paths,
-                    const DirectedGraph* graph, GraphStorage* path_storage)
+                    const DirectedGraph* graph, GraphStorage* graph_storage)
       : NodePairPathCache(key, max_num_paths, DummyConstraint(), graph,
-                          path_storage) {}
+                          graph_storage) {}
 
   std::unique_ptr<ShortestPathGenerator> PathGenerator(
       const GraphLinkSet* exclude) const;
@@ -113,9 +117,20 @@ class PathCache {
   // Returns the cache between two nodes.
   NodePairPathCache* NodePairCache(const NodePair& key);
 
+  // Returns a new path cache with constraints that exclude the given links. The
+  // cache will contain no paths.
+  std::unique_ptr<PathCache> ExcludeLinks(const GraphLinkSet& links) const;
+
  private:
+  PathCache(const GraphLinkSet& links_to_exclude, GraphStorage* graph_storage,
+            size_t max_num_paths_per_pair);
+
   const DirectedGraph graph_;
   GraphStorage* graph_storage_;
+
+  // All NodePairPathCache instances that this cache generates will have
+  // constraints that exclude these links.
+  const GraphLinkSet links_to_exclude_;
 
   // Each NodePair cache will have at most this many paths.
   size_t max_num_paths_per_pair_;

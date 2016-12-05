@@ -25,11 +25,11 @@ TEST(HE, Generate) {
   }
 
   ASSERT_EQ(31ul, endpoints.size());
-  ASSERT_EQ(3, net_pb.clusters_size());
+  ASSERT_EQ(3, net_pb.regions_size());
 
   size_t total = 0;
-  for (const auto& cluster : net_pb.clusters()) {
-    total += cluster.nodes_size();
+  for (const auto& region : net_pb.regions()) {
+    total += region.nodes_size();
   }
   ASSERT_EQ(31ul, total);
 }
@@ -50,8 +50,8 @@ TEST(NTT, Generate) {
 
   ASSERT_EQ(43ul, endpoints.size());
   size_t total = 0;
-  for (const auto& cluster : net_pb.clusters()) {
-    total += cluster.nodes_size();
+  for (const auto& region : net_pb.regions()) {
+    total += region.nodes_size();
   }
   ASSERT_EQ(43ul, total);
 }
@@ -72,8 +72,8 @@ TEST(Sprint, Generate) {
 
   ASSERT_EQ(315ul, endpoints.size());
   size_t total = 0;
-  for (const auto& cluster : net_pb.clusters()) {
-    total += cluster.nodes_size();
+  for (const auto& region : net_pb.regions()) {
+    total += region.nodes_size();
   }
   ASSERT_EQ(315ul, total);
 }
