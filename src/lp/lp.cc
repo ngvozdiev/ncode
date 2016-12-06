@@ -56,9 +56,7 @@ static std::pair<double, double> HandleInifinities(double min, double max) {
   return std::make_pair(min, max);
 }
 
-Problem::Problem(Direction direction)
-    : mip_tolerance_gap_(kDefaultMIPToleranceGap),
-      has_binary_variables_(false) {
+Problem::Problem(Direction direction) : has_binary_variables_(false) {
   CPLEXHandle* handle = new CPLEXHandle(direction);
   handle_ = handle;
 }
@@ -271,7 +269,6 @@ std::unique_ptr<Solution> Problem::Solve(std::chrono::milliseconds time_limit) {
   if (handle->binary_variables.empty()) {
     status = CPXlpopt(env, lp);
   } else {
-    CHECK(CPXsetdblparam(env, CPX_PARAM_EPGAP, mip_tolerance_gap_) == 0);
     status = CPXmipopt(env, lp);
   }
 
@@ -305,7 +302,8 @@ std::unique_ptr<Solution> Problem::Solve(std::chrono::milliseconds time_limit) {
     return solution;
   }
 
-  if (solstat == CPX_STAT_OPTIMAL || solstat == CPXMIP_OPTIMAL) {
+  if (solstat == CPX_STAT_OPTIMAL || solstat == CPXMIP_OPTIMAL ||
+      solstat == CPXMIP_OPTIMAL_TOL) {
     solution->solution_type_ = SolutionType::OPTIMAL;
   } else if (solstat == CPX_STAT_FEASIBLE || solstat == CPXMIP_FEASIBLE) {
     solution->solution_type_ = SolutionType::FEASIBLE;

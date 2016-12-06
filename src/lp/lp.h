@@ -78,9 +78,6 @@ class Problem {
   static constexpr double kNegativeInifinity =
       -std::numeric_limits<double>::infinity();
 
-  // .5% away from the best solution is OK.
-  static constexpr double kDefaultMIPToleranceGap = 0.005;
-
   Problem(Direction direction);
   ~Problem();
 
@@ -121,18 +118,11 @@ class Problem {
   std::unique_ptr<Solution> Solve(
       std::chrono::milliseconds time_limit = std::chrono::milliseconds::max());
 
-  // Sets the MIP tolerance.
-  void set_mip_tolerance_gap(double gap) { mip_tolerance_gap_ = gap; }
-
  private:
   // Implementation-specific opaque handle. This is ugly, but it allows us to
   // keep the actual optimizer-specific implementation in the .cc file. This way
   // the clients do not need to have access to the optimizer headers.
   void* handle_;
-
-  // If the problem is a MIP this is how far (in relative terms) a feasible
-  // solution should be from optimality.
-  double mip_tolerance_gap_;
 
   // True if any of the variables are binary.
   bool has_binary_variables_;
