@@ -218,6 +218,7 @@ bool MCProblem::IsFeasible() {
 
   // Solve the problem.
   problem.SetMatrix(problem_matrix);
+  problem.DumpToFile("out.lp");
   std::unique_ptr<Solution> solution = problem.Solve();
   return solution->type() == ncode::lp::OPTIMAL ||
          solution->type() == ncode::lp::FEASIBLE;

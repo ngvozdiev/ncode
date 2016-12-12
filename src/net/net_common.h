@@ -44,7 +44,7 @@ class Bandwidth : public TypesafeUintWrapper<BandwidthTag, uint64_t> {
   static constexpr Bandwidth FromBitsPerSecond(uint64_t bps) {
     return Bandwidth(bps);
   }
-  static constexpr Bandwidth FromMBitsPerSecond(uint64_t Mbps) {
+  static constexpr Bandwidth FromMBitsPerSecond(double Mbps) {
     return Bandwidth(Mbps * 1000.0 * 1000.0);
   }
   static constexpr Bandwidth Zero() { return Bandwidth::FromBitsPerSecond(0); }

@@ -134,7 +134,7 @@ TEST(MCTest, SimpleFeasible) {
   mc_problem.AddCommodity("N0", "N1", BW(10000));
   ASSERT_TRUE(mc_problem.IsFeasible());
 
-  mc_problem.AddCommodity("N1", "N0", BW(10001));
+  mc_problem.AddCommodity("N1", "N0", BW(11000));
   ASSERT_FALSE(mc_problem.IsFeasible());
 }
 
@@ -160,7 +160,7 @@ TEST(MCTest, SimpleIncrement) {
   ASSERT_EQ(ncode::net::Bandwidth::Zero(), mc_problem.MaxCommodityIncrement());
 
   mc_problem.AddCommodity("N0", "N1");
-  ASSERT_NEAR(10000000000, mc_problem.MaxCommodityIncrement().bps(), 0.1);
+  ASSERT_NEAR(10000000000, mc_problem.MaxCommodityIncrement().bps(), 10);
 }
 
 }  // namespace
