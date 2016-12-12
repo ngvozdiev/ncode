@@ -202,8 +202,8 @@ Delay TotalDelayOfLinks(const Links& links, const GraphStorage* graph_storage);
 class LinkSequence {
  public:
   LinkSequence();
-
   LinkSequence(const Links& links, Delay delay);
+  LinkSequence(const Links& links, const GraphStorage* storage);
 
   // Returns true if any of the links in this sequence is equal to link.
   bool Contains(GraphLinkIndex link) const;
@@ -399,6 +399,11 @@ class GraphStorage {
   // numbers cannot be specified -- do not use if double edges are possible.
   const GraphPath* PathFromStringOrDie(const std::string& path_string,
                                        uint64_t aggregate_cookie);
+
+  // Like PathFromStringOrDie, but simply returns a link sequence instead of a
+  // graph path.
+  LinkSequence LinkSequenceFromStringOrDie(
+      const std::string& path_string) const;
 
   // Retuns a graph path from a sequence of links.
   const GraphPath* PathFromLinksOrDie(const LinkSequence& links,

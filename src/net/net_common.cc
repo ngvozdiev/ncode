@@ -332,10 +332,13 @@ LinkSequence::LinkSequence(const Links& links, Delay delay)
     : links_(links), delay_(delay) {
   for (size_t i = 0; i < links.size(); ++i) {
     for (size_t j = i + 1; j < links.size(); ++j) {
-      CHECK(links[i] != links[j]) << "Duplicate link";
+      CHECK(links[i] != links[j]) << "Duplicate link " << links[i];
     }
   }
 }
+
+LinkSequence::LinkSequence(const Links& links, const GraphStorage* storage)
+    : LinkSequence(links, TotalDelayOfLinks(links, storage)) {}
 
 bool LinkSequence::Contains(GraphLinkIndex link) const {
   return std::find(links_.begin(), links_.end(), link) != links_.end();
@@ -450,8 +453,8 @@ void GraphPath::Populate(LinkSequence link_sequence, uint32_t tag) {
   tag_ = tag;
 }
 
-const GraphPath* GraphStorage::PathFromStringOrDie(
-    const std::string& path_string, uint64_t cookie) {
+LinkSequence GraphStorage::LinkSequenceFromStringOrDie(
+    const std::string& path_string) const {
   CHECK(path_string.length() > 1) << "Path string malformed: " << path_string;
   CHECK(path_string.front() == '[' && path_string.back() == ']')
       << "Path string malformed: " << path_string;
@@ -459,7 +462,7 @@ const GraphPath* GraphStorage::PathFromStringOrDie(
   std::string inner = path_string.substr(1, path_string.size() - 2);
   if (inner.empty()) {
     // Empty path
-    return empty_path_.get();
+    return {};
   }
 
   std::vector<std::string> edge_strings = Split(inner, ", ");
@@ -481,7 +484,13 @@ const GraphPath* GraphStorage::PathFromStringOrDie(
     links.push_back(LinkFromProtobufOrDie(link_pb));
   }
 
-  return PathFromLinksOrDie({links, TotalDelayOfLinks(links, this)}, cookie);
+  return {links, TotalDelayOfLinks(links, this)};
+}
+
+const GraphPath* GraphStorage::PathFromStringOrDie(
+    const std::string& path_string, uint64_t cookie) {
+  LinkSequence link_sequence = LinkSequenceFromStringOrDie(path_string);
+  return PathFromLinksOrDie(link_sequence, cookie);
 }
 
 const GraphPath* GraphStorage::PathFromLinksOrDie(

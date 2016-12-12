@@ -253,6 +253,12 @@ class PerfectHashMap {
     return values_[index].second;
   }
 
+  Value& GetValueOrDie(Index<Tag, V> index) {
+    CHECK(values_.size() > index);
+    CHECK(values_[index].first);
+    return values_[index].second;
+  }
+
   bool HasValue(Index<Tag, V> index) const {
     if (values_.size() > index) {
       return values_[index].first;
