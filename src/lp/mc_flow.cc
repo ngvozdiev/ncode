@@ -25,16 +25,16 @@ MCProblem::MCProblem(const net::GraphStorage* graph_storage,
 }
 
 MCProblem::MCProblem(const MCProblem& mc_problem, double scale_factor,
-                     double increment) {
+                     net::Bandwidth increment) {
   graph_storage_ = mc_problem.graph_storage_;
   capacity_multiplier_ = mc_problem.capacity_multiplier_;
   adjacent_to_v_ = mc_problem.adjacent_to_v_;
 
   for (const Commodity& commodity : mc_problem.commodities_) {
-    Commodity scaled_commodity = commodity;
-    scaled_commodity.demand *= scale_factor;
-    scaled_commodity.demand += increment;
-    commodities_.emplace_back(scaled_commodity);
+    double demand_mbps = commodity.demand.Mbps();
+    net::Bandwidth new_demand = net::Bandwidth::FromMBitsPerSecond(
+        demand_mbps * scale_factor + increment.Mbps());
+    commodities_.emplace_back(commodity.source, commodity.sink, new_demand);
   }
 }
 
@@ -50,7 +50,7 @@ MCProblem::VarMap MCProblem::GetLinkToVariableMap(
     // fit the capacity of the link.
     ConstraintIndex link_constraint = problem->AddConstraint();
 
-    double scaled_limit = link->bandwidth().bps() * capacity_multiplier_;
+    double scaled_limit = link->bandwidth().Mbps() * capacity_multiplier_;
     problem->SetConstraintRange(link_constraint, 0, scaled_limit);
 
     for (size_t commodity_index = 0; commodity_index < commodities_.size();
@@ -101,7 +101,8 @@ void MCProblem::AddFlowConservationConstraints(
         // Traffic that leaves the source should sum up to at least the demand
         // of the commodity.
         ConstraintIndex source_load_constraint = problem->AddConstraint();
-        problem->SetConstraintRange(source_load_constraint, commodity.demand,
+        problem->SetConstraintRange(source_load_constraint,
+                                    commodity.demand.Mbps(),
                                     Problem::kInifinity);
 
         for (net::GraphLinkIndex edge_out : edges_out) {
@@ -150,8 +151,8 @@ std::vector<std::vector<FlowAndPath>> MCProblem::RecoverPaths(
     }
 
     net::Links links;
-    double starting_flow = commodity.demand > 0
-                               ? commodity.demand
+    double starting_flow = commodity.demand > net::Bandwidth::Zero()
+                               ? commodity.demand.Mbps()
                                : std::numeric_limits<double>::max();
     RecoverPathsRecursive(&link_to_flow, c_index, commodity.source, &links,
                           starting_flow, &out.back());
@@ -162,16 +163,17 @@ std::vector<std::vector<FlowAndPath>> MCProblem::RecoverPaths(
 
 void MCProblem::RecoverPathsRecursive(
     net::GraphLinkMap<double>* flow_over_links, size_t c_index,
-    net::GraphNodeIndex at_node, net::Links* links_so_far, double flow_on_path,
-    std::vector<FlowAndPath>* out) const {
+    net::GraphNodeIndex at_node, net::Links* links_so_far,
+    double flow_on_path_mbps, std::vector<FlowAndPath>* out) const {
   const Commodity& commodity = commodities_[c_index];
   if (at_node == commodity.sink) {
-    CHECK(flow_on_path != std::numeric_limits<double>::max());
-    if (commodity.demand > 0) {
-      CHECK(flow_on_path <= commodity.demand);
+    CHECK(flow_on_path_mbps != std::numeric_limits<double>::max());
+    if (commodity.demand > net::Bandwidth::Zero()) {
+      CHECK(flow_on_path_mbps <= commodity.demand.Mbps());
     }
 
     auto new_path = net::LinkSequence(*links_so_far, graph_storage_);
+    auto flow_on_path = net::Bandwidth::FromMBitsPerSecond(flow_on_path_mbps);
     out->emplace_back(flow_on_path, new_path);
     return;
   }
@@ -185,7 +187,7 @@ void MCProblem::RecoverPathsRecursive(
 
     const net::GraphLink* edge = graph_storage_->GetLink(edge_out);
     double& remaining = flow_over_links->GetValueOrDie(edge_out);
-    double to_take = std::min(remaining, flow_on_path);
+    double to_take = std::min(remaining, flow_on_path_mbps);
     if (to_take > 0) {
       links_so_far->emplace_back(edge_out);
       remaining -= to_take;
@@ -197,14 +199,15 @@ void MCProblem::RecoverPathsRecursive(
 }
 
 void MCProblem::AddCommodity(const std::string& source, const std::string& sink,
-                             double demand) {
-  commodities_.push_back({graph_storage_->NodeFromStringOrDie(source),
-                          graph_storage_->NodeFromStringOrDie(sink), demand});
+                             net::Bandwidth demand) {
+  commodities_.emplace_back(graph_storage_->NodeFromStringOrDie(source),
+                            graph_storage_->NodeFromStringOrDie(sink), demand);
 }
 
 void MCProblem::AddCommodity(ncode::net::GraphNodeIndex source,
-                             ncode::net::GraphNodeIndex sink, double demand) {
-  commodities_.push_back({source, sink, demand});
+                             ncode::net::GraphNodeIndex sink,
+                             net::Bandwidth demand) {
+  commodities_.emplace_back(source, sink, demand);
 }
 
 bool MCProblem::IsFeasible() {
@@ -230,7 +233,7 @@ double MCProblem::MaxCommodityScaleFactor() {
 
   bool all_zero = true;
   for (const Commodity& commodity : commodities_) {
-    if (commodity.demand != 0) {
+    if (commodity.demand != net::Bandwidth::Zero()) {
       all_zero = false;
       break;
     }
@@ -254,7 +257,7 @@ double MCProblem::MaxCommodityScaleFactor() {
     }
 
     double guess = min_bound + (max_bound - min_bound) / 2;
-    MCProblem test_problem(*this, guess, 0.0);
+    MCProblem test_problem(*this, guess, net::Bandwidth::Zero());
 
     bool is_feasible = test_problem.IsFeasible();
     if (is_feasible) {
@@ -268,25 +271,24 @@ double MCProblem::MaxCommodityScaleFactor() {
   return curr_estimate;
 }
 
-double MCProblem::MaxCommodityIncrement() {
+net::Bandwidth MCProblem::MaxCommodityIncrement() {
   if (!IsFeasible() || commodities_.empty()) {
-    return 0;
+    return net::Bandwidth::Zero();
   }
 
   // The initial increment will be the max of the cpacity of all links.
-  uint64_t max_capacity = 0;
+  net::Bandwidth max_capacity = net::Bandwidth::Zero();
   for (net::GraphLinkIndex link_index : graph_storage_->AllLinks()) {
     const net::GraphLink* link = graph_storage_->GetLink(link_index);
 
-    if (link->bandwidth().bps() > max_capacity) {
-      max_capacity = link->bandwidth().bps();
+    if (link->bandwidth() > max_capacity) {
+      max_capacity = link->bandwidth();
     }
   }
 
   double min_bound = 1.0;
-  double max_bound = max_capacity;
-
-  double curr_estimate = max_capacity;
+  double max_bound = max_capacity.bps();
+  double curr_estimate = max_capacity.bps();
   while (true) {
     CHECK(max_bound >= min_bound);
     double delta = max_bound - min_bound;
@@ -295,7 +297,8 @@ double MCProblem::MaxCommodityIncrement() {
     }
 
     double guess = min_bound + (max_bound - min_bound) / 2;
-    MCProblem test_problem(*this, 1.0, guess);
+    MCProblem test_problem(*this, 1.0,
+                           net::Bandwidth::FromBitsPerSecond(guess));
 
     bool is_feasible = test_problem.IsFeasible();
     if (is_feasible) {
@@ -306,11 +309,11 @@ double MCProblem::MaxCommodityIncrement() {
     }
   }
 
-  return curr_estimate;
+  return net::Bandwidth::FromBitsPerSecond(curr_estimate);
 }
 
 bool MaxFlowMCProblem::GetMaxFlow(
-    double* max_flow, std::vector<std::vector<FlowAndPath>>* paths) {
+    net::Bandwidth* max_flow, std::vector<std::vector<FlowAndPath>>* paths) {
   Problem problem(MAXIMIZE);
   std::vector<ProblemMatrixElement> problem_matrix;
   VarMap link_to_variables = GetLinkToVariableMap(&problem, &problem_matrix);
@@ -341,7 +344,7 @@ bool MaxFlowMCProblem::GetMaxFlow(
     return false;
   }
 
-  *max_flow = solution->ObjectiveValue();
+  *max_flow = net::Bandwidth::FromMBitsPerSecond(solution->ObjectiveValue());
   if (paths) {
     *paths = RecoverPaths(link_to_variables, *solution);
   }

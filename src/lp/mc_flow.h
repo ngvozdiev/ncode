@@ -13,13 +13,17 @@ namespace lp {
 
 // A single commodity in a multi-commodity problem.
 struct Commodity {
+  Commodity(net::GraphNodeIndex source, net::GraphNodeIndex sink,
+            net::Bandwidth demand)
+      : source(source), sink(sink), demand(demand) {}
+
   net::GraphNodeIndex source;
   net::GraphNodeIndex sink;
-  double demand;
+  net::Bandwidth demand;
 };
 
 // Path and flow on a path.
-using FlowAndPath = std::pair<double, net::LinkSequence>;
+using FlowAndPath = std::pair<net::Bandwidth, net::LinkSequence>;
 
 // A multi-commodity flow problem. Edge capacities will be taken from the
 // bandwidth values of the links in the graph this object is constructed with
@@ -36,9 +40,9 @@ class MCProblem {
   // unit of the demand should be in the same units as the link bandwidth * the
   // capacity multiplier used during construction.
   void AddCommodity(const std::string& source, const std::string& sink,
-                    double demand = 0);
-  void AddCommodity(ncode::net::GraphNodeIndex source,
-                    ncode::net::GraphNodeIndex sink, double demand = 0);
+                    net::Bandwidth demand = net::Bandwidth::Zero());
+  void AddCommodity(net::GraphNodeIndex source, net::GraphNodeIndex sink,
+                    net::Bandwidth demand = net::Bandwidth::Zero());
 
   // Returns true if the MC problem is feasible -- if the commodities/demands
   // can fit in the network.
@@ -51,7 +55,7 @@ class MCProblem {
 
   // If the returned demand is added to all commodities the problem will be very
   // close to being infeasible.
-  double MaxCommodityIncrement();
+  net::Bandwidth MaxCommodityIncrement();
 
   // Returns the commodities.
   const std::vector<Commodity>& commodities() const { return commodities_; }
@@ -83,7 +87,8 @@ class MCProblem {
  private:
   // Returns the same problem, but with all commodities' demands multiplied by
   // the given scale factor and increased by 'increment'.
-  MCProblem(const MCProblem& other, double scale_factor, double increment);
+  MCProblem(const MCProblem& other, double scale_factor,
+            net::Bandwidth increment);
 
   // Helper function for RecoverPaths.
   void RecoverPathsRecursive(net::GraphLinkMap<double>* flow_over_links,
@@ -107,7 +112,7 @@ class MaxFlowMCProblem : public MCProblem {
   // populate it with the actual paths for each commodity that will result in
   // the max flow value. If there are commodities that cannot satisfy their
   // demands false is returned and neither 'max_flow' nor 'paths' are modified.
-  bool GetMaxFlow(double* max_flow,
+  bool GetMaxFlow(net::Bandwidth* max_flow,
                   std::vector<std::vector<FlowAndPath>>* paths = nullptr);
 };
 
