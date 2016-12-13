@@ -11,10 +11,14 @@
 namespace ncode {
 namespace lp {
 
-MCProblem::MCProblem(const net::GraphStorage* graph_storage,
+MCProblem::MCProblem(const net::GraphLinkSet& to_exclude,
+                     const net::GraphStorage* graph_storage,
                      double capacity_multiplier)
-    : graph_storage_(graph_storage), capacity_multiplier_(capacity_multiplier) {
-  for (net::GraphLinkIndex link_index : graph_storage->AllLinks()) {
+    : all_links_(graph_storage->AllLinks()),
+      graph_storage_(graph_storage),
+      capacity_multiplier_(capacity_multiplier) {
+  all_links_.RemoveAll(to_exclude);
+  for (net::GraphLinkIndex link_index : all_links_) {
     const net::GraphLink* link = graph_storage->GetLink(link_index);
 
     net::GraphNodeIndex out = link->src();
@@ -29,6 +33,7 @@ MCProblem::MCProblem(const MCProblem& mc_problem, double scale_factor,
   graph_storage_ = mc_problem.graph_storage_;
   capacity_multiplier_ = mc_problem.capacity_multiplier_;
   adjacent_to_v_ = mc_problem.adjacent_to_v_;
+  all_links_ = mc_problem.all_links_;
 
   for (const Commodity& commodity : mc_problem.commodities_) {
     double demand_mbps = commodity.demand.Mbps();
@@ -43,7 +48,7 @@ MCProblem::VarMap MCProblem::GetLinkToVariableMap(
   VarMap link_to_variables;
 
   // There will be a variable per-link per-commodity.
-  for (net::GraphLinkIndex link_index : graph_storage_->AllLinks()) {
+  for (net::GraphLinkIndex link_index : all_links_) {
     const net::GraphLink* link = graph_storage_->GetLink(link_index);
 
     // One constraint per link to make sure the sum of all commodities over it
@@ -279,7 +284,7 @@ net::Bandwidth MCProblem::MaxCommodityIncrement() {
 
   // The initial increment will be the max of the cpacity of all links.
   net::Bandwidth max_capacity = net::Bandwidth::Zero();
-  for (net::GraphLinkIndex link_index : graph_storage_->AllLinks()) {
+  for (net::GraphLinkIndex link_index : all_links_) {
     const net::GraphLink* link = graph_storage_->GetLink(link_index);
 
     if (link->bandwidth() > max_capacity) {

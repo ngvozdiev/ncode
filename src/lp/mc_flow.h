@@ -32,7 +32,8 @@ class MCProblem {
  public:
   using VarMap = net::GraphLinkMap<std::vector<VariableIndex>>;
 
-  MCProblem(const net::GraphStorage* graph_storage,
+  MCProblem(const net::GraphLinkSet& to_exclude,
+            const net::GraphStorage* graph_storage,
             double capacity_multiplier = 1.0);
 
   // Adds a single commodity to the network, with a given source and sink. If
@@ -75,8 +76,17 @@ class MCProblem {
   std::vector<std::vector<FlowAndPath>> RecoverPaths(
       const VarMap& link_to_variables, const lp::Solution& solution) const;
 
+  // Links that all operations will be performed on. This is the set of all
+  // links minus the ones that are excluded during construction.
+  net::GraphLinkSet all_links_;
+
+  // Where the graph is stored. Not owned by this object.
   const net::GraphStorage* graph_storage_;
+
+  // All links' capacity will be scaled by this number.
   double capacity_multiplier_;
+
+  // The commodities.
   std::vector<Commodity> commodities_;
 
   // For each node will keep a list of the edges going out of the node and the
@@ -103,9 +113,10 @@ class MCProblem {
 // Solves the multi commodity max flow problem.
 class MaxFlowMCProblem : public MCProblem {
  public:
-  MaxFlowMCProblem(const net::GraphStorage* graph_storage,
+  MaxFlowMCProblem(const net::GraphLinkSet& to_exclude,
+                   const net::GraphStorage* graph_storage,
                    double capacity_multiplier = 1.0)
-      : MCProblem(graph_storage, capacity_multiplier) {}
+      : MCProblem(to_exclude, graph_storage, capacity_multiplier) {}
 
   // Populates the maximum flow (in the same units as edge bandwidth *
   // cpacity_multiplier_) for all commodities. If 'paths' is supplied will also
