@@ -161,6 +161,12 @@ std::vector<std::vector<FlowAndPath>> MCProblem::RecoverPaths(
   return out;
 }
 
+static bool AlreadySeen(net::GraphLinkIndex link,
+                        const net::Links& links_so_far) {
+  return std::find(links_so_far.begin(), links_so_far.end(), link) !=
+         links_so_far.end();
+}
+
 void MCProblem::RecoverPathsRecursive(
     net::GraphLinkMap<double>* flow_over_links, size_t c_index,
     net::GraphNodeIndex at_node, net::Links* links_so_far,
@@ -182,6 +188,10 @@ void MCProblem::RecoverPathsRecursive(
   const std::vector<net::GraphLinkIndex>& edges_out = adj_lists.first;
   for (net::GraphLinkIndex edge_out : edges_out) {
     if (!flow_over_links->HasValue(edge_out)) {
+      continue;
+    }
+
+    if (AlreadySeen(edge_out, *links_so_far)) {
       continue;
     }
 

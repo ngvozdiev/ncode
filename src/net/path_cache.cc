@@ -28,6 +28,13 @@ std::vector<const LinkSequence*> NodePairPathCache::Paths(
     size_t start_k, size_t* next_index, const GraphLinkSet* exclude) {
   std::vector<const LinkSequence*> out;
 
+  // Before starting to enumerate paths will figure out if there exists any path
+  // that avoids to_exclude.
+  LinkSequence shortest_path = KthShortestPath(1, exclude);
+  if (shortest_path.empty()) {
+    return {};
+  }
+
   size_t i = start_k;
   while (true) {
     const LinkSequence* next_path = GetPathAtIndexOrNull(i++);
