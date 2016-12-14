@@ -106,7 +106,11 @@ void SingleThreadBulkPacketGenerator::HandleEvent() {
 BulkPacketGeneratorBase::BulkPacketGeneratorBase(
     std::vector<std::unique_ptr<BulkPacketSource>> sources,
     htsim::PacketHandler* out)
-    : out_(out), sources_(std::move(sources)), default_tag_(kDefaultTag) {}
+    : out_(out), sources_(std::move(sources)), default_tag_(kDefaultTag) {
+  for (const auto& src : sources_) {
+    CHECK(src) << "Empty source";
+  }
+}
 
 PacketPtr BulkPacketGeneratorBase::NextPacket() {
   if (queue_.empty()) {

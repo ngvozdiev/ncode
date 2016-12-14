@@ -8,7 +8,6 @@
 
 #include "../common/common.h"
 #include "../common/event_queue.h"
-#include "../common/free_list.h"
 #include "../net/net_common.h"
 #include "htsim.h"
 

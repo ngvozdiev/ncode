@@ -143,9 +143,9 @@ class Device : public SimComponent, public PacketHandler {
   // added to the network.
   void set_network(Network* network) { network_ = network; }
 
-  PacketHandler* tx_replies_handler() { return tx_replies_handler_; }
+  PacketHandler* tx_replies_handler() { return replies_handler_; }
   void set_tx_replies_handler(PacketHandler* tx_replies_handler) {
-    tx_replies_handler_ = tx_replies_handler;
+    replies_handler_ = tx_replies_handler;
   }
 
   // Enables 1 in N sampling of rules that request it.
@@ -187,10 +187,10 @@ class Device : public SimComponent, public PacketHandler {
   // The parent network instance.
   Network* network_;
 
-  // Replies (ACKs) to update messages are sent out via this handler (instead of
-  // using the routing table to find a destination etc.). If this is  nullptr no
-  // replies are sent.
-  PacketHandler* tx_replies_handler_;
+  // Replies to update messages and stats are sent out via this handler (instead
+  // of using the routing table to find a destination etc.). If this is  nullptr
+  // no replies are sent.
+  PacketHandler* replies_handler_;
 
   // Packet handler for sampled data. All sampled data from all rules goes
   // there (if the handler is not null).

@@ -44,8 +44,8 @@ const net::DevicePortNumber Device::kLoopbackPortNum =
 void Device::HandlePacket(PacketPtr pkt) {
   if (pkt->size_bytes() == 0) {
     // The packet is an SSCP message.
-    if (pkt->five_tuple().ip_proto().Raw() ==
-        SSCPAddOrUpdate::kSSCPAddOrUpdateType) {
+    uint8_t type = pkt->five_tuple().ip_proto().Raw();
+    if (type == SSCPAddOrUpdate::kSSCPAddOrUpdateType) {
       ++stats_.route_updates_seen;
 
       SSCPAddOrUpdate* add_or_update_message =
@@ -53,13 +53,22 @@ void Device::HandlePacket(PacketPtr pkt) {
       matcher_.AddRule(add_or_update_message->TakeRule());
 
       if (add_or_update_message->tx_id() != SSCPMessage::kNoTxId &&
-          tx_replies_handler_ != nullptr) {
+          replies_handler_ != nullptr) {
         auto reply = make_unique<SSCPAck>(
             ip_address_, pkt->five_tuple().ip_src(),
             event_queue_->CurrentTime(), add_or_update_message->tx_id());
+
         LOG(INFO) << "Will TX ACK " << reply->ToString();
-        tx_replies_handler_->HandlePacket(std::move(reply));
+        replies_handler_->HandlePacket(std::move(reply));
       }
+    } else if (type == SSCPStatsRequest::kSSCPStatsRequestType) {
+      auto reply = make_unique<SSCPStatsReply>(
+          ip_address_, pkt->five_tuple().ip_src(), event_queue_->CurrentTime());
+      matcher_.PopulateSSCPStats(reply.get());
+
+      CHECK(replies_handler_)
+          << "Received stats request, but no output handler";
+      replies_handler_->HandlePacket(std::move(reply));
     }
 
     return;
@@ -162,7 +171,7 @@ Device::Device(const std::string& id, net::IPAddress ip_address,
       ip_address_(ip_address),
       matcher_("matcher_for_" + id, interesting),
       network_(nullptr),
-      tx_replies_handler_(nullptr),
+      replies_handler_(nullptr),
       sample_handler_(nullptr),
       internal_external_observer_(nullptr),
       external_internal_observer_(nullptr),
@@ -265,8 +274,6 @@ void Device::HandlePacketFromPort(Port* input_port, PacketPtr pkt) {
     return;
   }
 
-  //  pkt->AddToRules(action->parent_rule());
-
   if (action->tag() != kNullPacketTag) {
     pkt->set_tag(action->tag());
   }
@@ -276,7 +283,6 @@ void Device::HandlePacketFromPort(Port* input_port, PacketPtr pkt) {
   }
 
   if (!pkt->DecrementTTL()) {
-    //    pkt->DumpRulesTaken();
     LOG(FATAL) << "TTL exceeded at " << id() << " " << pkt->ToString();
   }
 

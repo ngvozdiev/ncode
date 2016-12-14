@@ -160,11 +160,5 @@ std::string SSCPAck::ToString() const {
                     net::IPToStringOrDie(five_tuple_.ip_dst()), tx_id());
 }
 
-// void Packet::DumpRulesTaken() {
-//  for (const MatchRule* rule : rules_taken_) {
-//    std::cout << *rule << "\n";
-//  }
-//}
-
 }  // namespace htsim
 }  // namespace ncode

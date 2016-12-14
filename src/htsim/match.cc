@@ -42,6 +42,7 @@ MatchRuleAction::MatchRuleAction(net::DevicePortNumber output_port,
       output_port_(output_port),
       tag_(tag),
       weight_(weight),
+      stats_(output_port, tag),
       sample_(false),
       preferential_drop_(false) {}
 
@@ -160,6 +161,15 @@ std::string MatchRule::ToString() const {
   return out;
 }
 
+std::vector<ActionStats> MatchRule::Stats() const {
+  std::vector<ActionStats> out;
+  for (const auto& action : actions_) {
+    out.emplace_back(action->Stats());
+  }
+
+  return out;
+}
+
 std::ostream& operator<<(std::ostream& output, const MatchRule& op) {
   output << op.ToString();
   return output;
@@ -220,6 +230,12 @@ void Matcher::AddRule(std::unique_ptr<MatchRule> rule) {
 
   std::string prefix = to_clear == nullptr ? "Added" : "Updated";
   LOG(INFO) << prefix << " rule " << rule_raw_ptr->ToString() << " at " << id_;
+}
+
+void Matcher::PopulateSSCPStats(SSCPStatsReply* stats_reply) const {
+  for (const auto& key_and_rule : all_rules_) {
+    stats_reply->AddStats(key_and_rule.first, key_and_rule.second->Stats());
+  }
 }
 
 std::unique_ptr<MatchRule> MatchRule::Clone() const {
@@ -296,6 +312,39 @@ std::pair<uint32_t, uint32_t> GetKeyAndWildcard<6>(
   Unused(input_port);
   Unused(input_tag);
   return {five_tuple.dst_port().Raw(), kWildAccessLayerPort.Raw()};
+}
+
+SSCPStatsRequest::SSCPStatsRequest(net::IPAddress ip_src, net::IPAddress ip_dst,
+                                   EventQueueTime time_sent)
+    : SSCPMessage(ip_src, ip_dst, kSSCPStatsRequestType, time_sent) {}
+
+PacketPtr SSCPStatsRequest::Duplicate() const {
+  auto new_msg = make_unique<SSCPStatsRequest>(
+      five_tuple_.ip_src(), five_tuple_.ip_dst(), time_sent_);
+  return std::move(new_msg);
+}
+
+std::string SSCPStatsRequest::ToString() const {
+  return Substitute("MSG $0 -> $1 : SSCPStatsRequest",
+                    net::IPToStringOrDie(five_tuple_.ip_src()),
+                    net::IPToStringOrDie(five_tuple_.ip_dst()));
+}
+
+SSCPStatsReply::SSCPStatsReply(net::IPAddress ip_src, net::IPAddress ip_dst,
+                               EventQueueTime time_sent)
+    : SSCPMessage(ip_src, ip_dst, kSSCPStatsReplyType, time_sent) {}
+
+PacketPtr SSCPStatsReply::Duplicate() const {
+  auto new_msg = make_unique<SSCPStatsReply>(five_tuple_.ip_src(),
+                                             five_tuple_.ip_dst(), time_sent_);
+  new_msg->stats_ = stats_;
+  return std::move(new_msg);
+}
+
+std::string SSCPStatsReply::ToString() const {
+  return Substitute("MSG $0 -> $1 : SSCPStatsReply",
+                    net::IPToStringOrDie(five_tuple_.ip_src()),
+                    net::IPToStringOrDie(five_tuple_.ip_dst()));
 }
 
 }  // namepsace htsim

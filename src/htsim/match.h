@@ -14,12 +14,6 @@
 
 namespace ncode {
 namespace htsim {
-class Packet;
-} /* namespace htsim */
-} /* namespace ncode */
-
-namespace ncode {
-namespace htsim {
 
 // Define wildcards that can match any value.
 static constexpr PacketTag kWildPacketTag = PacketTag(0);
@@ -71,8 +65,16 @@ class MatchRuleKey {
 
 // Statistics about a MatchRuleAction (below).
 struct ActionStats {
-  uint64_t total_bytes_matched = 0;
-  uint64_t total_pkts_matched = 0;
+  ActionStats(net::DevicePortNumber output_port, PacketTag tag)
+      : output_port(output_port),
+        tag(tag),
+        total_bytes_matched(0),
+        total_pkts_matched(0) {}
+  net::DevicePortNumber output_port;
+  PacketTag tag;
+
+  uint64_t total_bytes_matched;
+  uint64_t total_pkts_matched;
 };
 
 class MatchRule;
@@ -89,7 +91,7 @@ class MatchRuleAction {
   inline net::DevicePortNumber output_port() const { return output_port_; }
   inline PacketTag tag() const { return tag_; }
   inline uint32_t weight() const { return weight_; }
-  const ActionStats& action_stats() const { return stats_; }
+  const ActionStats& Stats() const { return stats_; }
 
   // Sets the parent rule of this action. Will be called automatically when the
   // action is added to a rule.
@@ -173,6 +175,9 @@ class MatchRule {
 
   // Clones this rule.
   std::unique_ptr<MatchRule> Clone() const;
+
+  // Will return stats for each action.
+  std::vector<ActionStats> Stats() const;
 
   void set_parent_matcher(Matcher* matcher);
 
@@ -335,6 +340,40 @@ class MatchNode<7, 7> {
   MatchRule* rule_;
 };
 
+// A request that causes the router to return statistics for each rule.
+class SSCPStatsRequest : public SSCPMessage {
+ public:
+  static constexpr uint8_t kSSCPStatsRequestType = 253;
+
+  SSCPStatsRequest(net::IPAddress ip_src, net::IPAddress ip_dst,
+                   EventQueueTime time_sent);
+
+  PacketPtr Duplicate() const override;
+
+  std::string ToString() const override;
+};
+
+class SSCPStatsReply : public SSCPMessage {
+ public:
+  static constexpr uint8_t kSSCPStatsReplyType = 252;
+
+  SSCPStatsReply(net::IPAddress ip_src, net::IPAddress ip_dst,
+                 EventQueueTime time_sent);
+
+  void AddStats(const MatchRuleKey& key,
+                const std::vector<ActionStats>& action_stats) {
+    InsertOrDie(&stats_, key, action_stats);
+  }
+
+  PacketPtr Duplicate() const override;
+
+  std::string ToString() const override;
+
+ private:
+  // For each rule a list of stats.
+  std::map<MatchRuleKey, std::vector<ActionStats>> stats_;
+};
+
 // A matcher can match incoming packets against a set of rules.
 class Matcher {
  public:
@@ -356,6 +395,9 @@ class Matcher {
   size_t NumRules() const { return all_rules_.size(); }
 
   const std::string& id() const { return id_; }
+
+  // Populates the stats in a StatsReply.
+  void PopulateSSCPStats(SSCPStatsReply* stats_reply) const;
 
  private:
   MatchRule* MatchOrNullFromList(const Packet& pkt,
