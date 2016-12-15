@@ -365,8 +365,7 @@ static int GetBoundType(double min, double max) {
 }
 
 Problem::Problem(Direction direction)
-    : mip_tolerance_gap_(kDefaultMIPToleranceGap),
-      has_binary_variables_(false) {
+    : has_binary_variables_(false) {
   glp_prob* lp = glp_create_prob();
   if (direction == MAXIMIZE) {
     glp_set_obj_dir(lp, GLP_MAX);
