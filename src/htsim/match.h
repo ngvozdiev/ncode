@@ -369,6 +369,10 @@ class SSCPStatsReply : public SSCPMessage {
 
   std::string ToString() const override;
 
+  const std::map<MatchRuleKey, std::vector<ActionStats>>& stats() const {
+    return stats_;
+  }
+
  private:
   // For each rule a list of stats.
   std::map<MatchRuleKey, std::vector<ActionStats>> stats_;
