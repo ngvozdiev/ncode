@@ -170,6 +170,17 @@ std::vector<ActionStats> MatchRule::Stats() const {
   return out;
 }
 
+void MatchRule::MergeStats(const MatchRule& other_rule) {
+  for (auto& action : actions_) {
+    for (const MatchRuleAction* other_action : other_rule.actions()) {
+      if (action->tag() == other_action->tag() &&
+          action->output_port() == other_action->output_port()) {
+        action->MergeStats(other_action->Stats());
+      }
+    }
+  }
+}
+
 std::ostream& operator<<(std::ostream& output, const MatchRule& op) {
   output << op.ToString();
   return output;

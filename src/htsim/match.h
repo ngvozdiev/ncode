@@ -117,6 +117,11 @@ class MatchRuleAction {
 
   const MatchRule* parent_rule() const { return parent_rule_; }
 
+  void MergeStats(const ActionStats& stats) {
+    stats_.total_bytes_matched += stats.total_bytes_matched;
+    stats_.total_pkts_matched += stats.total_pkts_matched;
+  }
+
  private:
   // Non-owning pointer to the rule this action is part of.
   MatchRule* parent_rule_;
@@ -180,6 +185,9 @@ class MatchRule {
   std::vector<ActionStats> Stats() const;
 
   void set_parent_matcher(Matcher* matcher);
+
+  // Combines this rule's stats with the other rule's stats.
+  void MergeStats(const MatchRule& other_rule);
 
  private:
   // Each match rule has a key.
@@ -310,12 +318,18 @@ class MatchNode {
 template <>
 class MatchNode<7, 7> {
  public:
+  MatchNode<7, 7>() : rule_(nullptr) {}
+
   void InsertOrUpdate(const net::FiveTuple& five_tuple,
                       net::DevicePortNumber input_port, PacketTag input_tag,
                       MatchRule* rule) {
     Unused(five_tuple);
     Unused(input_port);
     Unused(input_tag);
+    if (rule_) {
+      rule->MergeStats(*rule_);
+    }
+
     rule_ = rule;
     return;
   }
