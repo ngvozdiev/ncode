@@ -326,6 +326,11 @@ const GraphLink* GraphStorage::LinkPtrFromProtobufOrDie(
   return GetLink(link_index);
 }
 
+const GraphLink* GraphStorage::LinkPtrFromProtobuf(const PBGraphLink& link_pb) {
+  GraphLinkIndex link_index = LinkFromProtobuf(link_pb);
+  return GetLink(link_index);
+}
+
 LinkSequence::LinkSequence() : delay_(Delay::zero()) {}
 
 LinkSequence::LinkSequence(const Links& links, Delay delay)

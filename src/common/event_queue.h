@@ -61,7 +61,7 @@ class EventQueueTime {
   }
 
   friend EventQueueTime operator-(EventQueueTime a, EventQueueTime b) {
-    DCHECK(b.m_val <= a.m_val) << "Negative time";
+    CHECK(b.m_val <= a.m_val) << "Negative time";
     return EventQueueTime(a.m_val - b.m_val);
   }
 

@@ -353,10 +353,13 @@ class GraphStorage {
   // a region will die.
   GraphNodeSet NodesInOtherRegionsOrDie(GraphNodeIndex node) const;
 
-  // At least the src and the dst need to be populated in the link_pb.
+  // At least the src and the dst need to be populated in the link_pb. Will die
+  // if there is no link from src to dst.
+  GraphLinkIndex LinkFromProtobufOrDie(const PBGraphLink& link_pb) const;
+
   // If there is no link between src and dst the ports need to also be populated
   // in order to create a new one.
-  GraphLinkIndex LinkFromProtobufOrDie(const PBGraphLink& link_pb) const;
+  GraphLinkIndex LinkFromProtobuf(const PBGraphLink& link_pb);
 
   // Finds a link between src and dst. If multiple links exist will return only
   // one of them. Will die if no links exist.
@@ -394,8 +397,11 @@ class GraphStorage {
 
   GraphStats Stats() const;
 
-  // Combines LinkFromProtobuf with GetLink for convenience.
+  // Combines LinkFromProtobufOrDie with GetLink for convenience.
   const GraphLink* LinkPtrFromProtobufOrDie(const PBGraphLink& link_pb) const;
+
+  // Combines LinkFromProtobuf with GetLink for convenience.
+  const GraphLink* LinkPtrFromProtobuf(const PBGraphLink& link_pb);
 
   // Node ID to node index.
   const std::map<std::string, GraphNodeIndex>& NodeIdToIndex() const {
@@ -449,8 +455,6 @@ class GraphStorage {
 
   bool LinkFromProtobuf(const PBGraphLink& link_pb,
                         GraphLinkIndex* index) const;
-
-  GraphLinkIndex LinkFromProtobuf(const PBGraphLink& link_pb);
 
   // Returns the index of a node identified by a string.
   GraphNodeIndex NodeFromString(const std::string& id);
