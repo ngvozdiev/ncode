@@ -94,6 +94,8 @@ class BulkPacketGenerator : public BulkPacketGeneratorBase,
 
   void HandleEvent() override;
 
+  void StopQueueWhenDone() { stop_queue_when_done_ = true; }
+
  private:
   using Batch = std::vector<PacketPtr>;
 
@@ -119,6 +121,8 @@ class BulkPacketGenerator : public BulkPacketGeneratorBase,
 
   // Populates batches.
   std::thread batch_populator_;
+
+  bool stop_queue_when_done_;
 };
 
 class SingleThreadBulkPacketGenerator : public BulkPacketGeneratorBase,

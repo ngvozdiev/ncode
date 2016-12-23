@@ -13,7 +13,8 @@ BulkPacketGenerator::BulkPacketGenerator(
     htsim::PacketHandler* out, EventQueue* event_queue)
     : BulkPacketGeneratorBase(std::move(sources), out),
       EventConsumer(id, event_queue),
-      current_batch_index_(0) {
+      current_batch_index_(0),
+      stop_queue_when_done_(false) {
   Init();
 }
 
@@ -43,6 +44,9 @@ void BulkPacketGenerator::HandleEvent() {
   ++current_batch_index_;
   GetNewBatchIfNeeded();
   if (current_batch_.empty()) {
+    if (stop_queue_when_done_) {
+      event_queue()->Stop();
+    }
     return;
   }
 
