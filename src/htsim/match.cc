@@ -56,8 +56,11 @@ double MatchRuleAction::FractionOfTraffic() const {
 }
 
 void MatchRuleAction::UpdateStats(uint32_t bytes_matched) {
+  uint64_t prev = stats_.total_bytes_matched;
   stats_.total_bytes_matched += bytes_matched;
   stats_.total_pkts_matched += 1;
+  CHECK(prev <= stats_.total_bytes_matched) << prev << " matched "
+                                            << bytes_matched;
 }
 
 std::string MatchRuleAction::ToString() const {
@@ -260,6 +263,18 @@ std::unique_ptr<MatchRule> MatchRule::Clone() const {
   }
 
   return clone;
+}
+
+void MatchRuleAction::MergeStats(const ActionStats& stats) {
+  uint64_t prev_bytes = stats_.total_bytes_matched;
+  uint64_t prev_pkts = stats_.total_pkts_matched;
+  stats_.total_bytes_matched += stats.total_bytes_matched;
+  stats_.total_pkts_matched += stats.total_pkts_matched;
+
+  CHECK(stats_.total_bytes_matched >= prev_bytes) << stats_.total_bytes_matched
+                                                  << " vs " << prev_bytes;
+  CHECK(stats_.total_pkts_matched >= prev_pkts) << stats_.total_pkts_matched
+                                                << " vs " << prev_pkts;
 }
 
 template <>

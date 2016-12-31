@@ -117,10 +117,7 @@ class MatchRuleAction {
 
   const MatchRule* parent_rule() const { return parent_rule_; }
 
-  void MergeStats(const ActionStats& stats) {
-    stats_.total_bytes_matched += stats.total_bytes_matched;
-    stats_.total_pkts_matched += stats.total_pkts_matched;
-  }
+  void MergeStats(const ActionStats& stats);
 
  private:
   // Non-owning pointer to the rule this action is part of.

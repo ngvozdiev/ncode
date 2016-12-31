@@ -141,6 +141,8 @@ class PerfectHashSet {
     set_[index] = true;
   }
 
+  void insert(Index<Tag, V> index) { Insert(index); }
+
   void Remove(Index<Tag, V> index) {
     if (set_.size() > index) {
       set_[index] = false;
