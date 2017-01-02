@@ -41,6 +41,8 @@ class PcapPacketGen : public BulkPacketSource, public pcap::PacketHandler {
     return false;
   }
 
+  void set_overwrite_ttl(bool overwrite_ttl) { overwrite_ttl_ = overwrite_ttl; }
+
  private:
   // Converts from pcap timestamps to event queue time. If the timestamps are
   // not monotonic will return false.
@@ -72,6 +74,10 @@ class PcapPacketGen : public BulkPacketSource, public pcap::PacketHandler {
   // Set to true if an unrecoverable problem is encountered and we have to break
   // out of the trace.
   bool break_;
+
+  // If true will always set the TTL value in each packet to kDefaultTTL,
+  // instead of the one in the trace.
+  bool overwrite_ttl_;
 };
 
 }  // namespace htsim

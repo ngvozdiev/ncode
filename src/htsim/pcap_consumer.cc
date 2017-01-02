@@ -19,7 +19,8 @@ PcapPacketGen::PcapPacketGen(
       time_shift_(pcap::Timestamp::zero()),
       prev_timestamp_(pcap::Timestamp::zero()),
       event_queue_(event_queue),
-      break_(false) {}
+      break_(false),
+      overwrite_ttl_(false) {}
 
 void PcapPacketGen::HandleTCP(pcap::Timestamp timestamp,
                               const pcap::IPHeader& ip_header,
@@ -50,7 +51,7 @@ void PcapPacketGen::HandleTCP(pcap::Timestamp timestamp,
   packet->set_id(ntohs(ip_header.ip_id));
   packet->set_flags(tcp_header.th_flags);
   packet->set_payload(payload_len);
-  packet->set_ttl(ip_header.ip_ttl);
+  packet->set_ttl(overwrite_ttl_ ? kDefaultTTL : ip_header.ip_ttl);
   pending_packet_ = std::move(packet);
 }
 
@@ -78,7 +79,7 @@ void PcapPacketGen::HandleUDP(pcap::Timestamp timestamp,
   auto packet = make_unique<UDPPacket>(five_tuple, size, time);
   packet->set_id(ntohs(ip_header.ip_id));
   packet->set_payload(payload_len);
-  packet->set_ttl(ip_header.ip_ttl);
+  packet->set_ttl(overwrite_ttl_ ? kDefaultTTL : ip_header.ip_ttl);
   pending_packet_ = std::move(packet);
 }
 
