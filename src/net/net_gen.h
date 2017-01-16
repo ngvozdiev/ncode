@@ -33,12 +33,14 @@ PBNet GenerateFullGraph(uint32_t size, Bandwidth bw, Delay delay);
 
 // Generates a ladder-like topology. All links have the same rate and delay.
 // Nodes will be named Ni for i in [0, ...]. Odd nodes will be on one side
-// of the ladder, even nodes will be on the other. If the central_delays
-// argument is not empty it should contain as many elements as levels. Each
-// element will be the delay of the middle connecting link for the respective
-// level. With 1 level this is a line, 2 levels a hexagon, 3 levels two hexagons
-// attached etc.
+// of the ladder, even nodes will be on the other. The middle links will have
+// their capacity multiplied by the central_rate_multiplier argument. If the
+// central_delays argument is not empty it should contain as many elements as
+// levels. Each element will be the delay of the middle connecting link for the
+// respective level. With 1 level this is a line, 2 levels a hexagon, 3 levels
+// two hexagons attached etc.
 PBNet GenerateLadder(size_t levels, Bandwidth rate_bps, Delay delay,
+                     double central_rate_multiplier = 1.0,
                      const std::vector<Delay>& central_delays = {});
 
 // Generates a random graph with N nodes. Each of the n * (n - 1) edges has a

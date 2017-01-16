@@ -58,6 +58,7 @@ class Bandwidth : public TypesafeUintWrapper<BandwidthTag, uint64_t> {
   double Mbps() const { return m_val_ / 1000.0 / 1000.0; }
   double Gbps() const { return m_val_ / 1000.0 / 1000.0 / 1000.0; }
 
+  constexpr Bandwidth() : TypesafeUintWrapper<BandwidthTag, uint64_t>(0ul) {}
  private:
   constexpr Bandwidth(uint64_t value_bps)
       : TypesafeUintWrapper<BandwidthTag, uint64_t>(value_bps) {}

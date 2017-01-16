@@ -1,6 +1,17 @@
 #include "net_gen.h"
-
 #include "gtest/gtest.h"
+
+#include <google/protobuf/repeated_field.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <algorithm>
+#include <iostream>
+#include <set>
+#include <string>
+#include <utility>
+
+#include "../../../ncode-build/net.pb.h"
+#include "../common/strutil.h"
 
 namespace ncode {
 namespace net {
@@ -125,6 +136,17 @@ TEST(Ladder, MultiLevel) {
   }
 
   ASSERT_EQ(20ul + 18ul, nodes.size());
+}
+
+TEST(Ladder, MultiLevelCentralBandwidth) {
+  PBNet net_pb = GenerateLadder(10, kBandwidth, Delay(10000), 0.5);
+
+  for (uint32_t i = 0; i < 10; ++i) {
+    std::string src = StrCat("N", i * 4);
+    std::string dst = StrCat("N", i * 4 + 1);
+    PBGraphLink* link_pb = FindEdgeOrDie(src, dst, &net_pb);
+    ASSERT_EQ(link_pb->bandwidth_bps(), kBandwidth.bps() * 0.5);
+  }
 }
 
 TEST(Random, ZeroSize) {

@@ -485,6 +485,7 @@ net::PBNet GenerateRandom(size_t n, double edge_prob, Delay delay_min,
 }
 
 net::PBNet GenerateLadder(size_t levels, Bandwidth bw, Delay delay,
+                          double central_rate_multiplier,
                           const std::vector<microseconds>& central_delays) {
   net::PBNet return_graph;
   CHECK(levels > 0) << "Tried to generate ladder with no edges,";
@@ -503,7 +504,9 @@ net::PBNet GenerateLadder(size_t levels, Bandwidth bw, Delay delay,
       central_link_delay = central_delays[level];
     }
 
-    AddBiLink(bw, node_left, central_link_delay, node_right,
+    Bandwidth central_bw =
+        Bandwidth::FromMBitsPerSecond(bw.Mbps() * central_rate_multiplier);
+    AddBiLink(central_bw, node_left, central_link_delay, node_right,
               microseconds::zero(), 1.0, &port_gen, &return_graph);
 
     if (level != 0) {
