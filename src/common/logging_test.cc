@@ -48,7 +48,8 @@ std::string GetCapturedTestStderr() {
 }
 
 void CaptureLog(LogLevel level, const char* filename, int line,
-                const std::string& message) {
+                const std::string& message, LogColor color) {
+  Unused(color);
   captured_messages_.emplace_back(Substitute(
       "$0 $1:$2: $3", static_cast<int>(level), filename, line, message));
 }
@@ -103,5 +104,5 @@ TEST(LoggingTest, CaptureLogging) {
             captured_messages_[1]);
 }
 
-} // namespace
-} // namespace ncode
+}  // namespace
+}  // namespace ncode
