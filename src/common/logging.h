@@ -50,13 +50,22 @@ enum LogLevel {
 #endif
 };
 
+enum LogColor {
+  LOGCOLOR_RED,
+  LOGCOLOR_GREEN,
+  LOGCOLOR_BLUE,
+  LOGCOLOR_WHITE,
+  LOGCOLOR_YELLOW,
+  LOGCOLOR_DEFAULT
+};
+
 namespace internal {
 
 class LogFinisher;
 
 class LogMessage {
  public:
-  LogMessage(LogLevel level, const char* filename, int line);
+  LogMessage(LogLevel level, const char* filename, int line, LogColor color);
   ~LogMessage();
 
   // Definitely slower than the original and probably less portable, but will
@@ -74,6 +83,7 @@ class LogMessage {
   void Finish();
 
   LogLevel level_;
+  LogColor color_;
   const char* filename_;
   int line_;
   std::string message_;
@@ -88,9 +98,14 @@ class LogFinisher {
 
 }  // namespace internal
 
-#define LOG(LEVEL)                                                  \
-  ::ncode::internal::LogFinisher() = ::ncode::internal::LogMessage( \
-      ::ncode::LOGLEVEL_##LEVEL, __FILE__, __LINE__)
+#define LOG(LEVEL)                                                       \
+  ::ncode::internal::LogFinisher() =                                     \
+      ::ncode::internal::LogMessage(::ncode::LOGLEVEL_##LEVEL, __FILE__, \
+                                    __LINE__, ::ncode::LOGCOLOR_DEFAULT)
+#define CLOG(LEVEL, COLOR)                                               \
+  ::ncode::internal::LogFinisher() =                                     \
+      ::ncode::internal::LogMessage(::ncode::LOGLEVEL_##LEVEL, __FILE__, \
+                                    __LINE__, ::ncode::LOGCOLOR_##COLOR)
 #define LOG_IF(LEVEL, CONDITION) !(CONDITION) ? (void)0 : LOG(LEVEL)
 
 #define CHECK(EXPRESSION) \
@@ -147,7 +162,11 @@ T* CheckNotNull(const char* /* file */, int /* line */, const char* name,
 #endif  // !NDEBUG
 
 typedef void LogHandler(LogLevel level, const char* filename, int line,
-                        const std::string& message);
+                        const std::string& message, LogColor color);
+
+// The default log handler.
+void DefaultLogHandler(LogLevel level, const char* filename, int line,
+                       const std::string& message, LogColor color);
 
 // The protobuf library sometimes writes warning and error messages to
 // stderr.  These messages are primarily useful for developers, but may
