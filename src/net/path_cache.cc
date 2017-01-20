@@ -30,10 +30,10 @@ std::vector<const LinkSequence*> NodePairPathCache::Paths(
 
   // Before starting to enumerate paths will figure out if there exists any path
   // that avoids to_exclude.
-  LinkSequence shortest_path = KthShortestPath(1, exclude);
-  if (shortest_path.empty()) {
-    return {};
-  }
+  //  LinkSequence shortest_path = KthShortestPath(1, exclude);
+  //  if (shortest_path.empty()) {
+  //    return {};
+  //  }
 
   size_t i = start_k;
   while (true) {

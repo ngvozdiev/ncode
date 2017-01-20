@@ -118,6 +118,9 @@ class Problem {
   std::unique_ptr<Solution> Solve(
       std::chrono::milliseconds time_limit = std::chrono::milliseconds::max());
 
+  // Whether or not to only use network simplex to solve the problem.
+  void set_force_network_simplex(bool value) { force_network_simplex_ = value; }
+
  private:
   // Implementation-specific opaque handle. This is ugly, but it allows us to
   // keep the actual optimizer-specific implementation in the .cc file. This way
@@ -126,6 +129,9 @@ class Problem {
 
   // True if any of the variables are binary.
   bool has_binary_variables_;
+
+  // If true will force network simplex to be used.
+  bool force_network_simplex_;
 
   DISALLOW_COPY_AND_ASSIGN(Problem);
 };

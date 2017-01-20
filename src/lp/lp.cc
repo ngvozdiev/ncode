@@ -56,7 +56,8 @@ static std::pair<double, double> HandleInifinities(double min, double max) {
   return std::make_pair(min, max);
 }
 
-Problem::Problem(Direction direction) : has_binary_variables_(false) {
+Problem::Problem(Direction direction)
+    : has_binary_variables_(false), force_network_simplex_(false) {
   CPLEXHandle* handle = new CPLEXHandle(direction);
   handle_ = handle;
 }
@@ -263,6 +264,10 @@ std::unique_ptr<Solution> Problem::Solve(std::chrono::milliseconds time_limit) {
     CHECK(CPXsetdblparam(env, CPX_PARAM_TILIM, time_sec) == 0);
   }
 
+  if (force_network_simplex_) {
+    CHECK(CPXsetintparam(env, CPX_PARAM_LPMETHOD, CPX_ALG_NET) == 0);
+  }
+
   auto start_time = std::chrono::high_resolution_clock::now();
 
   int status;
@@ -364,8 +369,7 @@ static int GetBoundType(double min, double max) {
   return type;
 }
 
-Problem::Problem(Direction direction)
-    : has_binary_variables_(false) {
+Problem::Problem(Direction direction) : has_binary_variables_(false) {
   glp_prob* lp = glp_create_prob();
   if (direction == MAXIMIZE) {
     glp_set_obj_dir(lp, GLP_MAX);
