@@ -284,6 +284,10 @@ double MCProblem::MaxCommodityScaleFactor() {
     }
   }
 
+  if (curr_estimate == kMaxScaleFactor) {
+    return 1.0;
+  }
+
   return curr_estimate;
 }
 
