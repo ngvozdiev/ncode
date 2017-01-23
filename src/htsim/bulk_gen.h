@@ -84,7 +84,7 @@ class BulkPacketGenerator : public BulkPacketGeneratorBase,
  public:
   // A number of packets are cached in a background thread, while the current
   // batch is being processed.
-  static constexpr size_t kBatchSize = 100000;
+  static constexpr size_t kBatchSize = 10000;
 
   BulkPacketGenerator(const std::string& id,
                       std::vector<std::unique_ptr<BulkPacketSource>> sources,
