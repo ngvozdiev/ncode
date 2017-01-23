@@ -18,6 +18,8 @@
 #include "../web/web_page.h"
 #include "metrics_parser.h"
 
+DEFINE_string(python_plot_output, "",
+              "If set will store the data for all plots there");
 DEFINE_string(input, "", "The metrics file or directory of metrics files.");
 DEFINE_uint64(port_num, 8080, "Port to listen on");
 
@@ -132,6 +134,12 @@ class ServerState {
 
     grapher::HtmlGrapher html_grapher(out);
     html_grapher.PlotLine(plot_params, all_data_to_plot);
+
+    if (!FLAGS_python_plot_output.empty()) {
+      grapher::PythonGrapher python_grapher(FLAGS_python_plot_output);
+      python_grapher.PlotLine(plot_params, all_data_to_plot);
+      LOG(INFO) << "Saved script to plot data at " << FLAGS_python_plot_output;
+    }
   }
 
   // Plots a CDF of the values in one (or more) metrics. The input map is as
@@ -182,6 +190,12 @@ class ServerState {
 
     grapher::HtmlGrapher html_grapher(out);
     html_grapher.PlotCDF(plot_params, all_data_to_plot);
+
+    if (!FLAGS_python_plot_output.empty()) {
+      grapher::PythonGrapher python_grapher(FLAGS_python_plot_output);
+      python_grapher.PlotCDF(plot_params, all_data_to_plot);
+      LOG(INFO) << "Saved script to plot data at " << FLAGS_python_plot_output;
+    }
   }
 
   std::vector<std::string> files_;
