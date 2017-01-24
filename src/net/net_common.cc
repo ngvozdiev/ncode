@@ -129,7 +129,7 @@ std::string GraphStorage::GetClusterName(const GraphNodeSet& nodes) const {
     return GetNode(*nodes.begin())->id();
   }
 
-  std::function<std::string(GraphNodeIndex node)> f = [this](
+  std::function<std::string(const GraphNodeIndex& node)> f = [this](
       GraphNodeIndex node) { return GetNode(node)->id(); };
 
   std::string out = "C";
