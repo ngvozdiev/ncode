@@ -268,6 +268,10 @@ std::unique_ptr<Solution> Problem::Solve(std::chrono::milliseconds time_limit) {
     CHECK(CPXsetintparam(env, CPX_PARAM_LPMETHOD, CPX_ALG_NET) == 0);
   }
 
+  if (memory_switch_) {
+    CHECK(CPXsetintparam(env, CPX_PARAM_MEMORYEMPHASIS, CPX_ON) == 0);
+  }
+
   auto start_time = std::chrono::high_resolution_clock::now();
 
   int status;

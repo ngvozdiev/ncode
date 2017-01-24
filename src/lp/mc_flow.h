@@ -11,26 +11,22 @@
 namespace ncode {
 namespace lp {
 
-// A single commodity in a multi-commodity problem.
-struct Commodity {
-  Commodity(net::GraphNodeIndex source, net::GraphNodeIndex sink,
-            net::Bandwidth demand)
-      : source(source), sink(sink), demand(demand) {}
-
-  net::GraphNodeIndex source;
-  net::GraphNodeIndex sink;
-  net::Bandwidth demand;
-};
-
 // Path and flow on a path.
 using FlowAndPath = std::pair<net::Bandwidth, net::LinkSequence>;
+
+// A source node and flow out of that node.
+using SrcAndLoad = std::pair<net::GraphNodeIndex, net::Bandwidth>;
+
+// Source and destination nodes.
+using SrcAndDst = std::pair<net::GraphNodeIndex, net::GraphNodeIndex>;
 
 // A multi-commodity flow problem. Edge capacities will be taken from the
 // bandwidth values of the links in the graph this object is constructed with
 // times a multiplier.
 class MCProblem {
  public:
-  using VarMap = net::GraphLinkMap<std::vector<VariableIndex>>;
+  // For each link a map from destination node index to LP variable.
+  using VarMap = net::GraphLinkMap<net::GraphNodeMap<VariableIndex>>;
 
   MCProblem(const net::GraphLinkSet& to_exclude,
             const net::GraphStorage* graph_storage,
@@ -58,13 +54,12 @@ class MCProblem {
   // close to being infeasible.
   net::Bandwidth MaxCommodityIncrement();
 
-  // Returns the commodities.
-  const std::vector<Commodity>& commodities() const { return commodities_; }
-
  protected:
-  // Returns a map from a graph link to a list of one variable per commodity.
+  // Returns a map from a graph link to a list of one variable per commodity
+  // destination.
   VarMap GetLinkToVariableMap(
-      Problem* problem, std::vector<ProblemMatrixElement>* problem_matrix);
+      bool constrain_links, Problem* problem,
+      std::vector<ProblemMatrixElement>* problem_matrix);
 
   // Adds flow conservation constraints to the problem.
   void AddFlowConservationConstraints(
@@ -73,7 +68,7 @@ class MCProblem {
 
   // Recovers the paths from an MC-flow problem. Returns for each commodity the
   // paths and fractions of commodity over each path.
-  std::vector<std::vector<FlowAndPath>> RecoverPaths(
+  std::map<SrcAndDst, std::vector<FlowAndPath>> RecoverPaths(
       const VarMap& link_to_variables, const lp::Solution& solution) const;
 
   // Links that all operations will be performed on. This is the set of all
@@ -86,8 +81,8 @@ class MCProblem {
   // All links' capacity will be scaled by this number.
   double capacity_multiplier_;
 
-  // The commodities.
-  std::vector<Commodity> commodities_;
+  // The commodities, grouped by destination.
+  net::GraphNodeMap<std::vector<SrcAndLoad>> commodities_;
 
   // For each node will keep a list of the edges going out of the node and the
   // edges coming into the node.
@@ -101,10 +96,11 @@ class MCProblem {
             net::Bandwidth increment);
 
   // Helper function for RecoverPaths.
-  void RecoverPathsRecursive(net::GraphLinkMap<double>* flow_over_links,
-                             size_t commodity_index,
-                             net::GraphNodeIndex at_node,
-                             net::Links* links_so_far, double overall_flow,
+  void RecoverPathsRecursive(const SrcAndLoad& commodity,
+                             net::GraphNodeIndex dst_index,
+                             net::GraphNodeIndex at_node, double overall_flow,
+                             net::GraphLinkMap<double>* flow_over_links,
+                             net::Links* links_so_far,
                              std::vector<FlowAndPath>* out) const;
 
   DISALLOW_COPY_AND_ASSIGN(MCProblem);
@@ -123,8 +119,9 @@ class MaxFlowMCProblem : public MCProblem {
   // populate it with the actual paths for each commodity that will result in
   // the max flow value. If there are commodities that cannot satisfy their
   // demands false is returned and neither 'max_flow' nor 'paths' are modified.
-  bool GetMaxFlow(net::Bandwidth* max_flow,
-                  std::vector<std::vector<FlowAndPath>>* paths = nullptr);
+  bool GetMaxFlow(
+      net::Bandwidth* max_flow,
+      std::map<SrcAndDst, std::vector<FlowAndPath>>* paths = nullptr);
 };
 
 }  // namespace lp

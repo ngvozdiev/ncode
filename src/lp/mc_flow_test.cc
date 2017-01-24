@@ -22,6 +22,12 @@ static net::Bandwidth BW(uint64_t x) {
   return net::Bandwidth::FromBitsPerSecond(x);
 }
 
+static SrcAndDst SD(const std::string& src, const std::string& dst,
+                    const net::GraphStorage& graph_storage) {
+  return {graph_storage.NodeFromStringOrDie(src),
+          graph_storage.NodeFromStringOrDie(dst)};
+}
+
 TEST(MCTest, UnidirectionalLink) {
   net::PBNet net = net::GenerateFullGraph(2, kBw1, microseconds(10));
   net::PBGraphLink* link = net.add_links();
@@ -41,9 +47,10 @@ TEST(MCTest, UnidirectionalLink) {
   ASSERT_EQ(10000ul, max_flow.bps());
 
   // The path should be N0->N1->N2
-  std::vector<std::vector<FlowAndPath>> model_paths = {
-      {{BW(10000), GetPath("[N0->N1, N1->N2]", graph_storage)}}};
-  std::vector<std::vector<FlowAndPath>> paths;
+  std::map<SrcAndDst, std::vector<FlowAndPath>> model_paths = {
+      {SD("N0", "N2", graph_storage),
+       {{BW(10000), GetPath("[N0->N1, N1->N2]", graph_storage)}}}};
+  std::map<SrcAndDst, std::vector<FlowAndPath>> paths;
   ASSERT_TRUE(max_flow_problem.GetMaxFlow(&max_flow, &paths));
   ASSERT_EQ(10000ul, max_flow.bps());
   ASSERT_EQ(model_paths, paths);
@@ -62,9 +69,10 @@ TEST(MCTest, Simple) {
   ASSERT_TRUE(max_flow_problem.GetMaxFlow(&max_flow));
   ASSERT_EQ(10000ul, max_flow.bps());
 
-  std::vector<std::vector<FlowAndPath>> model_paths = {
-      {{BW(10000), GetPath("[N0->N1]", graph_storage)}}};
-  std::vector<std::vector<FlowAndPath>> paths;
+  std::map<SrcAndDst, std::vector<FlowAndPath>> model_paths = {
+      {SD("N0", "N1", graph_storage),
+       {{BW(10000), GetPath("[N0->N1]", graph_storage)}}}};
+  std::map<SrcAndDst, std::vector<FlowAndPath>> paths;
   ASSERT_TRUE(max_flow_problem.GetMaxFlow(&max_flow, &paths));
   ASSERT_EQ(10000ul, max_flow.bps());
   ASSERT_EQ(model_paths, paths);
@@ -82,10 +90,12 @@ TEST(MCTest, SimpleTwoCommodities) {
   ASSERT_TRUE(max_flow_problem.GetMaxFlow(&max_flow));
   ASSERT_EQ(20000ul, max_flow.bps());
 
-  std::vector<std::vector<FlowAndPath>> model_paths = {
-      {{BW(10000), GetPath("[N0->N1]", graph_storage)}},
-      {{BW(10000), GetPath("[N1->N0]", graph_storage)}}};
-  std::vector<std::vector<FlowAndPath>> paths;
+  std::map<SrcAndDst, std::vector<FlowAndPath>> model_paths = {
+      {SD("N1", "N0", graph_storage),
+       {{BW(10000), GetPath("[N1->N0]", graph_storage)}}},
+      {SD("N0", "N1", graph_storage),
+       {{BW(10000), GetPath("[N0->N1]", graph_storage)}}}};
+  std::map<SrcAndDst, std::vector<FlowAndPath>> paths;
   ASSERT_TRUE(max_flow_problem.GetMaxFlow(&max_flow, &paths));
   ASSERT_EQ(20000ul, max_flow.bps());
   ASSERT_EQ(model_paths, paths);
@@ -102,15 +112,37 @@ TEST(MCTest, Triangle) {
   ASSERT_TRUE(max_flow_problem.GetMaxFlow(&max_flow));
   ASSERT_EQ(20000ul, max_flow.bps());
 
-  std::vector<std::vector<FlowAndPath>> model_paths = {
-      {{BW(10000), GetPath("[N0->N2]", graph_storage)},
-       {BW(10000), GetPath("[N0->N1, N1->N2]", graph_storage)}}};
-  std::vector<std::vector<FlowAndPath>> paths;
+  std::map<SrcAndDst, std::vector<FlowAndPath>> model_paths = {
+      {SD("N0", "N2", graph_storage),
+       {{BW(10000), GetPath("[N0->N2]", graph_storage)},
+        {BW(10000), GetPath("[N0->N1, N1->N2]", graph_storage)}}}};
+  std::map<SrcAndDst, std::vector<FlowAndPath>> paths;
   ASSERT_TRUE(max_flow_problem.GetMaxFlow(&max_flow, &paths));
 
   max_flow_problem.AddCommodity("N1", "N2");
   ASSERT_TRUE(max_flow_problem.GetMaxFlow(&max_flow));
   ASSERT_EQ(20000ul, max_flow.bps());
+}
+
+TEST(MCTest, TriangleSameDest) {
+  net::PBNet net = net::GenerateFullGraph(3, kBw1, microseconds(10));
+  net::GraphStorage graph_storage(net);
+
+  MaxFlowMCProblem max_flow_problem({}, &graph_storage);
+  max_flow_problem.AddCommodity("N0", "N2");
+  max_flow_problem.AddCommodity("N1", "N2");
+
+  net::Bandwidth max_flow = net::Bandwidth::Zero();
+  ASSERT_TRUE(max_flow_problem.GetMaxFlow(&max_flow));
+  ASSERT_EQ(20000ul, max_flow.bps());
+
+  std::map<SrcAndDst, std::vector<FlowAndPath>> model_paths = {
+      {SD("N0", "N2", graph_storage),
+       {{BW(10000), GetPath("[N0->N2]", graph_storage)}}},
+      {SD("N1", "N2", graph_storage),
+       {{BW(10000), GetPath("[N1->N2]", graph_storage)}}}};
+  std::map<SrcAndDst, std::vector<FlowAndPath>> paths;
+  ASSERT_TRUE(max_flow_problem.GetMaxFlow(&max_flow, &paths));
 }
 
 TEST(MCTest, TriangleOneExclude) {
@@ -126,9 +158,10 @@ TEST(MCTest, TriangleOneExclude) {
   ASSERT_TRUE(max_flow_problem.GetMaxFlow(&max_flow));
   ASSERT_EQ(10000ul, max_flow.bps());
 
-  std::vector<std::vector<FlowAndPath>> model_paths = {
-      {{BW(10000), GetPath("[N0->N1, N1->N2]", graph_storage)}}};
-  std::vector<std::vector<FlowAndPath>> paths;
+  std::map<SrcAndDst, std::vector<FlowAndPath>> model_paths = {
+      {SD("N0", "N2", graph_storage),
+       {{BW(10000), GetPath("[N0->N1, N1->N2]", graph_storage)}}}};
+  std::map<SrcAndDst, std::vector<FlowAndPath>> paths;
   ASSERT_TRUE(max_flow_problem.GetMaxFlow(&max_flow, &paths));
 }
 

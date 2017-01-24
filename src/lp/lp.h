@@ -121,6 +121,9 @@ class Problem {
   // Whether or not to only use network simplex to solve the problem.
   void set_force_network_simplex(bool value) { force_network_simplex_ = value; }
 
+  // Whether or not to conserve memory.
+  void set_memory_switch(bool value) { memory_switch_ = value; }
+
  private:
   // Implementation-specific opaque handle. This is ugly, but it allows us to
   // keep the actual optimizer-specific implementation in the .cc file. This way
@@ -132,6 +135,9 @@ class Problem {
 
   // If true will force network simplex to be used.
   bool force_network_simplex_;
+
+  // If true will try to conserve memory.
+  bool memory_switch_;
 
   DISALLOW_COPY_AND_ASSIGN(Problem);
 };
