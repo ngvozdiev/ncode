@@ -189,11 +189,22 @@ std::map<SrcAndDst, std::vector<FlowAndPath>> MCProblem::RecoverPaths(
     for (const SrcAndLoad& commodity : commodities) {
       net::Links links;
       std::vector<FlowAndPath>& paths = out[{commodity.first, dst_index}];
-      double starting_flow = commodity.second > net::Bandwidth::Zero()
+      bool commodity_has_volume = commodity.second > net::Bandwidth::Zero();
+
+      double starting_flow = commodity_has_volume
                                  ? commodity.second.Mbps()
                                  : std::numeric_limits<double>::max();
+      LOG(ERROR) << "RPR " << starting_flow;
       RecoverPathsRecursive(commodity, dst_index, commodity.first,
                             starting_flow, &link_to_flow, &links, &paths);
+      if (commodity_has_volume) {
+        double total_flow = 0;
+        for (const FlowAndPath& path : paths) {
+          total_flow += path.first.Mbps();
+        }
+        CHECK(std::abs(total_flow - starting_flow) / total_flow < 0.001)
+            << total_flow << " vs " << starting_flow;
+      }
     }
   }
 
@@ -206,7 +217,7 @@ static bool AlreadySeen(net::GraphLinkIndex link,
          links_so_far.end();
 }
 
-void MCProblem::RecoverPathsRecursive(
+double MCProblem::RecoverPathsRecursive(
     const SrcAndLoad& commodity, net::GraphNodeIndex dst_index,
     net::GraphNodeIndex at_node, double overall_flow,
     net::GraphLinkMap<double>* flow_over_links, net::Links* links_so_far,
@@ -217,10 +228,17 @@ void MCProblem::RecoverPathsRecursive(
       CHECK(overall_flow <= commodity.second.Mbps());
     }
 
+    for (net::GraphLinkIndex link : *links_so_far) {
+      double& remaining = flow_over_links->GetValueOrDie(link);
+      remaining -= overall_flow;
+    }
+
     auto new_path = net::LinkSequence(*links_so_far, graph_storage_);
     auto flow_on_path = net::Bandwidth::FromMBitsPerSecond(overall_flow);
     out->emplace_back(flow_on_path, new_path);
-    return;
+    //    LOG(ERROR) << "FF " << flow_on_path << " "
+    //               << new_path.ToStringNoPorts(graph_storage_);
+    return 0;
   }
 
   const auto& adj_lists = adjacent_to_v_.GetValueOrDie(at_node);
@@ -237,14 +255,22 @@ void MCProblem::RecoverPathsRecursive(
     const net::GraphLink* edge = graph_storage_->GetLink(edge_out);
     double& remaining = flow_over_links->GetValueOrDie(edge_out);
     double to_take = std::min(remaining, overall_flow);
+    //    LOG(ERROR) << "OF " << overall_flow << " R " << remaining << " TT "
+    //               << to_take << " at " <<
+    //               graph_storage_->GetNode(at_node)->id();
     if (to_take > 0) {
       links_so_far->emplace_back(edge_out);
-      remaining -= to_take;
-      RecoverPathsRecursive(commodity, dst_index, edge->dst(), to_take,
-                            flow_over_links, links_so_far, out);
+      double remainder =
+          RecoverPathsRecursive(commodity, dst_index, edge->dst(), to_take,
+                                flow_over_links, links_so_far, out);
+      overall_flow -= (to_take - remainder);
       links_so_far->pop_back();
+      //      LOG(ERROR) << "Remainder " << remainder << " OF " << overall_flow
+      //                 << " at " << graph_storage_->GetNode(at_node)->id();
     }
   }
+
+  return overall_flow;
 }
 
 void MCProblem::AddCommodity(const std::string& source, const std::string& sink,
@@ -257,6 +283,10 @@ void MCProblem::AddCommodity(ncode::net::GraphNodeIndex source,
                              ncode::net::GraphNodeIndex sink,
                              net::Bandwidth demand) {
   std::vector<SrcAndLoad>& src_and_loads = commodities_[sink];
+  for (const SrcAndLoad& src_and_load : src_and_loads) {
+    CHECK(src_and_load.first != source);
+  }
+
   src_and_loads.emplace_back(source, demand);
 }
 

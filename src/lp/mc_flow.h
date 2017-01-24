@@ -96,7 +96,7 @@ class MCProblem {
             net::Bandwidth increment);
 
   // Helper function for RecoverPaths.
-  void RecoverPathsRecursive(const SrcAndLoad& commodity,
+  double RecoverPathsRecursive(const SrcAndLoad& commodity,
                              net::GraphNodeIndex dst_index,
                              net::GraphNodeIndex at_node, double overall_flow,
                              net::GraphLinkMap<double>* flow_over_links,
