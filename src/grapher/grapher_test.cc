@@ -53,7 +53,7 @@ TEST(HtmlOutput, SimpleCDF) {
 
   web::HtmlPage html_page;
   HtmlGrapher html_grapher(&html_page);
-  html_grapher.PlotCDF(plot_params, {data_series_one, data_series_two});
+  html_grapher.PlotCDF(plot_params, {data_series_one, data_series_two}, {});
 
   ASSERT_EQ(File::ReadFileToStringOrDie(
                 "../data/html_grapher_test_data/cdf_test.html"),
@@ -246,7 +246,7 @@ TEST(PythonOutput, CDF) {
   data_series.data = {1.0, 2.0, 4.0, 3.0, 5.0};
 
   PythonGrapher python_grapher("line_output_folder");
-  python_grapher.PlotCDF(plot_params, {data_series});
+  python_grapher.PlotCDF(plot_params, {data_series}, {});
 }
 
 TEST(PythonOutput, Bar) {

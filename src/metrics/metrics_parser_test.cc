@@ -219,7 +219,7 @@ TEST_F(MetricFixture, DoubleParser) {
   DoubleProcessor::Callback double_callback = [&all_values](
       const Entry<double>& entry, const PBManifestEntry& manifest_entry,
       uint32_t manifest_index) {
-    ASSERT_EQ(0, manifest_index);
+    ASSERT_EQ(0ul, manifest_index);
     ASSERT_EQ(kMetricComonentId, manifest_entry.id());
     all_values.emplace_back(entry.value);
   };
@@ -282,7 +282,7 @@ TEST_F(MetricFixture, External) {
   ASSERT_TRUE(result_handle->Advance());
 
   size_t size = MetricsParserResultHandleSize(result_handle);
-  ASSERT_EQ(1000000, size);
+  ASSERT_EQ(1000000ul, size);
 
   std::vector<double> values_out(size);
   std::vector<uint64_t> timestamps_out(size);
@@ -291,7 +291,7 @@ TEST_F(MetricFixture, External) {
                                     &values_out[0]);
   for (size_t i = 0; i < 1000000; ++i) {
     ASSERT_EQ(values_out[i], i);
-    ASSERT_GT(timestamps_out[i], 0);
+    ASSERT_GT(timestamps_out[i], 0ul);
   }
 
   ASSERT_FALSE(result_handle->Advance());
@@ -314,7 +314,7 @@ TEST_F(MetricFixture, BytesManifestSummary) {
   metric_manager_.reset();
 
   MetricsParser parser(kTestOutput);
-  std::string manifest_summary = parser.FullManifestToString();
+  std::string manifest_summary = parser.ParseManifest().FullToString();
 
   ASSERT_NE(std::string::npos, manifest_summary.find(kMetricComonentId));
   ASSERT_NE(std::string::npos, manifest_summary.find(kMetricFieldOneDesc));
@@ -352,15 +352,15 @@ TEST_F(MetricFixture, ExternalBytes) {
   ASSERT_TRUE(bytes_result_handle->Advance());
 
   size_t size = MetricsParserBytesResultHandleSize(bytes_result_handle);
-  ASSERT_EQ(1000000, size);
+  ASSERT_EQ(1000000ul, size);
 
   size_t total_size = 0;
   for (size_t i = 0; i < 1000000; ++i) {
     uint64_t buffer_size = bytes_result_handle->BufferSize(i);
     if (i % 2 == 0) {
-      ASSERT_EQ(2, buffer_size);
+      ASSERT_EQ(2ul, buffer_size);
     } else {
-      ASSERT_EQ(4, buffer_size);
+      ASSERT_EQ(4ul, buffer_size);
     }
 
     total_size += buffer_size;
@@ -424,7 +424,7 @@ TEST_F(MetricFixture, ExternalDistributions) {
   ASSERT_TRUE(bytes_result_handle->Advance());
 
   size_t size = MetricsParserBytesResultHandleSize(bytes_result_handle);
-  ASSERT_EQ(1000000, size);
+  ASSERT_EQ(1000000ul, size);
 
   size_t total_size = 0;
   std::vector<size_t> sizes;
@@ -494,7 +494,7 @@ TEST_F(MetricFixture, ExternalTimestampLimits) {
   ASSERT_NE(nullptr, result_handle);
   ASSERT_TRUE(result_handle->Advance());
 
-  ASSERT_EQ(1, result_handle->Size());
+  ASSERT_EQ(1ul, result_handle->Size());
 
   std::vector<double> values_out(1);
   std::vector<uint64_t> timestamps_out(1);
@@ -524,7 +524,7 @@ TEST_F(MetricFixture, ExternalMultiFieldsMatched) {
   std::map<std::pair<std::string, std::string>, std::vector<double>> values_map;
   while (result_handle->Advance()) {
     size_t size = MetricsParserResultHandleSize(result_handle);
-    ASSERT_EQ(1000000, size);
+    ASSERT_EQ(1000000ul, size);
 
     std::pair<std::string, std::string> key;
     key.first = result_handle->MetricString();
@@ -543,7 +543,7 @@ TEST_F(MetricFixture, ExternalMultiFieldsMatched) {
   }
   MetricsParserResultHandleFree(result_handle);
 
-  ASSERT_EQ(2, values_map.size());
+  ASSERT_EQ(2ul, values_map.size());
   auto key_one = std::make_pair(kMetricComonentId, kMetricFieldStrValue);
   auto key_two = std::make_pair(kMetricComonentId, kMetricAnotherFieldStrValue);
 

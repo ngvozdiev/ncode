@@ -35,6 +35,7 @@ static constexpr char kPythonGrapherTitleMarker[] = "title";
 static constexpr char kPythonGrapherXLabelMarker[] = "xlabel";
 static constexpr char kPythonGrapherYLabelMarker[] = "ylabel";
 static constexpr char kPythonGrapherFilesAndLabelsMarker[] = "files_and_labels";
+static constexpr char kPythonGrapherLinesAndLabelsMarker[] = "lines_and_labels";
 
 constexpr char HtmlGrapher::kDefaultGraphIdPrefix[];
 
@@ -131,7 +132,10 @@ static std::vector<DataSeries1D> Preprocess1DData(
 }
 
 void HtmlGrapher::PlotLine(const PlotParameters2D& plot_params,
-                           const std::vector<DataSeries2D>& series) {
+                           const std::vector<DataSeries2D>& series,
+                           const std::vector<VerticalLine>& vlines) {
+  CHECK(vlines.empty()) << "Not supported yet";
+
   page_->AddScript(kPlotlyJS);
   std::string* b = page_->body();
 
@@ -231,7 +235,8 @@ void HtmlGrapher::PlotStackedArea(const PlotParameters2D& plot_params,
 }
 
 void HtmlGrapher::PlotCDF(const PlotParameters1D& plot_params,
-                          const std::vector<DataSeries1D>& series) {
+                          const std::vector<DataSeries1D>& series,
+                          const std::vector<VerticalLine>& vlines) {
   std::vector<DataSeries2D> series_2d;
 
   std::vector<DataSeries1D> processed_series =
@@ -260,7 +265,7 @@ void HtmlGrapher::PlotCDF(const PlotParameters1D& plot_params,
   plot_params_2d.x_label = plot_params.data_label;
   plot_params_2d.y_label = "frequency";
   plot_params_2d.title = plot_params.title;
-  PlotLine(plot_params_2d, series_2d);
+  PlotLine(plot_params_2d, series_2d, vlines);
 }
 
 static std::string Quote(const std::string& string) {
@@ -365,7 +370,7 @@ void SaveSeriesToFile<DataSeries2D>(const DataSeries2D& data_series,
 template <typename T>
 static std::unique_ptr<ctemplate::TemplateDictionary> Plot(
     const PlotParameters& plot_params, const std::vector<T>& series,
-    const std::string& output_dir) {
+    const std::vector<VerticalLine>& vlines, const std::string& output_dir) {
   std::vector<std::string> filenames_and_labels;
   for (size_t i = 0; i < series.size(); ++i) {
     const T& data_series = series[i];
@@ -379,18 +384,30 @@ static std::unique_ptr<ctemplate::TemplateDictionary> Plot(
   std::string files_and_labels_var_contents =
       StrCat("[", Join(filenames_and_labels, ","), "]");
 
+  std::vector<std::string> lines_and_labels;
+  for (const VerticalLine& vline : vlines) {
+    lines_and_labels.emplace_back(
+        StrCat("(", vline.x, ",", Quote(vline.annotation), ")"));
+  }
+
+  std::string lines_and_labels_var_contents =
+      StrCat("[", Join(lines_and_labels, ","), "]");
+
   InitPythonPlotTemplates();
   auto dictionary = make_unique<ctemplate::TemplateDictionary>("Plot");
   dictionary->SetValue(kPythonGrapherFilesAndLabelsMarker,
                        files_and_labels_var_contents);
+  dictionary->SetValue(kPythonGrapherLinesAndLabelsMarker,
+                       lines_and_labels_var_contents);
   dictionary->SetValue(kPythonGrapherTitleMarker, plot_params.title);
   return dictionary;
 }
 
 void PythonGrapher::PlotLine(const PlotParameters2D& plot_params,
-                             const std::vector<DataSeries2D>& series) {
+                             const std::vector<DataSeries2D>& series,
+                             const std::vector<VerticalLine>& vlines) {
   auto dictionary = Plot<DataSeries2D>(
-      plot_params, Preprocess2DData(plot_params, series), output_dir_);
+      plot_params, Preprocess2DData(plot_params, series), vlines, output_dir_);
   dictionary->SetValue(kPythonGrapherXLabelMarker, plot_params.x_label);
   dictionary->SetValue(kPythonGrapherYLabelMarker, plot_params.y_label);
 
@@ -402,9 +419,10 @@ void PythonGrapher::PlotLine(const PlotParameters2D& plot_params,
 }
 
 void PythonGrapher::PlotCDF(const PlotParameters1D& plot_params,
-                            const std::vector<DataSeries1D>& series) {
+                            const std::vector<DataSeries1D>& series,
+                            const std::vector<VerticalLine>& vlines) {
   auto dictionary = Plot<DataSeries1D>(
-      plot_params, Preprocess1DData(plot_params, series), output_dir_);
+      plot_params, Preprocess1DData(plot_params, series), vlines, output_dir_);
   dictionary->SetValue(kPythonGrapherXLabelMarker, plot_params.data_label);
   dictionary->SetValue(kPythonGrapherYLabelMarker, "frequency");
 
@@ -419,7 +437,7 @@ void PythonGrapher::PlotBar(const PlotParameters1D& plot_params,
                             const std::vector<std::string>& categories,
                             const std::vector<DataSeries1D>& series) {
   auto dictionary = Plot<DataSeries1D>(
-      plot_params, Preprocess1DData(plot_params, series), output_dir_);
+      plot_params, Preprocess1DData(plot_params, series), {}, output_dir_);
   dictionary->SetValue(kPythonGrapherCategoriesMarker, QuotedList(categories));
   dictionary->SetValue(kPythonGrapherYLabelMarker, plot_params.data_label);
   dictionary->SetValue(kPythonGrapherXLabelMarker, "category");

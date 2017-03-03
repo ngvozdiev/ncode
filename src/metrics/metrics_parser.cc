@@ -277,8 +277,8 @@ void MetricsParser::Parse() {
   }
 }
 
-static bool IsNumeric(const MetricsParser::WrappedEntry& wrapped_entry) {
-  PBManifestEntry::Type type = wrapped_entry.manifest_entry->type();
+static bool IsNumeric(const WrappedEntry& wrapped_entry) {
+  PBManifestEntry::Type type = wrapped_entry.manifest_entry().type();
   return type == PBManifestEntry::DOUBLE || type == PBManifestEntry::UINT32 ||
          type == PBManifestEntry::UINT64;
 }
@@ -301,11 +301,21 @@ static double ExtractNumericValueOrDie(PBManifestEntry::Type type,
   return 0;
 }
 
-std::vector<MetricsParser::WrappedEntry> MetricsParser::ParseManifest() const {
+void WrappedEntry::ChildEntry(bool numeric, double value) {
+  ++num_entries_;
+  if (numeric) {
+    sum_ += value;
+    if (value > 0) {
+      ++num_non_zero_entries_;
+    }
+  }
+}
+
+Manifest MetricsParser::ParseManifest() const {
   InputStream input_stream(metrics_file_);
 
   // Manifest entries.
-  std::vector<MetricsParser::WrappedEntry> return_vector;
+  std::vector<WrappedEntry> all_entries;
 
   uint32_t manifest_index;
   PBMetricEntry entry;
@@ -323,50 +333,41 @@ std::vector<MetricsParser::WrappedEntry> MetricsParser::ParseManifest() const {
 
       auto manifest_entry_ptr =
           std::unique_ptr<PBManifestEntry>(entry.release_manifest_entry());
-      return_vector.emplace_back(return_vector.size(),
-                                 std::move(manifest_entry_ptr));
+      all_entries.emplace_back(all_entries.size(),
+                               std::move(manifest_entry_ptr));
     } else {
-      CHECK(manifest_index < return_vector.size())
+      CHECK(manifest_index < all_entries.size())
           << "Unknown manifest index " << manifest_index
-          << " only know indices up to " << return_vector.size();
-      MetricsParser::WrappedEntry& wrapped_entry =
-          return_vector[manifest_index];
-      wrapped_entry.num_entries += 1;
-      if (IsNumeric(wrapped_entry)) {
+          << " only know indices up to " << all_entries.size();
+      WrappedEntry& wrapped_entry = all_entries[manifest_index];
+
+      bool numeric;
+      double value;
+      if ((numeric = IsNumeric(wrapped_entry))) {
         if (!input_stream.ReadDelimitedFrom(&entry)) {
           LOG(ERROR) << "Unable to read entry";
           break;
         }
-        double value = ExtractNumericValueOrDie(
-            wrapped_entry.manifest_entry->type(), entry);
-        if (value > 0) {
-          ++wrapped_entry.num_non_zero_entries;
-          wrapped_entry.sum += value;
-        }
+        value = ExtractNumericValueOrDie(wrapped_entry.manifest_entry().type(),
+                                         entry);
       } else {
         if (!input_stream.SkipMessage()) {
           LOG(ERROR) << "Unable to skip entry";
           break;
         }
       }
+
+      wrapped_entry.ChildEntry(numeric, value);
     }
   }
 
-  return return_vector;
-}
-
-std::map<std::string, std::vector<MetricsParser::WrappedEntry>>
-MetricsParser::EntriesGroupedByMetricId() const {
-  std::vector<MetricsParser::WrappedEntry> wrapped_entries = ParseManifest();
-
-  std::map<std::string, std::vector<MetricsParser::WrappedEntry>>
-      id_to_manifest;
-  for (auto& wrapped_entry : wrapped_entries) {
-    const std::string& id = wrapped_entry.manifest_entry->id();
+  std::map<std::string, std::vector<WrappedEntry>> id_to_manifest;
+  for (auto& wrapped_entry : all_entries) {
+    const std::string& id = wrapped_entry.manifest_entry().id();
     id_to_manifest[id].emplace_back(std::move(wrapped_entry));
   }
 
-  return id_to_manifest;
+  return {std::move(id_to_manifest)};
 }
 
 static constexpr char kMetricIdColumnName[] = "Metric Id";
@@ -376,10 +377,7 @@ static constexpr char kSetsCountColumnName[] = "Sets";
 static constexpr char kValuesCountColumnName[] = "Values";
 static constexpr char kNoFields[] = "NO FIELDS";
 
-std::string MetricsParser::FullManifestToString() const {
-  std::map<std::string, std::vector<MetricsParser::WrappedEntry>>
-      id_to_manifest = EntriesGroupedByMetricId();
-
+std::string Manifest::FullToString() const {
   std::stringstream ss;
   ss << std::setw(kShortTextWidth) << std::left << kMetricIdColumnName
      << std::setw(kShortTextWidth) << std::left << kTypeColumnName
@@ -387,25 +385,24 @@ std::string MetricsParser::FullManifestToString() const {
      << std::setw(kNumericFieldWidth) << std::left << kSetsCountColumnName
      << std::setw(kNumericFieldWidth) << std::left << kValuesCountColumnName
      << std::endl;
-  for (const auto& id_and_manifest_entries : id_to_manifest) {
+  for (const auto& id_and_manifest_entries : entries_) {
     const std::string& id = id_and_manifest_entries.first;
-    const std::vector<MetricsParser::WrappedEntry>& entries =
-        id_and_manifest_entries.second;
+    const std::vector<WrappedEntry>& entries = id_and_manifest_entries.second;
 
     size_t total_values = 0;
-    for (const MetricsParser::WrappedEntry& entry : entries) {
-      total_values += entry.num_entries;
+    for (const WrappedEntry& entry : entries) {
+      total_values += entry.num_entries();
     }
 
     // Entries with the same id will have the same fields. The values of those
     // fields will be different.
-    const MetricsParser::WrappedEntry& first_entry = entries.front();
+    const WrappedEntry& first_entry = entries.front();
     ss << std::setw(kShortTextWidth) << std::left << id;
     ss << std::setw(kShortTextWidth) << std::left
-       << PBManifestEntry_Type_Name(first_entry.manifest_entry->type());
+       << PBManifestEntry_Type_Name(first_entry.manifest_entry().type());
 
     std::vector<std::string> fields_strings;
-    for (const PBMetricField& field : first_entry.manifest_entry->fields()) {
+    for (const PBMetricField& field : first_entry.manifest_entry().fields()) {
       fields_strings.emplace_back(StrCat(PBMetricField::Type_Name(field.type()),
                                          "(", field.description(), ")"));
     }
@@ -423,34 +420,30 @@ std::string MetricsParser::FullManifestToString() const {
   return ss.str();
 }
 
-web::HtmlTable MetricsParser::FullManifestToTable(
+web::HtmlTable Manifest::FullToTable(
     const std::string& table_id,
     std::function<std::string(const std::string&)> link_gen) const {
-  std::map<std::string, std::vector<MetricsParser::WrappedEntry>>
-      id_to_manifest = EntriesGroupedByMetricId();
-
   web::HtmlTable table(table_id,
                        {kMetricIdColumnName, kTypeColumnName, kFieldsColumnName,
                         kSetsCountColumnName, kValuesCountColumnName});
 
-  for (const auto& id_and_manifest_entries : id_to_manifest) {
+  for (const auto& id_and_manifest_entries : entries_) {
     const std::string& id = id_and_manifest_entries.first;
-    const std::vector<MetricsParser::WrappedEntry>& entries =
-        id_and_manifest_entries.second;
+    const std::vector<WrappedEntry>& entries = id_and_manifest_entries.second;
 
     size_t total_values = 0;
-    for (const MetricsParser::WrappedEntry& entry : entries) {
-      total_values += entry.num_entries;
+    for (const WrappedEntry& entry : entries) {
+      total_values += entry.num_entries();
     }
 
     // Entries with the same id will have the same fields. The values of those
     // fields will be different.
-    const MetricsParser::WrappedEntry& first_entry = entries.front();
+    const WrappedEntry& first_entry = entries.front();
     const std::string& type_name =
-        PBManifestEntry_Type_Name(first_entry.manifest_entry->type());
+        PBManifestEntry_Type_Name(first_entry.manifest_entry().type());
 
     std::vector<std::string> fields_strings;
-    for (const PBMetricField& field : first_entry.manifest_entry->fields()) {
+    for (const PBMetricField& field : first_entry.manifest_entry().fields()) {
       fields_strings.emplace_back(StrCat(PBMetricField::Type_Name(field.type()),
                                          "(", field.description(), ")"));
     }
@@ -484,30 +477,21 @@ static std::string GetFieldsString(
   return Join(fields_strings, ",");
 }
 
-std::string MetricsParser::ManifestToString(
-    const std::string& metric_id) const {
-  std::vector<WrappedEntry> wrapped_entries = ParseManifest();
+std::string Manifest::ToString(const std::string& metric_id) const {
+  const std::vector<WrappedEntry>& metric_entries =
+      ncode::FindOrDie(entries_, metric_id);
 
-  std::vector<const WrappedEntry*> metrics_entries;
-  for (const WrappedEntry& wrapped_entry : wrapped_entries) {
-    if (wrapped_entry.manifest_entry->id() != metric_id) {
-      continue;
-    }
-    metrics_entries.emplace_back(&wrapped_entry);
-  }
-
-  CHECK(!metrics_entries.empty());
-  const PBManifestEntry* first_entry =
-      metrics_entries.front()->manifest_entry.get();
+  CHECK(!metric_entries.empty());
+  const PBManifestEntry& first_entry = metric_entries.front().manifest_entry();
 
   std::stringstream ss;
   ss << std::setw(kLongTextWidth) << std::left
-     << GetFieldsString(first_entry->fields()) << std::endl;
+     << GetFieldsString(first_entry.fields()) << std::endl;
 
-  for (const WrappedEntry* wrapped_entry : metrics_entries) {
-    size_t count = wrapped_entry->num_entries;
-    const PBManifestEntry* entry = wrapped_entry->manifest_entry.get();
-    ss << std::setw(kLongTextWidth) << std::left << GetFieldString(*entry);
+  for (const WrappedEntry& wrapped_entry : metric_entries) {
+    size_t count = wrapped_entry.num_entries();
+    const PBManifestEntry& entry = wrapped_entry.manifest_entry();
+    ss << std::setw(kLongTextWidth) << std::left << GetFieldString(entry);
     ss << std::setw(kNumericFieldWidth) << std::left << std::to_string(count)
        << std::endl;
   }
@@ -515,24 +499,16 @@ std::string MetricsParser::ManifestToString(
   return ss.str();
 }
 
-web::HtmlTable MetricsParser::ManifestToTable(
-    const std::string& metric_id, const std::string& table_id) const {
-  std::vector<WrappedEntry> wrapped_entries = ParseManifest();
+web::HtmlTable Manifest::ToTable(const std::string& metric_id,
+                                 const std::string& table_id) const {
+  const std::vector<WrappedEntry>& metric_entries =
+      ncode::FindOrDie(entries_, metric_id);
 
-  std::vector<const WrappedEntry*> metrics_entries;
-  for (const WrappedEntry& wrapped_entry : wrapped_entries) {
-    if (wrapped_entry.manifest_entry->id() != metric_id) {
-      continue;
-    }
-    metrics_entries.emplace_back(&wrapped_entry);
-  }
-
-  CHECK(!metrics_entries.empty()) << "No entries for " << metric_id;
-  const PBManifestEntry* first_entry =
-      metrics_entries.front()->manifest_entry.get();
+  CHECK(!metric_entries.empty());
+  const PBManifestEntry& first_entry = metric_entries.front().manifest_entry();
 
   std::vector<std::string> fields_strings = {"Index"};
-  for (const PBMetricField& field : first_entry->fields()) {
+  for (const PBMetricField& field : first_entry.fields()) {
     fields_strings.emplace_back(field.description());
   }
   if (fields_strings.empty()) {
@@ -540,33 +516,45 @@ web::HtmlTable MetricsParser::ManifestToTable(
   }
   fields_strings.emplace_back("Entries");
 
-  bool numeric = IsNumeric(*metrics_entries.front());
+  bool numeric = IsNumeric(metric_entries.front());
   if (numeric) {
     fields_strings.emplace_back("Non-zero entries");
     fields_strings.emplace_back("Sum of entries");
   }
 
   web::HtmlTable table(table_id, fields_strings);
-  for (const WrappedEntry* wrapped_entry : metrics_entries) {
+  for (const WrappedEntry& wrapped_entry : metric_entries) {
     std::vector<std::string> fields_as_strings;
     fields_as_strings.emplace_back(
-        std::to_string(wrapped_entry->manifest_index));
+        std::to_string(wrapped_entry.manifest_index()));
 
-    for (const PBMetricField& field : wrapped_entry->manifest_entry->fields()) {
+    for (const PBMetricField& field : wrapped_entry.manifest_entry().fields()) {
       fields_as_strings.emplace_back(SingleFieldToString(field));
     }
-    fields_as_strings.emplace_back(std::to_string(wrapped_entry->num_entries));
+    fields_as_strings.emplace_back(std::to_string(wrapped_entry.num_entries()));
 
     if (numeric) {
       fields_as_strings.emplace_back(
-          std::to_string(wrapped_entry->num_non_zero_entries));
-      fields_as_strings.emplace_back(std::to_string(wrapped_entry->sum));
+          std::to_string(wrapped_entry.num_non_zero_entries()));
+      fields_as_strings.emplace_back(std::to_string(wrapped_entry.sum()));
     }
 
     table.AddRow(fields_as_strings);
   }
 
   return table;
+}
+
+uint64_t Manifest::TotalEntryCount() const {
+  uint64_t total = 0;
+  for (const auto& id_and_entries : entries_) {
+    const std::vector<WrappedEntry>& entries_for_metric = id_and_entries.second;
+    for (const WrappedEntry& entry : entries_for_metric) {
+      total += entry.num_entries();
+    }
+  }
+
+  return total;
 }
 
 MetricsParser::MetricsParser(const std::string& metrics_file)
@@ -862,13 +850,13 @@ static char* StringToCString(const std::string& str) {
 
 char* MetricsParserManifestSummary(const char* metrics_file) {
   MetricsParser parser(metrics_file);
-  return StringToCString(parser.FullManifestToString());
+  return StringToCString(parser.ParseManifest().FullToString());
 }
 
 char* MetricsParserManifestMetricSummary(const char* metrics_file,
                                          const char* metric_id) {
   MetricsParser parser(metrics_file);
-  return StringToCString(parser.ManifestToString(metric_id));
+  return StringToCString(parser.ParseManifest().ToString(metric_id));
 }
 
 char* MetricsParserResultHandleFieldString(NumericMetricsResultHandle* handle) {

@@ -70,16 +70,24 @@ struct PlotParameters1D : public PlotParameters {
   std::string data_label;
 };
 
+// An annotated vertical line.
+struct VerticalLine {
+  double x;                // Location of the line.
+  std::string annotation;  // Label that will go next to the line.
+};
+
 // Plots graphs.
 class Grapher {
  public:
   virtual ~Grapher() {}
 
   virtual void PlotCDF(const PlotParameters1D& plot_params,
-                       const std::vector<DataSeries1D>& series) = 0;
+                       const std::vector<DataSeries1D>& series,
+                       const std::vector<VerticalLine>& vlines) = 0;
 
   virtual void PlotLine(const PlotParameters2D& plot_params,
-                        const std::vector<DataSeries2D>& series) = 0;
+                        const std::vector<DataSeries2D>& series,
+                        const std::vector<VerticalLine>& vlines) = 0;
 
   // A stacked plot. The data series will be interpolated (linearly) at the
   // given points (xs) and a stacked plot will be produced.
@@ -108,10 +116,12 @@ class HtmlGrapher : public Grapher {
         page_(page) {}
 
   void PlotLine(const PlotParameters2D& plot_params,
-                const std::vector<DataSeries2D>& series) override;
+                const std::vector<DataSeries2D>& series,
+                const std::vector<VerticalLine>& vlines) override;
 
   void PlotCDF(const PlotParameters1D& plot_params,
-               const std::vector<DataSeries1D>& series) override;
+               const std::vector<DataSeries1D>& series,
+               const std::vector<VerticalLine>& vlines) override;
 
   void PlotBar(const PlotParameters1D& plot_params,
                const std::vector<std::string>& categories,
@@ -144,10 +154,12 @@ class PythonGrapher : public Grapher {
   PythonGrapher(const std::string& output_dir);
 
   void PlotLine(const PlotParameters2D& plot_params,
-                const std::vector<DataSeries2D>& series) override;
+                const std::vector<DataSeries2D>& series,
+                const std::vector<VerticalLine>& vlines) override;
 
   void PlotCDF(const PlotParameters1D& plot_params,
-               const std::vector<DataSeries1D>& series) override;
+               const std::vector<DataSeries1D>& series,
+               const std::vector<VerticalLine>& vlines) override;
 
   void PlotBar(const PlotParameters1D& plot_params,
                const std::vector<std::string>& categories,

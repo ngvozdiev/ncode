@@ -20,6 +20,8 @@
 
 DEFINE_string(python_plot_output, "",
               "If set will store the data for all plots there");
+DEFINE_string(data_dump_location, "",
+              "If specified all data will be dumped to this file");
 DEFINE_string(input, "", "The metrics file or directory of metrics files.");
 DEFINE_uint64(port_num, 8080, "Port to listen on");
 
@@ -37,19 +39,71 @@ static constexpr char kManifestIdsVariableName[] = "manifestids";
 static constexpr char kBinSizeVariableName[] = "binsize";
 static constexpr char kActiveIndexVariableName[] = "i";
 
+// Dumps data to FLAGS_data_dump_location.
+static void DumpData(
+    const std::map<std::pair<std::string, std::string>,
+                   std::vector<std::pair<uint64_t, double>>>& data) {
+  if (FLAGS_data_dump_location.empty()) {
+    return;
+  }
+
+  std::ofstream out(FLAGS_data_dump_location, std::ofstream::trunc);
+  for (const auto& ids_and_data : data) {
+    const std::pair<std::string, std::string>& ids = ids_and_data.first;
+    const std::vector<std::pair<uint64_t, double>>& values =
+        ids_and_data.second;
+
+    std::function<std::string(const std::pair<uint64_t, double>&)> f = [](
+        const std::pair<uint64_t, double>& timestamp_and_value) {
+      return ncode::StrCat(timestamp_and_value.first, " ",
+                           timestamp_and_value.second);
+    };
+
+    std::string to_write = ncode::StrCat(ids.first, " ", ids.second, " ");
+    ncode::Join(values.begin(), values.end(), " ", f, &to_write);
+    out << to_write << "\n";
+  }
+  LOG(ERROR) << "Dumped " << data.size() << " data";
+  out.close();
+}
+
+struct FileAndManifest {
+  FileAndManifest(FileAndManifest&& other)
+      : filename(std::move(other.filename)),
+        size_mb(other.size_mb),
+        manifest(std::move(other.manifest)) {}
+
+  FileAndManifest(const std::string& filename, uint64_t size_mb,
+                  metrics::parser::Manifest&& manifest)
+      : filename(filename), size_mb(size_mb), manifest(std::move(manifest)) {}
+
+  std::string filename;
+  uint64_t size_mb;
+  metrics::parser::Manifest manifest;
+};
+
 // State associated with the server.
 class ServerState {
  public:
   ServerState(const std::string& file_or_dir) {
     bool is_dir;
     CHECK(ncode::File::FileOrDirectory(file_or_dir, &is_dir));
+
+    std::vector<std::string> files;
     if (is_dir) {
-      files_ = ncode::Glob(ncode::StrCat(file_or_dir, "/*"));
+      files = ncode::Glob(ncode::StrCat(file_or_dir, "/*"));
     } else {
-      files_.emplace_back(file_or_dir);
+      files.emplace_back(file_or_dir);
     }
 
-    LOG(INFO) << "Will export " << ncode::Join(files_, "\n");
+    for (const std::string& file : files) {
+      uint64_t file_size_mb = ncode::File::FileSizeOrDie(file) / 1000 / 1000;
+
+      metrics::parser::MetricsParser parser(file);
+      files_.emplace_back(file, file_size_mb,
+                          std::move(parser.ParseManifest()));
+      LOG(INFO) << "Parsed " << file;
+    }
   }
 
   std::unique_ptr<web::TemplatePage> GetPage() {
@@ -59,15 +113,18 @@ class ServerState {
   }
 
   void FileListToTable(web::HtmlPage* out) {
-    web::HtmlTable table(kDefaultTableId, {"File Name", "File Size"});
+    web::HtmlTable table(kDefaultTableId,
+                         {"File Name", "File Size", "Total num entries"});
     for (size_t i = 0; i < files_.size(); ++i) {
-      const std::string file = files_[i];
+      const FileAndManifest& file_and_manifest = files_[i];
+
       std::string link =
           Substitute("/manifest?$0=$1", kActiveIndexVariableName, i);
-      uint64_t file_size_mb = ncode::File::FileSizeOrDie(file) / 1000 / 1000;
-      std::string file_name = File::ExtractFileName(files_[i]);
-      table.AddRow(
-          {web::GetLink(link, file_name), std::to_string(file_size_mb)});
+      uint64_t file_size_mb = file_and_manifest.size_mb;
+      std::string file_name = File::ExtractFileName(file_and_manifest.filename);
+      uint64_t num_entries = file_and_manifest.manifest.TotalEntryCount();
+      table.AddRow({web::GetLink(link, file_name), std::to_string(file_size_mb),
+                    std::to_string(num_entries)});
     }
 
     table.ToHtml(out);
@@ -84,6 +141,7 @@ class ServerState {
     uint64_t max = std::numeric_limits<uint64_t>::max();
     auto return_map = metrics::parser::SimpleParseNumericData(
         input_file, manifest_ids, 0, max, 0);
+    DumpData(return_map);
     PlotTimeSeries(return_map, plot_params, out);
   }
 
@@ -98,14 +156,13 @@ class ServerState {
     uint64_t max = std::numeric_limits<uint64_t>::max();
     auto return_map = metrics::parser::SimpleParseNumericData(
         input_file, manifest_ids, 0, max, limiting ? max : 0);
+    DumpData(return_map);
     PlotCDF(return_map, collapse, plot_params, out);
   }
 
-  const std::vector<std::string> files() const { return files_; }
+  const std::vector<FileAndManifest>& files() const { return files_; }
 
  private:
-  static constexpr size_t kRandomStringLen = 5;
-
   void PlotTimeSeries(
       const std::map<std::pair<std::string, std::string>,
                      std::vector<std::pair<uint64_t, double>>>& data,
@@ -133,11 +190,11 @@ class ServerState {
     }
 
     grapher::HtmlGrapher html_grapher(out);
-    html_grapher.PlotLine(plot_params, all_data_to_plot);
+    html_grapher.PlotLine(plot_params, all_data_to_plot, {});
 
     if (!FLAGS_python_plot_output.empty()) {
       grapher::PythonGrapher python_grapher(FLAGS_python_plot_output);
-      python_grapher.PlotLine(plot_params, all_data_to_plot);
+      python_grapher.PlotLine(plot_params, all_data_to_plot, {});
       LOG(INFO) << "Saved script to plot data at " << FLAGS_python_plot_output;
     }
   }
@@ -189,16 +246,16 @@ class ServerState {
     }
 
     grapher::HtmlGrapher html_grapher(out);
-    html_grapher.PlotCDF(plot_params, all_data_to_plot);
+    html_grapher.PlotCDF(plot_params, all_data_to_plot, {});
 
     if (!FLAGS_python_plot_output.empty()) {
       grapher::PythonGrapher python_grapher(FLAGS_python_plot_output);
-      python_grapher.PlotCDF(plot_params, all_data_to_plot);
+      python_grapher.PlotCDF(plot_params, all_data_to_plot, {});
       LOG(INFO) << "Saved script to plot data at " << FLAGS_python_plot_output;
     }
   }
 
-  std::vector<std::string> files_;
+  std::vector<FileAndManifest> files_;
 };
 
 // Given a list of the form "[1,2,3,4]" will return a set of the integer values.
@@ -212,13 +269,11 @@ static std::string GetLinkForMetricId(const std::string& id,
   return web::GetLink(location, id);
 }
 
-static std::vector<std::string> ManifestToHtml(const std::string& input_file,
-                                               uint32_t file_index,
-                                               web::HtmlPage* out) {
-  metrics::parser::MetricsParser parser(input_file);
-
+static std::vector<std::string> ManifestToHtml(
+    const metrics::parser::Manifest& manifest, uint32_t file_index,
+    web::HtmlPage* out) {
   std::vector<std::string> ids;
-  web::HtmlTable table = parser.FullManifestToTable(
+  web::HtmlTable table = manifest.FullToTable(
       kDefaultTableId, [file_index, &ids](const std::string& id) {
         ids.emplace_back(id);
         return GetLinkForMetricId(id, file_index);
@@ -231,13 +286,12 @@ static std::vector<std::string> ManifestToHtml(const std::string& input_file,
   return ids;
 }
 
-static void MetricToHtml(const std::string& input_file,
+static void MetricToHtml(const metrics::parser::Manifest& manifest,
                          const std::string& metric_id, uint32_t file_index,
                          web::HtmlPage* out) {
   StrAppend(out->body(), web::GetP(StrCat("Metric is ", metric_id)));
 
-  metrics::parser::MetricsParser parser(input_file);
-  web::HtmlTable table = parser.ManifestToTable(metric_id, kDefaultTableId);
+  web::HtmlTable table = manifest.ToTable(metric_id, kDefaultTableId);
   // Will assume that the 0-th column is the index.
   table.AddSelect("time_series_form_0", 0);
   table.AddSelect("cdf_form_0", 0);
@@ -434,18 +488,19 @@ static void Handler(mg_connection* connection, int event, void* p) {
     std::unique_ptr<web::TemplatePage> page = server_state->GetPage();
     uint32_t i = ExtractIndexOrZero(hm);
 
-    const std::vector<std::string>& file_names = server_state->files();
-    CHECK(i < file_names.size()) << "Index out of range";
-    const std::string& file_name = file_names[i];
+    const std::vector<FileAndManifest>& files = server_state->files();
+    CHECK(i < files.size()) << "Index out of range";
+    const FileAndManifest& file = files[i];
 
     if (mg_vcmp(&hm->uri, "/index") == 0) {
       server_state->FileListToTable(page.get());
 
       SendData(page->Construct(), connection);
     } else if (mg_vcmp(&hm->uri, "/manifest") == 0) {
-      std::vector<std::string> ids = ManifestToHtml(file_name, i, page.get());
+      std::vector<std::string> ids =
+          ManifestToHtml(file.manifest, i, page.get());
       if (ids.size() == 1) {
-        MetricToHtml(file_name, ids.front(), i, page.get());
+        MetricToHtml(file.manifest, ids.front(), i, page.get());
       }
 
       SendData(page->Construct(), connection);
@@ -454,11 +509,11 @@ static void Handler(mg_connection* connection, int event, void* p) {
       if (metric_id.empty()) {
         SendData("No metric id", connection);
       } else {
-        MetricToHtml(file_name, metric_id, i, page.get());
+        MetricToHtml(file.manifest, metric_id, i, page.get());
         SendData(page->Construct(), connection);
       }
     } else if (mg_vcmp(&hm->uri, "/plot_manifest") == 0) {
-      server_state->PlotIdTimeSeries(file_name,
+      server_state->PlotIdTimeSeries(file.filename,
                                      ExtractManifestIds(hm, page.get()),
                                      Extract2DPlotParameters(hm), page.get());
 
@@ -466,7 +521,7 @@ static void Handler(mg_connection* connection, int event, void* p) {
     } else if (mg_vcmp(&hm->uri, "/plot_manifest_cdf") == 0) {
       std::string limiting = ExtractVariable(kLimitingVariableName, hm);
       std::string collapse = ExtractVariable(kCollapseVariableName, hm);
-      server_state->PlotIdCDF(file_name, ExtractManifestIds(hm, page.get()),
+      server_state->PlotIdCDF(file.filename, ExtractManifestIds(hm, page.get()),
                               ExtractBoolOrFalse(limiting),
                               ExtractBoolOrFalse(collapse),
                               Extract1DPlotParameters(hm), page.get());

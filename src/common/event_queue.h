@@ -108,6 +108,9 @@ class EventConsumer {
   // Should be called by the event queue.
   void HandleEventPublic();
 
+  // Number of events in the event queue for this consumer.
+  size_t outstanding_event_count() { return outstanding_event_count_; }
+
  protected:
   EventConsumer(const std::string& id, EventQueue* event_queue)
       : id_(id),
@@ -123,7 +126,7 @@ class EventConsumer {
   // The number of outstanding events for this consumer. If there are
   // outstanding events when this object is freed then use-after-free will occur
   // when the event queue tries to trigger one of the outstanding events. To
-  // help detecting those cases the event count is explicitly maintained.
+  // help detect those cases the event count is explicitly maintained.
   size_t outstanding_event_count_;
 
   EventQueue* parent_event_queue_;
