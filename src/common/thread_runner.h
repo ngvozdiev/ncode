@@ -14,7 +14,7 @@ namespace ncode {
 // and return when all functions have completed.
 template <typename T>
 void RunInParallel(const std::vector<T>& arguments,
-                   std::function<void(const T&)> f, size_t batch = 4) {
+                   std::function<void(const T&, size_t)> f, size_t batch = 4) {
   CHECK(batch > 0) << "Zero batch size";
 
   std::mutex mu;
@@ -28,7 +28,7 @@ void RunInParallel(const std::vector<T>& arguments,
         if (!done[i]) {
           done[i] = true;
           mu.unlock();
-          f(arguments[i]);
+          f(arguments[i], i);
           mu.lock();
         }
       }

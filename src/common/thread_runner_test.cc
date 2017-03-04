@@ -8,7 +8,10 @@ namespace ncode {
 namespace {
 
 TEST(ThreadRunnerTest, ZeroBatchSize) {
-  ASSERT_DEATH(RunInParallel<int>({1}, [](int i) { Unused(i); }, 0), ".*");
+  ASSERT_DEATH(RunInParallel<int>({1}, [](int i, size_t k) {
+                 Unused(i);
+                 Unused(k);
+               }, 0), ".*");
 }
 
 class ThreadRunnerTestWithBatchSize : public ::testing::TestWithParam<int> {};
@@ -20,7 +23,8 @@ TEST_P(ThreadRunnerTestWithBatchSize, SimpleIO) {
   std::iota(args.begin(), args.end(), 0);
 
   std::set<int> out;
-  RunInParallel<int>(args, [&out, &mu](int i) {
+  RunInParallel<int>(args, [&out, &mu](int i, size_t k) {
+    Unused(k);
     std::lock_guard<std::mutex> lock(mu);
     out.insert(i);
   }, GetParam());
