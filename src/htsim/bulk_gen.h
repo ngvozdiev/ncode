@@ -42,6 +42,12 @@ class BulkPacketGeneratorBase {
 
   void set_default_tag(PacketTag tag) { default_tag_ = tag; }
 
+  // Sets a new output handler.
+  void set_out(htsim::PacketHandler* out) {
+    CHECK(out != nullptr);
+    out_ = out;
+  }
+
  protected:
   struct Event {
     Event(PacketPtr pkt, BulkPacketSource* source)
