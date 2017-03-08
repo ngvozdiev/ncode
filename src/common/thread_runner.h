@@ -41,6 +41,50 @@ void RunInParallel(const std::vector<T>& arguments,
   }
 }
 
+// Runs and maintains a number of instances of ProcessorBase.
+template <typename Input, typename Result, typename Processor,
+          size_t QueueSize = 1000>
+class ThreadPool {
+ public:
+  using Factory = std::function<Processor()>;
+  ThreadPool(size_t processor_count, Factory factory) {
+    for (size_t i = 0; i < processor_count; ++i) {
+      processors_.emplace_back(factory());
+    }
+  }
+
+ private:
+  using IdAndInput = std::pair<uint64_t, std::unique_ptr<Input>>;
+
+  struct ProcessorState {
+    ProcessorState(Processor processor, PtrQueue<Input, QueueSize>* input_queue)
+        : processor(processor) {
+      processor_thread = [this, input_queue] {
+        while (true) {
+          std::unique_ptr<Input> input = input_queue->ConsumeOrBlock();
+          if (!input) {
+            break;
+          }
+
+          processor.Process(input);
+        }
+      };
+    }
+
+    Processor processor;
+    std::thread<void()> processor_thread;
+  };
+
+  // Work is added to this queue and processed by the processors.
+  PtrQueue<IdAndInput, QueueSize> input_queue_;
+
+  // The processors.
+  std::vector<Processor> processors_;
+
+  // Protects input_queue_.
+  std::mutex mu_;
+};
+
 }  // namespace common
 
 #endif
