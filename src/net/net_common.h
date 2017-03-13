@@ -54,11 +54,39 @@ class Bandwidth : public TypesafeUintWrapper<BandwidthTag, uint64_t> {
   static constexpr Bandwidth Max() {
     return Bandwidth::FromBitsPerSecond(std::numeric_limits<uint64_t>::max());
   }
+
+  constexpr Bandwidth() : TypesafeUintWrapper<BandwidthTag, uint64_t>(0ul) {}
+
   uint64_t bps() const { return m_val_; }
   double Mbps() const { return m_val_ / 1000.0 / 1000.0; }
   double Gbps() const { return m_val_ / 1000.0 / 1000.0 / 1000.0; }
 
-  constexpr Bandwidth() : TypesafeUintWrapper<BandwidthTag, uint64_t>(0ul) {}
+  Bandwidth& operator-=(Bandwidth a) {
+    m_val_ -= a.m_val_;
+    return *this;
+  }
+
+  Bandwidth& operator+=(Bandwidth a) {
+    m_val_ += a.m_val_;
+    return *this;
+  }
+
+  friend double operator/(Bandwidth a, Bandwidth b) {
+    return static_cast<double>(a.m_val_) / b.m_val_;
+  }
+
+  friend Bandwidth operator/(Bandwidth a, double b) {
+    return Bandwidth(a.m_val_ / b);
+  }
+
+  friend Bandwidth operator*(Bandwidth a, double b) {
+    return Bandwidth(a.m_val_ * b);
+  }
+
+  friend Bandwidth operator*(double a, Bandwidth b) {
+    return Bandwidth(a * b.m_val_);
+  }
+
  private:
   constexpr Bandwidth(uint64_t value_bps)
       : TypesafeUintWrapper<BandwidthTag, uint64_t>(value_bps) {}

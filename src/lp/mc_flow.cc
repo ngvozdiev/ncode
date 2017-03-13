@@ -194,7 +194,6 @@ std::map<SrcAndDst, std::vector<FlowAndPath>> MCProblem::RecoverPaths(
       double starting_flow = commodity_has_volume
                                  ? commodity.second.Mbps()
                                  : std::numeric_limits<double>::max();
-      LOG(ERROR) << "RPR " << starting_flow;
       RecoverPathsRecursive(commodity, dst_index, commodity.first,
                             starting_flow, &link_to_flow, &links, &paths);
       if (commodity_has_volume) {
@@ -202,7 +201,7 @@ std::map<SrcAndDst, std::vector<FlowAndPath>> MCProblem::RecoverPaths(
         for (const FlowAndPath& path : paths) {
           total_flow += path.first.Mbps();
         }
-        CHECK(std::abs(total_flow - starting_flow) / total_flow < 0.001)
+        CHECK(std::abs(total_flow - starting_flow) / total_flow < 0.01)
             << total_flow << " vs " << starting_flow;
       }
     }
