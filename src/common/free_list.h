@@ -19,8 +19,7 @@ template <typename T>
 FreeList<T>& GetFreeList();
 
 // A free list that amortizes the new/delete cost for objects by never releasing
-// memory to the OS. This class is not thread-safe -- the user should make sure
-// that the same thread that allocates objects also releases them.
+// memory to the OS. This class is thread-safe.
 template <typename T>
 class FreeList {
  public:

@@ -100,8 +100,7 @@ class ServerState {
       uint64_t file_size_mb = ncode::File::FileSizeOrDie(file) / 1000 / 1000;
 
       metrics::parser::MetricsParser parser(file);
-      files_.emplace_back(file, file_size_mb,
-                          std::move(parser.ParseManifest()));
+      files_.emplace_back(file, file_size_mb, parser.ParseManifest());
       LOG(INFO) << "Parsed " << file;
     }
   }
@@ -190,11 +189,11 @@ class ServerState {
     }
 
     grapher::HtmlGrapher html_grapher(out);
-    html_grapher.PlotLine(plot_params, all_data_to_plot, {});
+    html_grapher.PlotLine(plot_params, all_data_to_plot);
 
     if (!FLAGS_python_plot_output.empty()) {
       grapher::PythonGrapher python_grapher(FLAGS_python_plot_output);
-      python_grapher.PlotLine(plot_params, all_data_to_plot, {});
+      python_grapher.PlotLine(plot_params, all_data_to_plot);
       LOG(INFO) << "Saved script to plot data at " << FLAGS_python_plot_output;
     }
   }
@@ -246,11 +245,11 @@ class ServerState {
     }
 
     grapher::HtmlGrapher html_grapher(out);
-    html_grapher.PlotCDF(plot_params, all_data_to_plot, {});
+    html_grapher.PlotCDF(plot_params, all_data_to_plot);
 
     if (!FLAGS_python_plot_output.empty()) {
       grapher::PythonGrapher python_grapher(FLAGS_python_plot_output);
-      python_grapher.PlotCDF(plot_params, all_data_to_plot, {});
+      python_grapher.PlotCDF(plot_params, all_data_to_plot);
       LOG(INFO) << "Saved script to plot data at " << FLAGS_python_plot_output;
     }
   }

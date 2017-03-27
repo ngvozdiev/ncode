@@ -8,9 +8,15 @@ for filename, label in {{files_and_labels}}:
     plt.plot(x, y, label=label)
 
 ax = plt.gca()
-for x_pos, label in {{lines_and_labels}}:
+for lines_and_labels in {{lines_and_labels}}:
     next_color = ax._get_lines.get_next_color()
-    plt.axvline(x_pos, label=label, color=next_color)
+    for x_pos, label in lines_and_labels:
+        plt.axvline(x_pos, label=label, color=next_color)
+
+for ranges in {{ranges}}:
+    next_color = ax._get_lines.get_next_color()
+    for x1, x2 in ranges:
+        plt.axvspan(x1, x2, color=next_color)
 
 plt.title('{{title}}')
 plt.xlabel('{{xlabel}}')
